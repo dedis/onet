@@ -221,8 +221,7 @@ func UnmarshalRegisteredType(buf []byte, constructors protobuf.Constructors) (Pa
 	}
 	typ, ok := registry.get(tID)
 	if !ok {
-		return ErrorType, nil, fmt.Errorf("type %s not registered",
-			typ.Name())
+		return ErrorType, nil, fmt.Errorf("type %s not registered", tID.String())
 	}
 	ptrVal := reflect.New(typ)
 	ptr := ptrVal.Interface()
