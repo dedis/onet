@@ -75,12 +75,12 @@ func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 // It returns the Packet with the Msg field decoded
 // or EmptyApplicationPacket and an error if something wrong happened.
 func (c *TCPConn) Receive() (nm Packet, e error) {
-	defer func() {
-		if err := recover(); err != nil {
-			e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
-			nm = EmptyApplicationPacket
-		}
-	}()
+	/*defer func() {*/
+	//if err := recover(); err != nil {
+	//e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
+	//nm = EmptyApplicationPacket
+	//}
+	/*}()*/
 
 	var am Packet
 	buff, err := c.receiveRaw()
