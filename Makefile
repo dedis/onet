@@ -38,9 +38,8 @@ test_playground:
 test_verbose:
 	go test -v -race -short ./...
 
-# use test_verbose instead if you want to use this Makefile locally
-#test_go:
-#	./coveralls.sh
+test_go:
+	$GOPATH/bin/goveralls -service=travis-ci
 
 test: test_fmt test_lint test_go
 
