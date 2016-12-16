@@ -663,6 +663,8 @@ func (n *TreeNodeInstance) TreeNodeInstance() *TreeNodeInstance {
 // alongside with the protocol if it is non nil. This config can later be read
 // by Services in the NewProtocol method.
 func (n *TreeNodeInstance) SetConfig(c *GenericConfig) {
+	n.configMut.Lock()
+	defer n.configMut.Unlock()
 	n.config = c
 }
 
