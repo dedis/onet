@@ -457,7 +457,6 @@ func (o *Overlay) handleConfigMessage(data *network.Packet) {
 
 	o.pendingConfigsMut.Lock()
 	defer o.pendingConfigsMut.Unlock()
-	// XXX do the GC can still garbage the "config" package ?
 	o.pendingConfigs[config.Dest] = &config.Config
 }
 
