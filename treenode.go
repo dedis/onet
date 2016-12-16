@@ -126,11 +126,11 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	var c *GenericConfig
 	// only sends the config once
 	n.configMut.Lock()
-	defer n.configMut.Unlock()
 	if n.config != nil {
 		c = n.config
 		n.config = nil
 	}
+	n.configMut.Unlock()
 
 	return n.overlay.SendToTreeNode(n.token, to, msg, n.protoIO, c)
 }
