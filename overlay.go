@@ -475,6 +475,9 @@ func (o *Overlay) getConfig(id TokenID) *GenericConfig {
 // to is the treenode of the destination
 // msg is the message to send
 // io is the messageproxy used to correctly create the wire format
+// c is the generic config that should be sent beforehand in order to get passed
+// in the `NewProtocol` method if a Service has created the protocol and set the
+// config with `SetConfig`. It can be nil.
 func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Body,
 	io MessageProxy, c *GenericConfig) error {
 	tokenTo := from.ChangeTreeNodeID(to.ID)
