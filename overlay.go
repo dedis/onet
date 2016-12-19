@@ -154,7 +154,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		// no servies defined => check if there is a protocol that can be
 		// created
 		if !ok {
-			pi, err = o.conode.ProtocolInstantiate(onetMsg.To.ProtoID, tni)
+			pi, err = o.conode.protocolInstantiate(onetMsg.To.ProtoID, tni)
 			if err != nil {
 				return err
 			}
@@ -556,7 +556,7 @@ func (o *Overlay) CreateProtocolOnet(name string, t *Tree) (ProtocolInstance, er
 func (o *Overlay) CreateProtocolService(name string, t *Tree, sid ServiceID) (ProtocolInstance, error) {
 	io := o.protoIO.getByName(name)
 	tni := o.NewTreeNodeInstanceFromService(t, t.Root, ProtocolNameToID(name), sid, io)
-	pi, err := o.conode.ProtocolInstantiate(tni.token.ProtoID, tni)
+	pi, err := o.conode.protocolInstantiate(tni.token.ProtoID, tni)
 	if err != nil {
 		return nil, err
 	}
