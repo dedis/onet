@@ -40,7 +40,7 @@ test_verbose:
 
 test_go:
 	@echo Running coveralls test suite
-	$$GOPATH/bin/goveralls -service=travis-ci
+	$$GOPATH/bin/goveralls -service=travis-ci -race -covermode=atomic
 
 test: test_fmt test_lint test_go
 
