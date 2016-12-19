@@ -489,7 +489,7 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Body,
 			return err
 		}
 	}
-	// then sends the message
+	// then send the message
 	var final interface{}
 	info := &OverlayMessage{
 		TreeNodeInfo: &TreeNodeInfo{

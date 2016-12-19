@@ -594,13 +594,7 @@ func (ds *dummyService2) ProcessClientRequest(path string, buf []byte) ([]byte, 
 var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
 
 func (ds *dummyService2) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
-	if conf == nil {
-		ds.link <- false
-	} else if bytes.Equal(conf.Data, serviceConfig) {
-		ds.link <- true
-	} else {
-		ds.link <- false
-	}
+	ds.link <- conf != nil && bytes.Equal(conf.Data, serviceConfig)
 	return newDummyProtocol2(tn)
 }
 
@@ -612,11 +606,7 @@ func (ds *dummyService2) launchProto(t *Tree, config bool) {
 	tni := ds.NewTreeNodeInstance(t, t.Root, dummyService2Name)
 	pi, err := newDummyProtocol2(tni)
 	err2 := ds.RegisterProtocolInstance(pi)
-	if err != nil || err2 != nil {
-		ds.link <- false
-	} else {
-		ds.link <- true
-	}
+	ds.link <- err == nil && err2 == nil
 
 	if config {
 		tni.SetConfig(&GenericConfig{serviceConfig})
