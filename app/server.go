@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/crypto"
@@ -42,9 +41,6 @@ const DefaultAddress = "127.0.0.1"
 
 // Service used to get the public IP-address.
 const whatsMyIP = "http://www.whatsmyip.org/"
-
-// RequestTimeOut is how long we're willing to wait for a signature.
-var RequestTimeOut = time.Second * 10
 
 // InteractiveConfig uses stdin to get the [address:]PORT of the server.
 // If no address is given, whatsMyIP is used to find the public IP. In case

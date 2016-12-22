@@ -43,7 +43,7 @@ var CmdCheck = cli.Command{
 	Name:    "check",
 	Aliases: []string{"c"},
 	Usage:   "Check if the servers in the group definition are up and running",
-	Action:  CheckConfig,
+	Action:  CheckConfigCLI,
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:  "g",
@@ -63,26 +63,33 @@ var FlagDebug = cli.IntFlag{
 	Usage: "debug-level: 1 for terse, 5 for maximal",
 }
 
+// FlagConfig indicates where the configuration-file is stored
+var FlagConfig = cli.StringFlag{
+	Name:  "config, c",
+	Value: GetDefaultConfigFile(DefaultConfig),
+	Usage: "Configuration file of the server",
+}
+
 // Cothority creates a stand-alone cothority-binary
 func Cothority() {
 	cliApp := cli.NewApp()
 	cliApp.Name = "Cothorityd server"
 	cliApp.Usage = "Serve a cothority"
-	serverFlags := []cli.Flag{
-		cli.StringFlag{
-			Name:  "config, c",
-			Value: GetDefaultConfigFile(DefaultConfig),
-			Usage: "Configuration file of the server",
-		},
-		FlagDebug,
-	}
 
 	cliApp.Commands = []cli.Command{
 		CmdSetup,
 		CmdServer,
 		CmdCheck,
 	}
-	cliApp.Flags = serverFlags
+	cliApp.Flags = []cli.Flag{
+		FlagDebug,
+		FlagConfig,
+	}
+
+	cliApp.Before = func(c *cli.Context) error {
+		log.SetDebugVisible(c.Int("d"))
+		return nil
+	}
 
 	// default action
 	cliApp.Action = func(c *cli.Context) error {
@@ -99,12 +106,4 @@ func runServer(ctx *cli.Context) {
 	// first check the options
 	config := ctx.String("config")
 	RunServer(config)
-}
-
-// CheckConfig contacts all servers and verifies if it receives a valid
-// signature from each.
-func CheckConfig(c *cli.Context) error {
-	//tomlFileName := c.String("g")
-	//return check.Config(tomlFileName, c.Bool("d"))
-	return nil
 }

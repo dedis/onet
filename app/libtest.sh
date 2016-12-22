@@ -222,7 +222,7 @@ EOF
         co=co$n
         rm -f $co/*
 		mkdir -p $co
-    	echo -e "127.0.0.1:200$(( 2 * $n ))\nNew Cothority $n\n$co\n" | dbgRun runCo $n setup
+    	echo -e "127.0.0.1:200$(( 2 * $n ))\nCot-$n\n$co\n" | dbgRun runCo $n setup
     	if [ $n -le $NBR_SERVERS_GROUP ]; then
 		    tail -n 4 $co/group.toml >> group.toml
 		fi
