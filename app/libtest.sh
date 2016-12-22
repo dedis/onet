@@ -179,6 +179,7 @@ backg(){
 build(){
 	local builddir=$1
 	local app=$( basename $builddir )
+	testOut "Building $app"
     if [ ! -e $app -o "$BUILD" ]; then
     	dbgOut "Building $app"
         if ! go build -o $app $builddir/*.go; then
@@ -198,7 +199,9 @@ buildCothority(){
     local pkg=$( realpath $BUILDDIR | sed -e "s:$GOPATH/src/::" )
     local cotdir=$( mktemp -d )/cothority
     mkdir -p $cotdir
-    cp $APPDIR/$incl $cotdir
+    if [ -f $APPDIR/$incl ]; then
+    	cp $APPDIR/$incl $cotdir
+    fi
     cat - > $cotdir/main.go << EOF
 package main
 
@@ -210,7 +213,10 @@ func main(){
 EOF
 	build $cotdir
 	rm -rf $cotdir
+	setupCothority
+}
 
+setupCothority(){
 	# Don't show any setup messages
     DBG_OLD=$DBG_TEST
     DBG_TEST=0

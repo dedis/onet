@@ -1,7 +1,6 @@
 package app
 
 import (
-	"bufio"
 	"bytes"
 	"io"
 	"os"
@@ -14,14 +13,6 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 )
-
-var in *bufio.Reader
-var out io.Writer
-
-func init() {
-	in = bufio.NewReader(os.Stdin)
-	out = os.Stdout
-}
 
 // CothoritydConfig is the configuration structure of the cothority daemon.
 type CothoritydConfig struct {

@@ -82,7 +82,7 @@ func InteractiveConfig(binaryName string) {
 		return
 	}
 
-	log.Info("We now need to get a reachable address for other CoSi servers")
+	log.Info("We now need to get a reachable address for other Conodes")
 	log.Info("and clients to contact you. This address will be put in a group definition")
 	log.Info("file that you can share and combine with others to form a Cothority roster.")
 

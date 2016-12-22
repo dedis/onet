@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,14 @@ import (
 
 	"github.com/dedis/onet/log"
 )
+
+var in *bufio.Reader
+var out io.Writer
+
+func init() {
+	in = bufio.NewReader(os.Stdin)
+	out = os.Stdout
+}
 
 // TildeToHome takes a path and replaces an eventual "~" with the home-directory.
 // If the user-directory is not defined it will return a path relative to the
