@@ -179,12 +179,13 @@ backg(){
 build(){
 	local builddir=$1
 	local app=$( basename $builddir )
-	testOut "Building $app"
     if [ ! -e $app -o "$BUILD" ]; then
-    	dbgOut "Building $app"
+    	testOut "Building $app"
         if ! go build -o $app $builddir/*.go; then
             fail "Couldn't build $builddir"
         fi
+    else
+    	dbgOut "Not building $app because it's here"
     fi
 }
 
@@ -199,8 +200,17 @@ buildCothority(){
     local pkg=$( realpath $BUILDDIR | sed -e "s:$GOPATH/src/::" )
     local cotdir=$( mktemp -d )/cothority
     mkdir -p $cotdir
+    if [ ! "$incl" ]; then
+    	incl=${APPDIR#$GOPATH/src/}/service
+    fi
     if [ -f $APPDIR/$incl ]; then
     	cp $APPDIR/$incl $cotdir
+    elif [ "$incl" ]; then
+    	cat - > $cotdir/import.go << EOF
+package main
+
+import _ "$incl"
+EOF
     fi
     cat - > $cotdir/main.go << EOF
 package main
