@@ -15,9 +15,6 @@ APPDIR=${APPDIR:-$(pwd)}
 # The app is the name of the builddir
 APP=${APP:-$(basename $APPDIR)}
 
-# Mark this library as loaded
-LIBTEST=1
-
 RUNOUT=/tmp/run.out
 
 startTest(){
@@ -279,13 +276,6 @@ case $i in
     -nt|--notemp)
 	BUILDDIR=build
     shift # past argument=value
-    ;;
-    --default)
-    DEFAULT=YES
-    shift # past argument with no value
-    ;;
-    *)
-            # unknown option
     ;;
 esac
 done
