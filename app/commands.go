@@ -55,7 +55,7 @@ var FlagConfig = cli.StringFlag{
 // Cothority creates a stand-alone cothority-binary
 func Cothority() {
 	cliApp := cli.NewApp()
-	cliApp.Name = "Cothorityd server"
+	cliApp.Name = "Cothority server"
 	cliApp.Usage = "Serve a cothority"
 
 	cliApp.Commands = []cli.Command{
@@ -65,6 +65,8 @@ func Cothority() {
 	cliApp.Flags = []cli.Flag{
 		FlagDebug,
 		FlagConfig,
+		//cli.StringFlag{Name: "test.run"},
+		//cli.StringFlag{Name: "test.v"},
 	}
 
 	cliApp.Before = func(c *cli.Context) error {
