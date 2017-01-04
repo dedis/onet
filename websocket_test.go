@@ -139,6 +139,11 @@ func TestNewClientError(t *testing.T) {
 	assert.True(t, NewClientError((error)(nil)) == nil)
 }
 
+func TestNewClientKeep(t *testing.T) {
+	c := NewClientKeep(serviceWebSocket)
+	assert.True(t, c.keep)
+}
+
 const serviceWebSocket = "WebSocket"
 
 type ServiceWebSocket struct {
