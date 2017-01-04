@@ -14,18 +14,18 @@ import (
 	"github.com/dedis/onet/network"
 )
 
-// CothoritydConfig is the configuration structure of the cothority daemon.
-type CothoritydConfig struct {
+// CothorityConfig is the configuration structure of the cothority daemon.
+type CothorityConfig struct {
 	Public      string
 	Private     string
 	Address     network.Address
 	Description string
 }
 
-// Save will save this CothoritydConfig to the given file name. It
+// Save will save this CothorityConfig to the given file name. It
 // will return an error if the file couldn't be created or if
 // there is an error in the encoding.
-func (hc *CothoritydConfig) Save(file string) error {
+func (hc *CothorityConfig) Save(file string) error {
 	fd, err := os.Create(file)
 	if err != nil {
 		return err
@@ -37,11 +37,11 @@ func (hc *CothoritydConfig) Save(file string) error {
 	return nil
 }
 
-// ParseCothorityd parses the config file into a CothoritydConfig.
-// It returns the CothoritydConfig, the Host so we can already use it, and an error if
+// ParseCothority parses the config file into a CothorityConfig.
+// It returns the CothorityConfig, the Host so we can already use it, and an error if
 // the file is inaccessible or has wrong values in it.
-func ParseCothorityd(file string) (*CothoritydConfig, *onet.Conode, error) {
-	hc := &CothoritydConfig{}
+func ParseCothority(file string) (*CothorityConfig, *onet.Conode, error) {
+	hc := &CothorityConfig{}
 	_, err := toml.DecodeFile(file, hc)
 	if err != nil {
 		return nil, nil, err

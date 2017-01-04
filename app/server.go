@@ -133,7 +133,7 @@ func InteractiveConfig(binaryName string) {
 
 	// create the keys
 	privStr, pubStr := createKeyPair()
-	conf := &CothoritydConfig{
+	conf := &CothorityConfig{
 		Public:  pubStr,
 		Private: privStr,
 		Address: publicAddress,
@@ -219,10 +219,10 @@ func createKeyPair() (string, string) {
 	return privStr, pubStr
 }
 
-// saveFiles takes a CothoritydConfig and its filename, and a GroupToml and its filename,
+// saveFiles takes a CothorityConfig and its filename, and a GroupToml and its filename,
 // and saves the data to these files.
 // In case of a failure it Fatals.
-func saveFiles(conf *CothoritydConfig, fileConf string, group *GroupToml, fileGroup string) {
+func saveFiles(conf *CothorityConfig, fileConf string, group *GroupToml, fileGroup string) {
 	if err := conf.Save(fileConf); err != nil {
 		log.Fatal("Unable to write the config to file:", err)
 	}
@@ -352,7 +352,7 @@ func RunServer(configFilename string) {
 		log.Fatalf("[-] Configuration file does not exists. %s", configFilename)
 	}
 	// Let's read the config
-	_, conode, err := ParseCothorityd(configFilename)
+	_, conode, err := ParseCothority(configFilename)
 	if err != nil {
 		log.Fatal("Couldn't parse config:", err)
 	}

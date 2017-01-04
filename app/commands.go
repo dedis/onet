@@ -9,7 +9,7 @@ import (
 
 // DefaultConfig is the name of the binary we produce and is used to create a directory
 // folder with this name
-const DefaultConfig = "cothorityd"
+const DefaultConfig = "cothority"
 
 // CmdSetup is used to setup the cothority
 var CmdSetup = cli.Command{
@@ -17,7 +17,7 @@ var CmdSetup = cli.Command{
 	Aliases: []string{"s"},
 	Usage:   "Setup the configuration for the server (interactive)",
 	Action: func(c *cli.Context) error {
-		InteractiveConfig("cothorityd")
+		InteractiveConfig("cothority")
 		return nil
 	},
 }
