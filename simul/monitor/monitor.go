@@ -187,8 +187,8 @@ func (m *Monitor) handleConnection(conn net.Conn) {
 		// Special case where the measurement is indicating a FINISHED step
 		switch strings.ToLower(measure.Name) {
 		case "end":
-			break
 			log.Lvl3("Finishing monitor")
+			break
 		default:
 			m.measures <- measure
 		}
