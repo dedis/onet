@@ -69,7 +69,6 @@ func (d *Localhost) Configure(pc *Config) {
 	d.debug = pc.Debug
 	d.running = false
 	d.monitorPort = pc.MonitorPort
-	d.errChan = make(chan error)
 	if d.Simulation == "" {
 		log.Fatal("No simulation defined in simulation")
 	}
@@ -141,8 +140,10 @@ func (d *Localhost) Start(args ...string) error {
 	d.running = true
 	log.Lvl1("Starting", d.servers, "applications of", ex)
 	mon := "localhost:" + strconv.Itoa(d.monitorPort)
+	d.wgRun.Add(d.servers)
+	// add one to the channel length to indicate it's done
+	d.errChan = make(chan error, d.servers+1)
 	for index := 0; index < d.servers; index++ {
-		d.wgRun.Add(1)
 		log.Lvl3("Starting", index)
 		host := "127.0.0." + strconv.Itoa(index)
 		go func(i int, h string) {
