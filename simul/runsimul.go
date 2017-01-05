@@ -11,26 +11,8 @@ import (
 	"github.com/dedis/onet/simul/monitor"
 )
 
-// The address of this conode - if there is only one conode in the config
-// file, it will be derived from it automatically
-var conodeAddress string
-
-// ip addr of the logger to connect to
-var monitorAddress string
-
-// Simul is != "" if this node needs to start a simulation of that protocol
-var simul string
-
-// Initialize before 'init' so we can directly use the fields as parameters
-// to 'Flag'
-func init() {
-	flag.StringVar(&conodeAddress, "address", "", "our address to use")
-	flag.StringVar(&simul, "simul", "", "start simulating that protocol")
-	flag.StringVar(&monitorAddress, "monitor", "", "remote monitor")
-}
-
-// Main starts the conode and will setup the protocol.
-func simulate() {
+// Simulate starts the conode and will setup the protocol.
+func Simulate(conodeAddress, simul, monitorAddress string) error {
 	flag.Parse()
 	log.Lvl3("Flags are:", conodeAddress, simul, log.DebugVisible, monitorAddress)
 
@@ -39,7 +21,7 @@ func simulate() {
 	if err != nil {
 		// We probably are not needed
 		log.Lvl2(err, conodeAddress)
-		return
+		return err
 	}
 	if monitorAddress != "" {
 		if err := monitor.ConnectSink(monitorAddress); err != nil {
@@ -73,11 +55,11 @@ func simulate() {
 
 		sim, err := onet.NewSimulation(simul, sc.Config)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		err = sim.Node(sc)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		sims[i] = sim
 		if conode.ServerIdentity.ID == sc.Tree.Root.ServerIdentity.ID {
@@ -100,7 +82,7 @@ func simulate() {
 		for wait {
 			p, err := rootSC.Overlay.CreateProtocolOnet("Count", rootSC.Tree)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			proto := p.(*manage.ProtocolCount)
 			proto.SetTimeout(timeout)
@@ -123,7 +105,7 @@ func simulate() {
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Conode)
 		err := rootSim.Run(rootSC)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		measureNet.Record()
 
@@ -146,7 +128,7 @@ func simulate() {
 		pi, err := rootSC.Overlay.CreateProtocolOnet("CloseAll", closeTree)
 		pi.Start()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 
