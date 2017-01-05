@@ -80,11 +80,11 @@ func startBuild() {
 		} else {
 			logname := strings.Replace(filepath.Base(simulation), ".toml", "", 1)
 			testsDone := make(chan bool)
+			timeout := getExperimentWait(runconfigs)
 			go func() {
 				RunTests(logname, runconfigs)
 				testsDone <- true
 			}()
-			timeout := getExperimentWait(runconfigs)
 			select {
 			case <-testsDone:
 				log.Lvl3("Done with test", simulation)
@@ -139,10 +139,10 @@ func RunTests(name string, runconfigs []platform.RunConfig) {
 	}
 
 	start, stop := getStartStop(len(runconfigs))
-	for i, t := range runconfigs {
+	for i, rc := range runconfigs {
 		// Implement a simple range-argument that will skip checks not in range
 		if i < start || i > stop {
-			log.Lvl2("Skipping", t, "because of range")
+			log.Lvl2("Skipping", rc, "because of range")
 			continue
 		}
 		// Waiting for the document-branch to be merged, then uncomment this
@@ -152,7 +152,7 @@ func RunTests(name string, runconfigs []platform.RunConfig) {
 		// take the average of all successful runs
 		runs := make([]*monitor.Stats, 0, nTimes)
 		for r := 0; r < nTimes; r++ {
-			stats, err := RunTest(t)
+			stats, err := RunTest(rc)
 			if err != nil {
 				log.Error("Error running test, trying again:", err)
 				continue
@@ -165,7 +165,7 @@ func RunTests(name string, runconfigs []platform.RunConfig) {
 		}
 
 		if len(runs) == 0 {
-			log.Lvl1("unable to get any data for test:", t)
+			log.Lvl1("unable to get any data for test:", rc)
 			continue
 		}
 
