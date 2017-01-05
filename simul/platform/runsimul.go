@@ -1,4 +1,4 @@
-package simul
+package platform
 
 import (
 	"flag"
@@ -17,12 +17,12 @@ func Simulate(conodeAddress, simul, monitorAddress string) error {
 	log.Lvl3("Flags are:", conodeAddress, simul, log.DebugVisible, monitorAddress)
 
 	scs, err := onet.LoadSimulationConfig(".", conodeAddress)
-	measures := make([]*monitor.CounterIOMeasure, len(scs))
 	if err != nil {
 		// We probably are not needed
 		log.Lvl2(err, conodeAddress)
-		return err
+		return nil
 	}
+	measures := make([]*monitor.CounterIOMeasure, len(scs))
 	if monitorAddress != "" {
 		if err := monitor.ConnectSink(monitorAddress); err != nil {
 			log.Error("Couldn't connect monitor to sink:", err)
@@ -136,4 +136,5 @@ func Simulate(conodeAddress, simul, monitorAddress string) error {
 	wg.Wait()
 	log.Lvl2(conodeAddress, "has all conodes closed")
 	monitor.EndAndCleanup()
+	return nil
 }

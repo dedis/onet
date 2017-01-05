@@ -12,7 +12,6 @@ import (
 
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/simul"
 )
 
 // Localhost is responsible for launching the app with the specified number of nodes
@@ -148,7 +147,7 @@ func (d *Localhost) Start(args ...string) error {
 		host := "127.0.0." + strconv.Itoa(index)
 		go func(i int, h string) {
 			log.Lvl3("Localhost: will start host", i, h)
-			err := simul.Simulate(host, d.Simulation, mon)
+			err := Simulate(host, d.Simulation, mon)
 			if err != nil {
 				log.Error("Error running localhost", h, ":", err)
 				d.errChan <- err

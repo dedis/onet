@@ -16,6 +16,7 @@ import (
 	"os"
 
 	"github.com/dedis/onet/log"
+	"github.com/dedis/onet/simul/platform"
 )
 
 // The address of this conode - if there is only one conode in the config
@@ -58,6 +59,7 @@ func Start(rcs ...string) {
 	if simul == "" {
 		startBuild()
 	} else {
-		log.ErrFatal(Simulate(conodeAddress, simul, monitorAddress))
+		err := platform.Simulate(conodeAddress, simul, monitorAddress)
+		log.ErrFatal(err)
 	}
 }
