@@ -97,7 +97,7 @@ func startBuild() {
 
 // RunTests the given tests and puts the output into the
 // given file name. It outputs RunStats in a CSV format.
-func RunTests(name string, runconfigs []platform.RunConfig) {
+func RunTests(name string, runconfigs []*platform.RunConfig) {
 
 	if nobuild == false {
 		if race {
@@ -184,7 +184,7 @@ func RunTests(name string, runconfigs []platform.RunConfig) {
 
 // RunTest a single test - takes a test-file as a string that will be copied
 // to the deterlab-server
-func RunTest(rc platform.RunConfig) (*monitor.Stats, error) {
+func RunTest(rc *platform.RunConfig) (*monitor.Stats, error) {
 	done := make(chan struct{})
 	CheckHosts(rc)
 	rc.Delete("simulation")
@@ -242,7 +242,7 @@ func RunTest(rc platform.RunConfig) (*monitor.Stats, error) {
 
 // CheckHosts verifies that there is either a 'Hosts' or a 'Depth/BF'
 // -parameter in the Runconfig
-func CheckHosts(rc platform.RunConfig) {
+func CheckHosts(rc *platform.RunConfig) {
 	hosts, _ := rc.GetInt("hosts")
 	bf, _ := rc.GetInt("bf")
 	depth, _ := rc.GetInt("depth")
@@ -320,7 +320,7 @@ func getStartStop(rcs int) (int, int) {
 
 // getRunWait returns either the command-line value or the value from the runconfig
 // file
-func getRunWait(rc platform.RunConfig) int {
+func getRunWait(rc *platform.RunConfig) int {
 	rcWait, err := rc.GetInt("runwait")
 	if err == nil {
 		return rcWait
@@ -332,7 +332,7 @@ func getRunWait(rc platform.RunConfig) int {
 // 1. the command-line value
 // 2. the value from runconfig
 // 3. #runconfigs * runWait
-func getExperimentWait(rcs []platform.RunConfig) int {
+func getExperimentWait(rcs []*platform.RunConfig) int {
 	if experimentWait > 0 {
 		return experimentWait
 	}

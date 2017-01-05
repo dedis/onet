@@ -30,7 +30,7 @@ type Platform interface {
 	// Copies the binaries to the appropriate directory/machines, together with
 	// the necessary configuration. RunConfig is a simple string that should
 	// be copied as 'app.toml' to the directory where the app resides
-	Deploy(RunConfig) error
+	Deploy(*RunConfig) error
 	// Starts the application and returns - non-blocking!
 	Start(args ...string) error
 	// Waits for the application to quit
@@ -73,8 +73,8 @@ func NewPlatform(t string) Platform {
 // n1..nn are configuration-options for one run
 // Both the global and the run-configuration are copied to both
 // the platform and the app-configuration.
-func ReadRunFile(p Platform, filename string) []RunConfig {
-	var runconfigs []RunConfig
+func ReadRunFile(p Platform, filename string) []*RunConfig {
+	var runconfigs []*RunConfig
 	masterConfig := NewRunConfig()
 	log.Lvl3("Reading file", filename)
 
@@ -129,7 +129,7 @@ func ReadRunFile(p Platform, filename string) []RunConfig {
 		for i, value := range strings.Split(scanner.Text(), ", ") {
 			rc.Put(strings.TrimSpace(args[i]), strings.TrimSpace(value))
 		}
-		runconfigs = append(runconfigs, *rc)
+		runconfigs = append(runconfigs, rc)
 	}
 
 	return runconfigs
