@@ -135,6 +135,8 @@ func Simulate(conodeAddress, simul, monitorAddress string) error {
 	log.Lvl3(conodeAddress, scs[0].Conode.ServerIdentity, "is waiting for all conodes to close")
 	wg.Wait()
 	log.Lvl2(conodeAddress, "has all conodes closed")
-	monitor.EndAndCleanup()
+	if monitorAddress != "" {
+		monitor.EndAndCleanup()
+	}
 	return nil
 }

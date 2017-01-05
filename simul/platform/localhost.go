@@ -10,8 +10,11 @@ import (
 
 	"strings"
 
+	"time"
+
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
+	"github.com/dedis/onet/simul/monitor"
 )
 
 // Localhost is responsible for launching the app with the specified number of nodes
@@ -75,7 +78,7 @@ func (d *Localhost) Configure(pc *Config) {
 	log.Lvl3("Localhost configured ...")
 }
 
-// As we're using our own binary, no need to build
+// Build does nothing, as we're using our own binary, no need to build
 func (d *Localhost) Build(build string, arg ...string) error {
 	return nil
 }
@@ -138,7 +141,8 @@ func (d *Localhost) Start(args ...string) error {
 	ex := d.runDir + "/" + d.Simulation
 	d.running = true
 	log.Lvl1("Starting", d.servers, "applications of", ex)
-	mon := "localhost:" + strconv.Itoa(d.monitorPort)
+	time.Sleep(100 * time.Millisecond)
+	log.ErrFatal(monitor.ConnectSink("localhost:" + strconv.Itoa(d.monitorPort)))
 	d.wgRun.Add(d.servers)
 	// add one to the channel length to indicate it's done
 	d.errChan = make(chan error, d.servers+1)
@@ -147,7 +151,7 @@ func (d *Localhost) Start(args ...string) error {
 		host := "127.0.0." + strconv.Itoa(index)
 		go func(i int, h string) {
 			log.Lvl3("Localhost: will start host", i, h)
-			err := Simulate(host, d.Simulation, mon)
+			err := Simulate(host, d.Simulation, "")
 			if err != nil {
 				log.Error("Error running localhost", h, ":", err)
 				d.errChan <- err
@@ -183,7 +187,7 @@ func (d *Localhost) Wait() error {
 			err = e
 		}
 	}
-
+	monitor.EndAndCleanup()
 	log.Lvl2("Processes finished")
 	return err
 }
