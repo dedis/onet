@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Source: https://github.com/h12w/gosweep/blob/master/gosweep.sh
 
+DIR_EXCLUDE="$@"
 DIR_SOURCE="$(find . -maxdepth 10 -type f -not -path '*/vendor*' -name '*.go' | xargs -I {} dirname {} | sort | uniq)"
-echo $DIR_SOURCE
-DIR_SOURCE=""
 
 if [ "$TRAVIS_BUILD_DIR" ]; then
   cd $TRAVIS_BUILD_DIR
