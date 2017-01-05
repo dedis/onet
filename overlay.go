@@ -545,7 +545,7 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	return pi, err
 }
 
-// StartProtocol will create and start a P.I.
+// StartProtocol will create and start a ProtocolInstance.
 func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolInstance, error) {
 	pi, err := o.CreateProtocol(name, t, sid)
 	if err != nil {

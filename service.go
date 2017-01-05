@@ -302,7 +302,7 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 	return serv, true
 }
 
-// NewProtocol contains the logic of how and where a ProtocolInstance is
+// newProtocol contains the logic of how and where a ProtocolInstance is
 // created. If the token's ServiceID is nil, then onet handles the creation of
 // the PI. If the corresponding service returns (nil,nil), then onet handles
 // the creation of the PI. Otherwise the service is responsible for setting up
@@ -311,12 +311,12 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 	si, ok := s.serviceByID(tni.Token().ServiceID)
 	defaultHandle := func() (ProtocolInstance, error) { return s.conode.protocolInstantiate(tni.Token().ProtoID, tni) }
 	if !ok {
-		// let onet handles it
+		// let onet handle it
 		return defaultHandle()
 	}
 	pi, err := si.NewProtocol(tni, config)
 	if pi == nil && err == nil {
-		pi, err = defaultHandle()
+		return defaultHandle()
 	}
 	return pi, err
 }
