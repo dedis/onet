@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"flag"
 	"sync"
 
 	"github.com/dedis/onet"
@@ -13,7 +12,6 @@ import (
 
 // Simulate starts the conode and will setup the protocol.
 func Simulate(conodeAddress, simul, monitorAddress string) error {
-	flag.Parse()
 	log.Lvl3("Flags are:", conodeAddress, simul, log.DebugVisible, monitorAddress)
 
 	scs, err := onet.LoadSimulationConfig(".", conodeAddress)
