@@ -117,14 +117,14 @@ func (m *Monitor) Listen() error {
 			m.update(measure)
 		// end of a peer conn
 		case peer := <-m.done:
-			log.Lvl3("Connections left:", len(m.conns))
 			m.mutexConn.Lock()
+			log.Lvl3("Connections left:", len(m.conns))
 			delete(m.conns, peer)
 			// end of monitoring,
 			if len(m.conns) == 0 {
 				m.listenerLock.Lock()
 				if err := m.listener.Close(); err != nil {
-					log.Error("Couldn't close listener:",
+					log.Warn("Couldn't close listener:",
 						err)
 				}
 				m.listener = nil
@@ -135,7 +135,9 @@ func (m *Monitor) Listen() error {
 		}
 	}
 	log.Lvl2("Monitor finished waiting")
+	m.mutexConn.Lock()
 	m.conns = make(map[string]net.Conn)
+	m.mutexConn.Unlock()
 	return nil
 }
 
