@@ -353,6 +353,9 @@ func (n *TreeNodeInstance) DispatchChannel(msgSlice []*ProtocolMsg) error {
 			log.Lvl4("Adding msg", m, "to", n.ServerIdentity().Address)
 			out.Index(i).Set(m)
 		}
+		log.Printf("%+v", mt)
+		log.Printf("%+v", n.channels[mt])
+		log.Printf("%+v", out)
 		reflect.ValueOf(n.channels[mt]).Send(out)
 	} else {
 		for _, msg := range msgSlice {
