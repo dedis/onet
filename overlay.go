@@ -728,7 +728,7 @@ func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, e
 		if err != nil {
 			return nil, err
 		}
-		typ := network.TypeFromData(msg)
+		typ := network.MessageType(msg)
 		protoMsg := &ProtocolMsg{
 			From:     info.TreeNodeInfo.From,
 			To:       info.TreeNodeInfo.To,
