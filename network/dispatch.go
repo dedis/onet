@@ -31,7 +31,7 @@ type Dispatcher interface {
 	// is the identity of the author / sender of the packet.
 	// It can be called for example by the network layer.
 	// If no processor is found for this message type, then an error is returned
-	Dispatch(packet *Envelope) error
+	Dispatch(*Envelope) error
 }
 
 // Processor is an abstraction to represent any object that want to process
@@ -40,7 +40,7 @@ type Dispatcher interface {
 // dispatch every messages asked for to the Processor.
 type Processor interface {
 	// Process takes a received Envelope.
-	Process(packet *Envelope)
+	Process(*Envelope)
 }
 
 // BlockingDispatcher is a Dispatcher that simply calls `p.Process()` on a
