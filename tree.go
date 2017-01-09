@@ -98,7 +98,7 @@ func (t *Tree) MakeTreeMarshal() *TreeMarshal {
 // the ids of the elements. Use NewTreeFromMarshal to get back the original
 // tree
 func (t *Tree) Marshal() ([]byte, error) {
-	buf, err := network.MarshalRegisteredType(t.MakeTreeMarshal())
+	buf, err := network.Marshal(t.MakeTreeMarshal())
 	return buf, err
 }
 
@@ -117,7 +117,7 @@ func (t *Tree) BinaryMarshaler() ([]byte, error) {
 		T:  bt,
 		EL: t.Roster,
 	}
-	b, err := network.MarshalRegisteredType(tbm)
+	b, err := network.Marshal(tbm)
 	if err != nil {
 		return nil, err
 	}

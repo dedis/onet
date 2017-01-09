@@ -247,7 +247,7 @@ func (lc *LocalConn) start() {
 // will be sent to the remote endpoint.
 // If there is an error in the connection, it will be returned.
 func (lc *LocalConn) Send(msg Message) error {
-	buff, err := MarshalRegisteredType(msg)
+	buff, err := Marshal(msg)
 	if err != nil {
 		return err
 	}

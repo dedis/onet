@@ -169,10 +169,10 @@ var globalOrder = binary.BigEndian
 // https://github.com/golang/go/commit/feb2a5d6103dad76b6374c5f346e33d55612cb2a
 var EmptyEnvelope = Envelope{MsgType: MessageTypeID(uuid.Nil)}
 
-// MarshalRegisteredType will marshal a struct with its respective type into a
-// slice of bytes. That slice of bytes can be then decoded in
-// UnmarshalRegisteredType. data must be a pointer to the message.
-func MarshalRegisteredType(msg Message) ([]byte, error) {
+// Marshal marshals a struct with its respective type into a
+// slice of bytes. That slice of bytes can be then decoded with
+// Unmarshal. msg must be a pointer to the message.
+func Marshal(msg Message) ([]byte, error) {
 	var msgType MessageTypeID
 	if msgType = MessageType(msg); msgType == ErrorType {
 		return nil, fmt.Errorf("type of message %s not registered to the network library", reflect.TypeOf(msg))
@@ -238,7 +238,7 @@ func UnmarshalRegistered(buf []byte) (MessageTypeID, Message, error) {
 
 // MarshalBinary the application packet => to bytes
 func (env *Envelope) MarshalBinary() ([]byte, error) {
-	return MarshalRegisteredType(env.Msg)
+	return Marshal(env.Msg)
 }
 
 // UnmarshalBinary will decode the incoming bytes

@@ -724,7 +724,7 @@ type defaultProtoIO struct{}
 // Wrap implements the MessageProxy interface for the Overlay.
 func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, error) {
 	if msg != nil {
-		buff, err := network.MarshalRegisteredType(msg)
+		buff, err := network.Marshal(msg)
 		if err != nil {
 			return nil, err
 		}
@@ -763,7 +763,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	case ProtocolMsg:
 		onetMsg := inner
 		var err error
-		_, protoMsg, err := network.UnmarshalRegistered(onetMsg.MsgSlice)
+		_, protoMsg, err := network.Unmarshal(onetMsg.MsgSlice)
 		if err != nil {
 			return nil, nil, err
 		}

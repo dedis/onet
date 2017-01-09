@@ -142,7 +142,7 @@ func (sc *SimulationConfig) Save(dir string) error {
 		PrivateKeys: sc.PrivateKeys,
 		Config:      sc.Config,
 	}
-	buf, err := network.MarshalRegisteredType(scf)
+	buf, err := network.Marshal(scf)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -140,7 +140,7 @@ func TestTCPConnReceiveRaw(t *testing.T) {
 	}
 	// prepare the msg
 	msg := &BigMsg{Array: make([]byte, 7893)}
-	buff, err := MarshalRegisteredType(msg)
+	buff, err := Marshal(msg)
 	require.Nil(t, err)
 
 	fn := func(c net.Conn) {

@@ -35,7 +35,7 @@ func TestRegister(t *testing.T) {
 func TestUnmarshalRegister(t *testing.T) {
 	constructors := DefaultConstructors(Suite)
 	trType := RegisterMessage(&TestRegisterS{})
-	buff, err := MarshalRegisteredType(&TestRegisterS{10})
+	buff, err := Marshal(&TestRegisterS{10})
 	require.Nil(t, err)
 
 	ty, b, err := UnmarshalRegisteredType(buff, constructors)
