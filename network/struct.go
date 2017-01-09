@@ -46,7 +46,10 @@ var ErrUnknown = errors.New("Unknown Error")
 // correctly decode it.
 type Size uint32
 
-// Envelope is the container for any Msg
+// Envelope is a container for any Message received through the network that
+// contains the Message itself as well as some metadata such as the type and the
+// sender. This is created by the network stack upon reception and is never
+// transmitted.
 type Envelope struct {
 	// The ServerIdentity of the remote peer we are talking to.
 	// Basically, this means that when you open a new connection to someone, and

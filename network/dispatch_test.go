@@ -8,11 +8,11 @@ import (
 )
 
 type basicProcessor struct {
-	msgChan chan Envelope
+	envChan chan Envelope
 }
 
-func (bp *basicProcessor) Process(msg *Envelope) {
-	bp.msgChan <- *msg
+func (bp *basicProcessor) Process(env *Envelope) {
+	bp.envChan <- *env
 }
 
 type basicMessage struct {
@@ -40,7 +40,7 @@ func TestBlockingDispatcher(t *testing.T) {
 		MsgType: basicMessageType})
 
 	select {
-	case m := <-processor.msgChan:
+	case m := <-processor.envChan:
 		msg, ok := m.Msg.(basicMessage)
 		assert.True(t, ok)
 		assert.Equal(t, msg.Value, 10)
@@ -49,7 +49,7 @@ func TestBlockingDispatcher(t *testing.T) {
 	}
 
 	var found bool
-	dispatcher.RegisterProcessorFunc(basicMessageType, func(p *Envelope) {
+	dispatcher.RegisterProcessorFunc(basicMessageType, func(e *Envelope) {
 		found = true
 	})
 	dispatcher.Dispatch(&Envelope{
@@ -83,7 +83,7 @@ func TestRoutineDispatcher(t *testing.T) {
 		MsgType: basicMessageType})
 
 	select {
-	case m := <-processor.msgChan:
+	case m := <-processor.envChan:
 		msg, ok := m.Msg.(basicMessage)
 		assert.True(t, ok)
 		assert.Equal(t, msg.Value, 10)
@@ -95,7 +95,7 @@ func TestRoutineDispatcher(t *testing.T) {
 
 func TestDefaultProcessor(t *testing.T) {
 	var okCh = make(chan bool, 1)
-	pr := defaultProcessor{func(p *Envelope) {
+	pr := defaultProcessor{func(e *Envelope) {
 		okCh <- true
 	}}
 
