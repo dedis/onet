@@ -128,14 +128,14 @@ func DefaultConstructors(suite abstract.Suite) protobuf.Constructors {
 
 // Error returns the error that has been encountered during the unmarshaling of
 // this message.
-func (en *Envelope) Error() error {
-	return en.err
+func (env *Envelope) Error() error {
+	return env.err
 }
 
 // SetError is workaround so we can set the error after creation of the
 // application message
-func (en *Envelope) SetError(err error) {
-	en.err = err
+func (env *Envelope) SetError(err error) {
+	env.err = err
 }
 
 type typeRegistry struct {
