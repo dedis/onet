@@ -159,16 +159,6 @@ var registry = newTypeRegistry()
 
 var globalOrder = binary.BigEndian
 
-// EmptyEnvelope is the default empty message that is returned in case
-// something went wrong.
-//
-// FIXME currently there seems no way with go1.6 for this to compile without repeating
-// the definition of ErrorType above as PacketTypeID(uuid.Nil).
-// Somehow it still gets inlined (maybe through the indirection).
-// should be fixed properly in go1.7:
-// https://github.com/golang/go/commit/feb2a5d6103dad76b6374c5f346e33d55612cb2a
-var EmptyEnvelope = Envelope{MsgType: MessageTypeID(uuid.Nil)}
-
 // Marshal marshals a struct with its respective type into a
 // slice of bytes. That slice of bytes can be then decoded with
 // Unmarshal. msg must be a pointer to the message.
@@ -229,9 +219,12 @@ func (env *Envelope) MarshalBinary() ([]byte, error) {
 // It uses protobuf for decoding (using the constructors in the Packet).
 func (env *Envelope) UnmarshalBinary(buf []byte) error {
 	t, msg, err := Unmarshal(buf)
+	if err != nil {
+		return err
+	}
 	env.MsgType = t
 	env.Msg = msg
-	return err
+	return nil
 }
 
 // newEnvelope takes a Body and then constructs a

@@ -74,22 +74,22 @@ func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 // Receive get the bytes from the connection then decodes the buffer.
 // It returns the Envelope containing the message,
 // or EmptyEnvelope and an error if something wrong happened.
-func (c *TCPConn) Receive() (env Envelope, e error) {
-	defer func() {
-		if err := recover(); err != nil {
-			e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
-			env = EmptyEnvelope
-		}
-	}()
+func (c *TCPConn) Receive() (env *Envelope, e error) {
+	/*defer func() {*/
+	//if err := recover(); err != nil {
+	//e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
+	//env = nil
+	//}
+	//}()
 
 	buff, err := c.receiveRaw()
 	if err != nil {
-		return EmptyEnvelope, err
+		return nil, err
 	}
-
+	env = new(Envelope)
 	err = env.UnmarshalBinary(buff)
 	if err != nil {
-		return EmptyEnvelope, fmt.Errorf("Error unmarshaling message type %s: %s", env.MsgType.String(), err.Error())
+		return nil, fmt.Errorf("Error unmarshaling message type %s: %s", env.MsgType.String(), err.Error())
 	}
 	return env, nil
 }
