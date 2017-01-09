@@ -265,7 +265,7 @@ func (lc *LocalConn) Receive() (Envelope, error) {
 	}
 	lc.updateRx(uint64(len(buff)))
 
-	id, body, err := UnmarshalRegisteredType(buff, DefaultConstructors(Suite))
+	id, body, err := Unmarshal(buff)
 	return Envelope{
 		MsgType: id,
 		Msg:     body,

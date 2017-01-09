@@ -505,8 +505,8 @@ func (smp *simpleMessageProc) Process(e *Envelope) {
 	if e.MsgType != SimpleMessageType {
 		smp.t.Fatal("Wrong message")
 	}
-	sm := e.Msg.(SimpleMessage)
-	smp.relay <- sm
+	sm := e.Msg.(*SimpleMessage)
+	smp.relay <- *sm
 }
 
 type statusMessage struct {
@@ -530,9 +530,9 @@ func (sp *simpleProcessor) Process(env *Envelope) {
 
 		sp.relay <- statusMessage{false, 0}
 	}
-	sm := env.Msg.(statusMessage)
+	sm := env.Msg.(*statusMessage)
 
-	sp.relay <- sm
+	sp.relay <- *sm
 }
 
 func sendrcv_proc(from, to *Router) error {
