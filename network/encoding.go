@@ -36,17 +36,17 @@ var ErrorType = MessageTypeID(uuid.Nil)
 
 // String returns the name of the structure if it is known, else it returns
 // the hexadecimal value of the Id.
-func (pId MessageTypeID) String() string {
-	t, ok := registry.get(pId)
+func (mId MessageTypeID) String() string {
+	t, ok := registry.get(mId)
 	if ok {
-		return fmt.Sprintf("PTID(%s:%x)", t.String(), uuid.UUID(pId).Bytes())
+		return fmt.Sprintf("PTID(%s:%x)", t.String(), uuid.UUID(mId).Bytes())
 	}
-	return uuid.UUID(pId).String()
+	return uuid.UUID(mId).String()
 }
 
 // Equal returns true if pId is equal to t
-func (pId MessageTypeID) Equal(t MessageTypeID) bool {
-	return bytes.Compare(uuid.UUID(pId).Bytes(), uuid.UUID(t).Bytes()) == 0
+func (mId MessageTypeID) Equal(t MessageTypeID) bool {
+	return bytes.Compare(uuid.UUID(mId).Bytes(), uuid.UUID(t).Bytes()) == 0
 }
 
 // NamespaceURL is the basic namespace used for uuid
@@ -128,14 +128,14 @@ func DefaultConstructors(suite abstract.Suite) protobuf.Constructors {
 
 // Error returns the error that has been encountered during the unmarshaling of
 // this message.
-func (am *Envelope) Error() error {
-	return am.err
+func (en *Envelope) Error() error {
+	return en.err
 }
 
 // SetError is workaround so we can set the error after creation of the
 // application message
-func (am *Envelope) SetError(err error) {
-	am.err = err
+func (en *Envelope) SetError(err error) {
+	en.err = err
 }
 
 type typeRegistry struct {
@@ -152,10 +152,10 @@ func newTypeRegistry() *typeRegistry {
 
 // get returns the reflect.Type corresponding to the registered PacketTypeID
 // an a boolean indicating if the type is actually registered or not.
-func (tr *typeRegistry) get(id MessageTypeID) (reflect.Type, bool) {
+func (tr *typeRegistry) get(mid MessageTypeID) (reflect.Type, bool) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	t, ok := tr.types[id]
+	t, ok := tr.types[mid]
 	return t, ok
 }
 
@@ -186,12 +186,12 @@ var marshalLock sync.Mutex
 // MarshalRegisteredType will marshal a struct with its respective type into a
 // slice of bytes. That slice of bytes can be then decoded in
 // UnmarshalRegisteredType. data must be a pointer to the message.
-func MarshalRegisteredType(data Message) ([]byte, error) {
+func MarshalRegisteredType(msg Message) ([]byte, error) {
 	marshalLock.Lock()
 	defer marshalLock.Unlock()
 	var msgType MessageTypeID
-	if msgType = TypeFromData(data); msgType == ErrorType {
-		return nil, fmt.Errorf("type of message %s not registered to the network library", reflect.TypeOf(data))
+	if msgType = TypeFromData(msg); msgType == ErrorType {
+		return nil, fmt.Errorf("type of message %s not registered to the network library", reflect.TypeOf(msg))
 	}
 	b := new(bytes.Buffer)
 	if err := binary.Write(b, globalOrder, msgType); err != nil {
@@ -199,8 +199,8 @@ func MarshalRegisteredType(data Message) ([]byte, error) {
 	}
 	var buf []byte
 	var err error
-	if buf, err = protobuf.Encode(data); err != nil {
-		log.Errorf("Error for protobuf encoding: %s %+v", err, data)
+	if buf, err = protobuf.Encode(msg); err != nil {
+		log.Errorf("Error for protobuf encoding: %s %+v", err, msg)
 		if log.DebugVisible() > 0 {
 			log.Error(log.Stack())
 		}
@@ -215,20 +215,20 @@ func MarshalRegisteredType(data Message) ([]byte, error) {
 // The type must be registered to the network library in order to be decodable.
 func UnmarshalRegisteredType(buf []byte, constructors protobuf.Constructors) (MessageTypeID, Message, error) {
 	b := bytes.NewBuffer(buf)
-	var tID MessageTypeID
-	if err := binary.Read(b, globalOrder, &tID); err != nil {
+	var mID MessageTypeID
+	if err := binary.Read(b, globalOrder, &mID); err != nil {
 		return ErrorType, nil, err
 	}
-	typ, ok := registry.get(tID)
+	typ, ok := registry.get(mID)
 	if !ok {
-		return ErrorType, nil, fmt.Errorf("type %s not registered", tID.String())
+		return ErrorType, nil, fmt.Errorf("type %s not registered", mID.String())
 	}
 	ptrVal := reflect.New(typ)
 	ptr := ptrVal.Interface()
 	if err := protobuf.DecodeWithConstructors(b.Bytes(), ptr, constructors); err != nil {
-		return tID, ptrVal.Elem().Interface(), err
+		return mID, ptrVal.Elem().Interface(), err
 	}
-	return tID, ptrVal.Elem().Interface(), nil
+	return mID, ptrVal.Elem().Interface(), nil
 }
 
 // UnmarshalRegistered is like UnmarshalRegisteredType but it uses a

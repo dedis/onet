@@ -501,11 +501,11 @@ func newSimpleMessageProc(t *testing.T) *simpleMessageProc {
 	}
 }
 
-func (smp *simpleMessageProc) Process(p *Envelope) {
-	if p.MsgType != SimpleMessageType {
+func (smp *simpleMessageProc) Process(e *Envelope) {
+	if e.MsgType != SimpleMessageType {
 		smp.t.Fatal("Wrong message")
 	}
-	sm := p.Msg.(SimpleMessage)
+	sm := e.Msg.(SimpleMessage)
 	smp.relay <- sm
 }
 

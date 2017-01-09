@@ -306,7 +306,7 @@ func (c *ServiceChannels) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig)
 	return NewProtocolChannels(tn)
 }
 
-func (c *ServiceChannels) Process(packet *network.Envelope) {
+func (c *ServiceChannels) Process(e *network.Envelope) {
 	return
 }
 

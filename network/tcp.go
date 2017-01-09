@@ -137,16 +137,16 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 // Send converts the NetworkMessage into an ApplicationMessage
 // and sends it using send().
 // It returns an error if anything was wrong.
-func (c *TCPConn) Send(obj Message) error {
+func (c *TCPConn) Send(msg Message) error {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
-	am, err := NewEnvelope(obj)
+	env, err := NewEnvelope(msg)
 	if err != nil {
 		return fmt.Errorf("Error converting packet: %v", err)
 	}
-	log.Lvlf5("Message SEND => %+v", am)
+	log.Lvlf5("Message SEND => %+v", env)
 	var b []byte
-	b, err = am.MarshalBinary()
+	b, err = env.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("Error marshaling  message: %s", err.Error())
 	}
