@@ -79,35 +79,35 @@ func NewOverlay(c *Conode) *Overlay {
 
 // Process implements the Processor interface so it process the messages that it
 // wants.
-func (o *Overlay) Process(data *network.Envelope) {
+func (o *Overlay) Process(env *network.Envelope) {
 	// Messages handled by the overlay directly without any messageProxyIO
-	if data.MsgType == ConfigMsgID {
-		o.handleConfigMessage(data)
+	if env.MsgType == ConfigMsgID {
+		o.handleConfigMessage(env)
 		return
 	}
 
 	// get messageProxy or default one
-	io := o.protoIO.getByPacketType(data.MsgType)
-	inner, info, err := io.Unwrap(data.Msg)
+	io := o.protoIO.getByPacketType(env.MsgType)
+	inner, info, err := io.Unwrap(env.Msg)
 	if err != nil {
 		log.Error("unwrapping: ", err)
 		return
 	}
 	switch true {
 	case info.RequestTree != nil:
-		o.handleRequestTree(data.ServerIdentity, info.RequestTree, io)
+		o.handleRequestTree(env.ServerIdentity, info.RequestTree, io)
 	case info.TreeMarshal != nil:
-		o.handleSendTree(data.ServerIdentity, info.TreeMarshal, io)
+		o.handleSendTree(env.ServerIdentity, info.TreeMarshal, io)
 	case info.RequestRoster != nil:
-		o.handleRequestRoster(data.ServerIdentity, info.RequestRoster, io)
+		o.handleRequestRoster(env.ServerIdentity, info.RequestRoster, io)
 	case info.Roster != nil:
-		o.handleSendRoster(data.ServerIdentity, info.Roster)
+		o.handleSendRoster(env.ServerIdentity, info.Roster)
 	default:
 		typ := network.TypeToMessageTypeID(inner)
 		protoMsg := &ProtocolMsg{
 			From:           info.TreeNodeInfo.From,
 			To:             info.TreeNodeInfo.To,
-			ServerIdentity: data.ServerIdentity,
+			ServerIdentity: env.ServerIdentity,
 			Msg:            inner,
 			MsgType:        typ,
 		}
@@ -430,8 +430,8 @@ func (o *Overlay) handleSendRoster(si *network.ServerIdentity, roster *Roster) {
 
 // handleConfigMessage stores the config message so it can be dispatched
 // alongside with the protocol message later to the service.
-func (o *Overlay) handleConfigMessage(data *network.Envelope) {
-	config, ok := data.Msg.(ConfigMsg)
+func (o *Overlay) handleConfigMessage(env *network.Envelope) {
+	config, ok := env.Msg.(ConfigMsg)
 	if !ok {
 		// This should never happen <=> assert
 		log.Panic(o.conode.Address(), "wrong config type")

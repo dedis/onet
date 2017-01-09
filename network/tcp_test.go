@@ -525,12 +525,12 @@ func newSimpleProcessor() *simpleProcessor {
 		relay: make(chan statusMessage),
 	}
 }
-func (sp *simpleProcessor) Process(msg *Envelope) {
-	if msg.MsgType != statusMsgID {
+func (sp *simpleProcessor) Process(env *Envelope) {
+	if env.MsgType != statusMsgID {
 
 		sp.relay <- statusMessage{false, 0}
 	}
-	sm := msg.Msg.(statusMessage)
+	sm := env.Msg.(statusMessage)
 
 	sp.relay <- sm
 }

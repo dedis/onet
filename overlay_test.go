@@ -103,14 +103,14 @@ func newOverlayProc() *overlayProc {
 	}
 }
 
-func (op *overlayProc) Process(msg *network.Envelope) {
-	switch msg.MsgType {
+func (op *overlayProc) Process(env *network.Envelope) {
+	switch env.MsgType {
 	case SendRosterMsgID:
-		op.sendRoster <- msg.Msg.(Roster)
+		op.sendRoster <- env.Msg.(Roster)
 	case TreeMarshalTypeID:
-		op.treeMarshal <- msg.Msg.(TreeMarshal)
+		op.treeMarshal <- env.Msg.(TreeMarshal)
 	case RequestTreeMsgID:
-		op.requestTree <- msg.Msg.(RequestTree)
+		op.requestTree <- env.Msg.(RequestTree)
 	}
 }
 

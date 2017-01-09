@@ -92,7 +92,7 @@ func (p *ServiceProcessor) RegisterHandlers(procs ...interface{}) error {
 }
 
 // Process implements the Processor interface and dispatches ClientRequest messages.
-func (p *ServiceProcessor) Process(packet *network.Envelope) {
+func (p *ServiceProcessor) Process(env *network.Envelope) {
 	log.Panic("Cannot handle message.")
 }
 

@@ -247,9 +247,9 @@ func newServiceManager(c *Conode, o *Overlay) *serviceManager {
 
 // Process implements the Processor interface: service manager will relay
 // messages to the right Service.
-func (s *serviceManager) Process(data *network.Envelope) {
+func (s *serviceManager) Process(env *network.Envelope) {
 	// will launch a go routine for that message
-	s.Dispatch(data)
+	s.Dispatch(env)
 }
 
 // RegisterProcessor the processor to the service manager and tells the host to dispatch

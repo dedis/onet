@@ -6,7 +6,7 @@ import (
 )
 
 // Dispatcher is an interface whose sole role is to distribute messages to the
-// right Processor. No processing is done,i.e. no looking at packet content.
+// right Processor. No processing is done,i.e. no looking at the message content.
 // Each Processor that wants to receive all messages of a specific
 // type must register itself to the dispatcher using `RegisterProcessor()`.
 // The network layer calls `Dispatch()` each time it receives a message, so
@@ -27,8 +27,8 @@ type Dispatcher interface {
 	// be called for each message of type msgType. It's a shorter way of
 	// registering a Processor.
 	RegisterProcessorFunc(MessageTypeID, func(*Envelope))
-	// Dispatch will find the right processor to dispatch the packet to. The id
-	// is the identity of the author / sender of the packet.
+	// Dispatch will find the right processor to dispatch the envelope to. The id
+	// is the identity of the author / sender of the message.
 	// It can be called for example by the network layer.
 	// If no processor is found for this message type, then an error is returned
 	Dispatch(*Envelope) error
@@ -79,14 +79,14 @@ func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageTypeID, fn fun
 
 // Dispatch calls the corresponding processor's method Process. It's a
 // blocking call if the Processor is blocking.
-func (d *BlockingDispatcher) Dispatch(packet *Envelope) error {
+func (d *BlockingDispatcher) Dispatch(env *Envelope) error {
 	d.Lock()
 	defer d.Unlock()
 	var p Processor
-	if p = d.procs[packet.MsgType]; p == nil {
-		return errors.New("No Processor attached to this message type " + packet.MsgType.String())
+	if p = d.procs[env.MsgType]; p == nil {
+		return errors.New("No Processor attached to this message type " + env.MsgType.String())
 	}
-	p.Process(packet)
+	p.Process(env)
 	return nil
 }
 
@@ -104,16 +104,16 @@ func NewRoutineDispatcher() *RoutineDispatcher {
 	}
 }
 
-// Dispatch implements the Dispatcher interface. It will give the packet to the
+// Dispatch implements the Dispatcher interface. It will give the envelope to the
 // right Processor in a go routine.
-func (d *RoutineDispatcher) Dispatch(packet *Envelope) error {
+func (d *RoutineDispatcher) Dispatch(env *Envelope) error {
 	d.Lock()
 	defer d.Unlock()
-	var p = d.procs[packet.MsgType]
+	var p = d.procs[env.MsgType]
 	if p == nil {
 		return errors.New("no Processor attached to this message type")
 	}
-	go p.Process(packet)
+	go p.Process(env)
 	return nil
 }
 
@@ -121,6 +121,6 @@ type defaultProcessor struct {
 	fn func(*Envelope)
 }
 
-func (dp *defaultProcessor) Process(msg *Envelope) {
-	dp.fn(msg)
+func (dp *defaultProcessor) Process(env *Envelope) {
+	dp.fn(env)
 }

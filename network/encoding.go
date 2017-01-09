@@ -160,10 +160,10 @@ func (tr *typeRegistry) get(mid MessageTypeID) (reflect.Type, bool) {
 }
 
 // put stores the given type in the typeRegistry.
-func (tr *typeRegistry) put(id MessageTypeID, typ reflect.Type) {
+func (tr *typeRegistry) put(mid MessageTypeID, typ reflect.Type) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
-	tr.types[id] = typ
+	tr.types[mid] = typ
 }
 
 var registry = newTypeRegistry()
@@ -254,16 +254,16 @@ func UnmarshalRegistered(buf []byte) (MessageTypeID, Message, error) {
 
 // MarshalBinary the application packet => to bytes
 // Implements BinaryMarshaler interface so it will be used when sending with protobuf
-func (am *Envelope) MarshalBinary() ([]byte, error) {
-	return MarshalRegisteredType(am.Msg)
+func (env *Envelope) MarshalBinary() ([]byte, error) {
+	return MarshalRegisteredType(env.Msg)
 }
 
 // UnmarshalBinary will decode the incoming bytes
 // It uses protobuf for decoding (using the constructors in the Packet).
-func (am *Envelope) UnmarshalBinary(buf []byte) error {
+func (env *Envelope) UnmarshalBinary(buf []byte) error {
 	t, msg, err := UnmarshalRegisteredType(buf, DefaultConstructors(Suite))
-	am.MsgType = t
-	am.Msg = msg
+	env.MsgType = t
+	env.Msg = msg
 	return err
 }
 

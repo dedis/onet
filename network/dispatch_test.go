@@ -8,11 +8,11 @@ import (
 )
 
 type basicProcessor struct {
-	msgChan chan Envelope
+	envChan chan Envelope
 }
 
-func (bp *basicProcessor) Process(msg *Envelope) {
-	bp.msgChan <- *msg
+func (bp *basicProcessor) Process(env *Envelope) {
+	bp.envChan <- *env
 }
 
 type basicMessage struct {
@@ -40,7 +40,7 @@ func TestBlockingDispatcher(t *testing.T) {
 		MsgType: basicMessageType})
 
 	select {
-	case m := <-processor.msgChan:
+	case m := <-processor.envChan:
 		msg, ok := m.Msg.(basicMessage)
 		assert.True(t, ok)
 		assert.Equal(t, msg.Value, 10)
@@ -83,7 +83,7 @@ func TestRoutineDispatcher(t *testing.T) {
 		MsgType: basicMessageType})
 
 	select {
-	case m := <-processor.msgChan:
+	case m := <-processor.envChan:
 		msg, ok := m.Msg.(basicMessage)
 		assert.True(t, ok)
 		assert.Equal(t, msg.Value, 10)
