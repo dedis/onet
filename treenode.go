@@ -188,7 +188,7 @@ func (n *TreeNodeInstance) RegisterChannel(c interface{}) error {
 	}
 	// Automatic registration of the message to the network library.
 	m := reflect.New(cr.Elem().Field(1).Type)
-	typ := network.RegisterMessage(m)
+	typ := network.RegisterMessage(m.Interface())
 	n.channels[typ] = c
 	//typ := network.RTypeToUUID(cr.Elem().Field(1).Type) n.channels[typ] = c
 	n.messageTypeFlags[typ] = flags
@@ -243,7 +243,7 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 	}
 	// Automatic registration of the message to the network library.
 	ptr := reflect.New(ci.Field(1).Type)
-	typ := network.RegisterMessage(ptr)
+	typ := network.RegisterMessage(ptr.Interface())
 	n.handlers[typ] = c
 	n.messageTypeFlags[typ] = flags
 	log.Lvl3("Registered handler", typ, "with flags", flags)
