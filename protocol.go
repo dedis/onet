@@ -169,11 +169,11 @@ func (p *messageProxyStore) getByName(name string) MessageProxy {
 	return p.defaultIO
 }
 
-func (p *messageProxyStore) getByPacketType(t network.MessageTypeID) MessageProxy {
+func (p *messageProxyStore) getByPacketType(mid network.MessageTypeID) MessageProxy {
 	p.Lock()
 	defer p.Unlock()
 	for _, pio := range p.protos {
-		if pio.PacketType().Equal(t) {
+		if pio.PacketType().Equal(mid) {
 			return pio
 		}
 	}
