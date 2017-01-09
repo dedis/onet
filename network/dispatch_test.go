@@ -8,10 +8,10 @@ import (
 )
 
 type basicProcessor struct {
-	msgChan chan Packet
+	msgChan chan Envelope
 }
 
-func (bp *basicProcessor) Process(msg *Packet) {
+func (bp *basicProcessor) Process(msg *Envelope) {
 	bp.msgChan <- *msg
 }
 
@@ -19,14 +19,14 @@ type basicMessage struct {
 	Value int
 }
 
-var basicMessageType = RegisterPacketType(&basicMessage{})
+var basicMessageType = RegisterMessage(&basicMessage{})
 
 func TestBlockingDispatcher(t *testing.T) {
 
 	dispatcher := NewBlockingDispatcher()
-	processor := &basicProcessor{make(chan Packet, 1)}
+	processor := &basicProcessor{make(chan Envelope, 1)}
 
-	err := dispatcher.Dispatch(&Packet{
+	err := dispatcher.Dispatch(&Envelope{
 		Msg:     basicMessage{10},
 		MsgType: basicMessageType})
 
@@ -35,7 +35,7 @@ func TestBlockingDispatcher(t *testing.T) {
 	}
 
 	dispatcher.RegisterProcessor(processor, basicMessageType)
-	dispatcher.Dispatch(&Packet{
+	dispatcher.Dispatch(&Envelope{
 		Msg:     basicMessage{10},
 		MsgType: basicMessageType})
 
@@ -49,10 +49,10 @@ func TestBlockingDispatcher(t *testing.T) {
 	}
 
 	var found bool
-	dispatcher.RegisterProcessorFunc(basicMessageType, func(p *Packet) {
+	dispatcher.RegisterProcessorFunc(basicMessageType, func(p *Envelope) {
 		found = true
 	})
-	dispatcher.Dispatch(&Packet{
+	dispatcher.Dispatch(&Envelope{
 		Msg:     basicMessage{10},
 		MsgType: basicMessageType})
 
@@ -67,9 +67,9 @@ func TestRoutineDispatcher(t *testing.T) {
 	if dispatcher == nil {
 		t.Fatal("nil dispatcher")
 	}
-	processor := &basicProcessor{make(chan Packet, 1)}
+	processor := &basicProcessor{make(chan Envelope, 1)}
 
-	err := dispatcher.Dispatch(&Packet{
+	err := dispatcher.Dispatch(&Envelope{
 		Msg:     basicMessage{10},
 		MsgType: basicMessageType})
 
@@ -78,7 +78,7 @@ func TestRoutineDispatcher(t *testing.T) {
 	}
 
 	dispatcher.RegisterProcessor(processor, basicMessageType)
-	dispatcher.Dispatch(&Packet{
+	dispatcher.Dispatch(&Envelope{
 		Msg:     basicMessage{10},
 		MsgType: basicMessageType})
 
@@ -95,11 +95,11 @@ func TestRoutineDispatcher(t *testing.T) {
 
 func TestDefaultProcessor(t *testing.T) {
 	var okCh = make(chan bool, 1)
-	pr := defaultProcessor{func(p *Packet) {
+	pr := defaultProcessor{func(p *Envelope) {
 		okCh <- true
 	}}
 
-	pr.Process(&Packet{})
+	pr.Process(&Envelope{})
 	select {
 	case <-okCh:
 	default:

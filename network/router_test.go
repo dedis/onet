@@ -222,7 +222,7 @@ func newNSquareProc(t *testing.T, r *Router, expect int, wg *sync.WaitGroup) *nS
 	return &nSquareProc{t, r, expect, wg, make(map[Address]bool), make(map[Address]bool), sync.Mutex{}}
 }
 
-func (p *nSquareProc) Process(pack *Packet) {
+func (p *nSquareProc) Process(pack *Envelope) {
 	p.Lock()
 	defer p.Unlock()
 	remote := pack.ServerIdentity.Address

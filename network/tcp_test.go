@@ -17,8 +17,8 @@ import (
 )
 
 func init() {
-	RegisterPacketType(BigMsg{})
-	SimpleMessageType = RegisterPacketType(SimpleMessage{})
+	RegisterMessage(BigMsg{})
+	SimpleMessageType = RegisterMessage(SimpleMessage{})
 }
 
 type BigMsg struct {
@@ -487,7 +487,7 @@ type SimpleMessage struct {
 	I int
 }
 
-var SimpleMessageType PacketTypeID
+var SimpleMessageType MessageTypeID
 
 type simpleMessageProc struct {
 	t     *testing.T
@@ -501,7 +501,7 @@ func newSimpleMessageProc(t *testing.T) *simpleMessageProc {
 	}
 }
 
-func (smp *simpleMessageProc) Process(p *Packet) {
+func (smp *simpleMessageProc) Process(p *Envelope) {
 	if p.MsgType != SimpleMessageType {
 		smp.t.Fatal("Wrong message")
 	}
@@ -514,7 +514,7 @@ type statusMessage struct {
 	Val int
 }
 
-var statusMsgID = RegisterPacketType(statusMessage{})
+var statusMsgID = RegisterMessage(statusMessage{})
 
 type simpleProcessor struct {
 	relay chan statusMessage
@@ -525,7 +525,7 @@ func newSimpleProcessor() *simpleProcessor {
 		relay: make(chan statusMessage),
 	}
 }
-func (sp *simpleProcessor) Process(msg *Packet) {
+func (sp *simpleProcessor) Process(msg *Envelope) {
 	if msg.MsgType != statusMsgID {
 
 		sp.relay <- statusMessage{false, 0}

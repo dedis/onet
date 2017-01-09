@@ -72,27 +72,26 @@ func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 }
 
 // Receive get the bytes from the connection then decodes the buffer.
-// It returns the Packet with the Msg field decoded
-// or EmptyApplicationPacket and an error if something wrong happened.
-func (c *TCPConn) Receive() (nm Packet, e error) {
+// It returns the Envelope containing the message,
+// or EmptyEnvelope and an error if something wrong happened.
+func (c *TCPConn) Receive() (nm Envelope, e error) {
 	defer func() {
 		if err := recover(); err != nil {
 			e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
-			nm = EmptyApplicationPacket
+			nm = EmptyEnvelope
 		}
 	}()
 
-	var am Packet
+	var am Envelope
 	buff, err := c.receiveRaw()
 	if err != nil {
-		return EmptyApplicationPacket, err
+		return EmptyEnvelope, err
 	}
 
 	err = am.UnmarshalBinary(buff)
 	if err != nil {
-		return EmptyApplicationPacket, fmt.Errorf("Error unmarshaling message type %s: %s", am.MsgType.String(), err.Error())
+		return EmptyEnvelope, fmt.Errorf("Error unmarshaling message type %s: %s", am.MsgType.String(), err.Error())
 	}
-	am.From = c.Remote()
 	return am, nil
 }
 
@@ -138,10 +137,10 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 // Send converts the NetworkMessage into an ApplicationMessage
 // and sends it using send().
 // It returns an error if anything was wrong.
-func (c *TCPConn) Send(obj Body) error {
+func (c *TCPConn) Send(obj Message) error {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
-	am, err := NewNetworkPacket(obj)
+	am, err := NewEnvelope(obj)
 	if err != nil {
 		return fmt.Errorf("Error converting packet: %v", err)
 	}
