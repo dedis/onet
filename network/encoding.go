@@ -219,7 +219,8 @@ func Unmarshal(buf []byte) (MessageTypeID, Message, error) {
 	return tID, ptrVal.Interface(), nil
 }
 
-// MarshalBinary the application packet => to bytes
+// MarshalBinary returns the bytes representation of the envelope's message and
+// message type.
 func (env *Envelope) MarshalBinary() ([]byte, error) {
 	return Marshal(env.Msg)
 }
