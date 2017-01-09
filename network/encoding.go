@@ -103,7 +103,7 @@ func TypeToMessageTypeID(msg Message) MessageTypeID {
 	return MessageTypeID(u)
 }
 
-// RTypeToPacketTypeID converts a reflect.Type to a MessageTypeID
+// RTypeToMessageTypeID converts a reflect.Type to a MessageTypeID
 func RTypeToMessageTypeID(msg reflect.Type) MessageTypeID {
 	url := NamespaceBodyType + msg.String()
 	return MessageTypeID(uuid.NewV5(uuid.NamespaceURL, url))
