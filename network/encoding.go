@@ -269,17 +269,17 @@ func (env *Envelope) UnmarshalBinary(buf []byte) error {
 
 // NewEnvelope takes a Body and then constructs a
 // Message from it. Error if the type is unknown
-func NewEnvelope(obj Message) (*Envelope, error) {
-	val := reflect.ValueOf(obj)
+func NewEnvelope(msg Message) (*Envelope, error) {
+	val := reflect.ValueOf(msg)
 	if val.Kind() != reflect.Ptr {
 		return nil, fmt.Errorf("Expected a pointer to the message")
 	}
-	ty := TypeFromData(obj)
+	ty := TypeFromData(msg)
 	if ty == ErrorType {
 		return nil, fmt.Errorf("Packet to send is not known. Please register packet: %s",
-			reflect.TypeOf(obj).String())
+			reflect.TypeOf(msg).String())
 	}
 	return &Envelope{
 		MsgType: ty,
-		Msg:     obj}, nil
+		Msg:     msg}, nil
 }

@@ -49,7 +49,7 @@ func TestBlockingDispatcher(t *testing.T) {
 	}
 
 	var found bool
-	dispatcher.RegisterProcessorFunc(basicMessageType, func(p *Envelope) {
+	dispatcher.RegisterProcessorFunc(basicMessageType, func(e *Envelope) {
 		found = true
 	})
 	dispatcher.Dispatch(&Envelope{
@@ -95,7 +95,7 @@ func TestRoutineDispatcher(t *testing.T) {
 
 func TestDefaultProcessor(t *testing.T) {
 	var okCh = make(chan bool, 1)
-	pr := defaultProcessor{func(p *Envelope) {
+	pr := defaultProcessor{func(e *Envelope) {
 		okCh <- true
 	}}
 
