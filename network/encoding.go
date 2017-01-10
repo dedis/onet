@@ -92,12 +92,6 @@ func MessageType(msg Message) MessageTypeID {
 	return msgType
 }
 
-// RTypeToMessageTypeID converts a reflect.Type to a MessageTypeID
-func RTypeToMessageTypeID(msg reflect.Type) MessageTypeID {
-	url := NamespaceBodyType + msg.String()
-	return MessageTypeID(uuid.NewV5(uuid.NamespaceURL, url))
-}
-
 // DumpTypes is used for debugging - it prints out all known types
 func DumpTypes() {
 	for t, m := range registry.types {
@@ -207,39 +201,4 @@ func Unmarshal(buf []byte) (MessageTypeID, Message, error) {
 		return ErrorType, nil, err
 	}
 	return tID, ptrVal.Interface(), nil
-}
-
-// MarshalBinary returns the bytes representation of the envelope's message and
-// message type.
-func (env *Envelope) MarshalBinary() ([]byte, error) {
-	return Marshal(env.Msg)
-}
-
-// UnmarshalBinary will decode the incoming bytes
-// It uses protobuf for decoding (using the constructors in the Packet).
-func (env *Envelope) UnmarshalBinary(buf []byte) error {
-	t, msg, err := Unmarshal(buf)
-	if err != nil {
-		return err
-	}
-	env.MsgType = t
-	env.Msg = msg
-	return nil
-}
-
-// newEnvelope takes a Body and then constructs a
-// Message from it. Error if the type is unknown
-func newEnvelope(msg Message) (*Envelope, error) {
-	val := reflect.ValueOf(msg)
-	if val.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("Expected a pointer to the message")
-	}
-	ty := MessageType(msg)
-	if ty == ErrorType {
-		return nil, fmt.Errorf("Packet to send is not known. Please register packet: %s",
-			reflect.TypeOf(msg).String())
-	}
-	return &Envelope{
-		MsgType: ty,
-		Msg:     msg}, nil
 }

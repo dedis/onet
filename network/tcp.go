@@ -75,23 +75,23 @@ func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 // It returns the Envelope containing the message,
 // or EmptyEnvelope and an error if something wrong happened.
 func (c *TCPConn) Receive() (env *Envelope, e error) {
-	/*defer func() {*/
-	//if err := recover(); err != nil {
-	//e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
-	//env = nil
-	//}
-	//}()
+	defer func() {
+		if err := recover(); err != nil {
+			e = fmt.Errorf("Error Received message: %v\n%s", err, log.Stack())
+			env = nil
+		}
+	}()
 
 	buff, err := c.receiveRaw()
 	if err != nil {
 		return nil, err
 	}
-	env = new(Envelope)
-	err = env.UnmarshalBinary(buff)
-	if err != nil {
-		return nil, fmt.Errorf("Error unmarshaling message type %s: %s", env.MsgType.String(), err.Error())
-	}
-	return env, nil
+
+	id, body, err := Unmarshal(buff)
+	return &Envelope{
+		MsgType: id,
+		Msg:     body,
+	}, err
 }
 
 // receiveRaw reads the size of the message, then the
@@ -139,13 +139,8 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 func (c *TCPConn) Send(msg Message) error {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
-	env, err := newEnvelope(msg)
-	if err != nil {
-		return fmt.Errorf("Error converting packet: %v", err)
-	}
-	log.Lvlf5("Message SEND => %+v", env)
-	var b []byte
-	b, err = env.MarshalBinary()
+
+	b, err := Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("Error marshaling  message: %s", err.Error())
 	}
