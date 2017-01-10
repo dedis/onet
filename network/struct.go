@@ -58,7 +58,7 @@ type Envelope struct {
 	// ServerIdentity of the others.
 	ServerIdentity *ServerIdentity
 	// What kind of msg do we have
-	MsgType MessageTypeID
+	MsgType MessageID
 	// A *pointer* to the underlying message
 	Msg Message
 	// which constructors are used
@@ -93,7 +93,7 @@ func (si *ServerIdentity) String() string {
 }
 
 // ServerIdentityType can be used to recognise an ServerIdentity-message
-var ServerIdentityType = RegisterMessage(ServerIdentity{})
+var ServerIdentityType MessageID = 1
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
@@ -188,4 +188,8 @@ func (c *counterSafe) updateTx(delta uint64) {
 	c.Lock()
 	defer c.Unlock()
 	c.tx += delta
+}
+
+func init() {
+	RegisterMessage(ServerIdentityType, ServerIdentity{})
 }

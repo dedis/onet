@@ -22,11 +22,11 @@ type Dispatcher interface {
 	// **NOTE** In the current version, if a subsequent call to RegisterProcessor
 	// happens for the same msgType, the latest Processor will be used; there
 	// is no *copy* or *duplication* of messages.
-	RegisterProcessor(p Processor, msgType ...MessageTypeID)
+	RegisterProcessor(p Processor, msgType ...MessageID)
 	// RegisterProcessorFunc enables to register directly a function that will
 	// be called for each message of type msgType. It's a shorter way of
 	// registering a Processor.
-	RegisterProcessorFunc(MessageTypeID, func(*Envelope))
+	RegisterProcessorFunc(MessageID, func(*Envelope))
 	// Dispatch will find the right processor to dispatch the packet to. The id
 	// is the identity of the author / sender of the packet.
 	// It can be called for example by the network layer.
@@ -49,18 +49,18 @@ type Processor interface {
 // It can be re-used for more complex dispatchers.
 type BlockingDispatcher struct {
 	sync.Mutex
-	procs map[MessageTypeID]Processor
+	procs map[MessageID]Processor
 }
 
 // NewBlockingDispatcher will return a new BlockingDispatcher.
 func NewBlockingDispatcher() *BlockingDispatcher {
 	return &BlockingDispatcher{
-		procs: make(map[MessageTypeID]Processor),
+		procs: make(map[MessageID]Processor),
 	}
 }
 
 // RegisterProcessor saves the given processor in the dispatcher.
-func (d *BlockingDispatcher) RegisterProcessor(p Processor, msgType ...MessageTypeID) {
+func (d *BlockingDispatcher) RegisterProcessor(p Processor, msgType ...MessageID) {
 	d.Lock()
 	defer d.Unlock()
 	for _, t := range msgType {
@@ -70,7 +70,7 @@ func (d *BlockingDispatcher) RegisterProcessor(p Processor, msgType ...MessageTy
 
 // RegisterProcessorFunc takes a func, creates a Processor struct around it and
 // registers it to the dispatcher.
-func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageTypeID, fn func(*Envelope)) {
+func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageID, fn func(*Envelope)) {
 	p := &defaultProcessor{
 		fn: fn,
 	}

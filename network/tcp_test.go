@@ -16,9 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var statusMsgID MessageID = 56
+var SimpleMessageType MessageID = 55
+
 func init() {
-	RegisterMessage(BigMsg{})
-	SimpleMessageType = RegisterMessage(SimpleMessage{})
+	RegisterMessage(54, BigMsg{})
+	RegisterMessage(SimpleMessageType, SimpleMessage{})
+	RegisterMessage(statusMsgID, statusMessage{})
 }
 
 type BigMsg struct {
@@ -487,8 +491,6 @@ type SimpleMessage struct {
 	I int
 }
 
-var SimpleMessageType MessageTypeID
-
 type simpleMessageProc struct {
 	t     *testing.T
 	relay chan SimpleMessage
@@ -513,8 +515,6 @@ type statusMessage struct {
 	Ok  bool
 	Val int
 }
-
-var statusMsgID = RegisterMessage(statusMessage{})
 
 type simpleProcessor struct {
 	relay chan statusMessage

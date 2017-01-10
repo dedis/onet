@@ -17,7 +17,7 @@ const testServiceName = "testService"
 func init() {
 	RegisterNewService(testServiceName, newTestService)
 	ServiceFactory.ServiceID(testServiceName)
-	network.RegisterMessage(&testMsg{})
+	network.RegisterMessage(testMsgID, &testMsg{})
 }
 
 func TestProcessor_AddMessage(t *testing.T) {
@@ -29,7 +29,7 @@ func TestProcessor_AddMessage(t *testing.T) {
 		t.Fatal("Should have registered one function")
 	}
 	mt := network.MessageType(&testMsg{})
-	if mt == network.ErrorType {
+	if mt == network.ErrorID {
 		t.Fatal("Didn't register message-type correctly")
 	}
 	var wrongFunctions = []interface{}{
@@ -94,6 +94,8 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 		t.Fatal("Didn't send 12")
 	}
 }
+
+var testMsgID network.MessageID = 50
 
 type testMsg struct {
 	I int

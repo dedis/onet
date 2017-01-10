@@ -114,8 +114,8 @@ func (op *overlayProc) Process(env *network.Envelope) {
 	}
 }
 
-func (op *overlayProc) Types() []network.MessageTypeID {
-	return []network.MessageTypeID{SendRosterMsgID, TreeMarshalTypeID}
+func (op *overlayProc) Types() []network.MessageID {
+	return []network.MessageID{SendRosterMsgID, TreeMarshalTypeID}
 }
 
 // Test propagation of roster - both known and unknown

@@ -13,9 +13,11 @@ import (
 )
 
 var testProto = "test"
+var SimpleMessageID network.MessageID = 51
 
 func init() {
-	network.RegisterMessage(SimpleMessage{})
+	network.RegisterMessage(SimpleMessageID, SimpleMessage{})
+	network.RegisterMessage(OuterPacketType, OuterPacket{})
 }
 
 // ProtocolTest is the most simple protocol to be implemented, ignoring
@@ -266,7 +268,7 @@ type OuterPacket struct {
 	Inner *SimpleMessage
 }
 
-var OuterPacketType = network.RegisterMessage(OuterPacket{})
+var OuterPacketType network.MessageID = 53
 
 type TestMessageProxy struct{}
 
@@ -310,7 +312,7 @@ func (t *TestMessageProxy) Unwrap(msg interface{}) (interface{}, *OverlayMsg, er
 	return real.Inner, real.Info, nil
 }
 
-func (t *TestMessageProxy) PacketType() network.MessageTypeID {
+func (t *TestMessageProxy) PacketType() network.MessageID {
 	return OuterPacketType
 }
 

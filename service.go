@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	network.RegisterMessage(GenericConfig{})
+	network.RegisterMessage(GenericConfigID, GenericConfig{})
 }
 
 // Service is a generic interface to define any type of services.
@@ -66,6 +66,8 @@ type NewServiceFunc func(c *Context, path string) Service
 type GenericConfig struct {
 	Data []byte
 }
+
+var GenericConfigID network.MessageID = 17
 
 // A serviceFactory is used to register a NewServiceFunc
 type serviceFactory struct {
@@ -259,14 +261,14 @@ func (s *serviceManager) Process(env *network.Envelope) {
 // This behavior with go routine is fine for the moment but for better
 // performance / memory / resilience, it may be changed to a real queuing
 // system later.
-func (s *serviceManager) RegisterProcessor(p network.Processor, msgType network.MessageTypeID) {
+func (s *serviceManager) RegisterProcessor(p network.Processor, msgType network.MessageID) {
 	// delegate message to host so the host will pass the message to ourself
 	s.conode.RegisterProcessor(s, msgType)
 	// handle the message ourselves (will be launched in a go routine)
 	s.Dispatcher.RegisterProcessor(p, msgType)
 }
 
-func (s *serviceManager) RegisterProcessorFunc(msgType network.MessageTypeID, fn func(*network.Envelope)) {
+func (s *serviceManager) RegisterProcessorFunc(msgType network.MessageID, fn func(*network.Envelope)) {
 	// delegate message to host so the host will pass the message to ourself
 	s.conode.RegisterProcessor(s, msgType)
 	// handle the message ourselves (will be launched in a go routine)

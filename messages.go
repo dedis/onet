@@ -3,19 +3,20 @@ package onet
 import (
 	"sync"
 
+	"github.com/dedis/crypto/abstract"
 	"github.com/dedis/onet/network"
 	"github.com/satori/go.uuid"
 )
 
 // ProtocolMsgID is to be embedded in every message that is made for a
 // ID of ProtocolMsg message as registered in network
-var ProtocolMsgID = network.RegisterMessage(ProtocolMsg{})
+var ProtocolMsgID network.MessageID = 10
 
 // RequestTreeMsgID of RequestTree message as registered in network
-var RequestTreeMsgID = network.RegisterMessage(RequestTree{})
+var RequestTreeMsgID network.MessageID = 11
 
 // RequestRosterMsgID of RequestRoster message as registered in network
-var RequestRosterMsgID = network.RegisterMessage(RequestRoster{})
+var RequestRosterMsgID network.MessageID = 12
 
 // SendTreeMsgID of TreeMarshal message as registered in network
 var SendTreeMsgID = TreeMarshalTypeID
@@ -24,7 +25,30 @@ var SendTreeMsgID = TreeMarshalTypeID
 var SendRosterMsgID = RosterTypeID
 
 // ConfigMsgID of the generic config message
-var ConfigMsgID = network.RegisterMessage(ConfigMsg{})
+var ConfigMsgID network.MessageID = 15
+
+// RosterTypeID of Roster message as registered in network
+var RosterTypeID network.MessageID = 16
+
+// An Roster is a list of ServerIdentity we choose to run  some tree on it ( and
+// therefor some protocols)
+type Roster struct {
+	ID RosterID
+	// TODO make that a map so search is O(1)
+	// List is the List of actual "entities"
+	// Be careful if you access it in go-routines (not safe by default)
+	List []*network.ServerIdentity
+	// Aggregate public key
+	Aggregate abstract.Point
+}
+
+func init() {
+	network.RegisterMessage(ProtocolMsgID, ProtocolMsg{})
+	network.RegisterMessage(RequestTreeMsgID, RequestTree{})
+	network.RegisterMessage(RequestRosterMsgID, RequestRoster{})
+	network.RegisterMessage(ConfigMsgID, ConfigMsg{})
+	network.RegisterMessage(RosterTypeID, Roster{})
+}
 
 // ProtocolMsg is to be embedded in every message that is made for a
 // ProtocolInstance
@@ -36,7 +60,7 @@ type ProtocolMsg struct {
 	// NOTE: this is taken from network.NetworkMessage
 	ServerIdentity *network.ServerIdentity
 	// MsgType of the underlying data
-	MsgType network.MessageTypeID
+	MsgType network.MessageID
 	// The interface to the actual Data
 	Msg network.Message
 	// The actual data as binary blob

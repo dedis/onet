@@ -2,49 +2,66 @@ package network
 
 import (
 	"crypto/rand"
+	"reflect"
 	"testing"
 
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var idS MessageID = 52
 
 type TestRegisterS struct {
 	I int
 }
 
-func TestRegister(t *testing.T) {
-	if MessageType(&TestRegisterS{}) != ErrorType {
-		t.Fatal("TestRegister should not yet be there")
-	}
-
-	trType := RegisterMessage(&TestRegisterS{})
-	if uuid.Equal(uuid.UUID(trType), uuid.Nil) {
-		t.Fatal("Couldn't register TestRegister-struct")
-	}
-
-	if MessageType(&TestRegisterS{}) != trType {
-		t.Fatal("TestRegister is different now")
-	}
-	if MessageType(TestRegisterS{}) != trType {
-		t.Fatal("TestRegister is different now")
-	}
+type TestRegisterR struct {
+	I int
 }
 
-func TestUnmarshalRegister(t *testing.T) {
-	trType := RegisterMessage(&TestRegisterS{})
+// returns true if defer happened or false otherwise
+func catchDefer(f func()) (b bool) {
+	defer func() {
+		if e := recover(); e != nil {
+			b = true
+		}
+	}()
+	f()
+	return
+}
+
+func TestRegister(t *testing.T) {
+	var ty = reflect.TypeOf(TestRegisterS{})
+	if i := registry.msgId(ty); i != ErrorID {
+		t.Error("TestRegister should not yet be there")
+	}
+
+	RegisterMessage(idS, &TestRegisterS{})
+	assert.Equal(t, registry.msgType(idS), ty)
+	assert.Equal(t, registry.msgId(ty), idS)
+
+	if tt := registry.msgType(idS); tt != ty {
+		t.Error("TestRegister is different now")
+	}
+
+	fn := func() { RegisterMessage(idS, &TestRegisterR{}) }
+	assert.True(t, catchDefer(fn))
+}
+
+func TestRegisterMarshalling(t *testing.T) {
+	RegisterMessage(idS, &TestRegisterS{})
 	buff, err := Marshal(&TestRegisterS{10})
 	require.Nil(t, err)
 
 	ty, b, err := Unmarshal(buff)
 	assert.Nil(t, err)
-	assert.Equal(t, trType, ty)
+	assert.Equal(t, idS, ty)
 	assert.Equal(t, 10, b.(*TestRegisterS).I)
 
-	var randType [16]byte
+	var randType [2]byte
 	rand.Read(randType[:])
-	buff = append(randType[:], buff[16:]...)
+	buff = append(randType[:], buff[2:]...)
 	ty, b, err = Unmarshal(buff)
 	assert.NotNil(t, err)
-	assert.Equal(t, ErrorType, ty)
+	assert.Equal(t, ErrorID, ty)
 }

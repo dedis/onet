@@ -24,8 +24,8 @@ import (
 // It contains the PeerId of the parent and the sub tree of the children.
 
 func init() {
-	network.RegisterMessage(Tree{})
-	network.RegisterMessage(tbmStruct{})
+	network.RegisterMessage(TreeMarshalTypeID, TreeMarshal{})
+	network.RegisterMessage(tbmStructID, tbmStruct{})
 }
 
 // Tree is a topology to be used by any network layer/host layer
@@ -100,6 +100,8 @@ func (t *Tree) Marshal() ([]byte, error) {
 	buf, err := network.Marshal(t.MakeTreeMarshal())
 	return buf, err
 }
+
+var tbmStructID network.MessageID = 20
 
 type tbmStruct struct {
 	T  []byte
@@ -283,7 +285,7 @@ func (tm *TreeMarshal) String() string {
 }
 
 // TreeMarshalTypeID of TreeMarshal message as registered in network
-var TreeMarshalTypeID = network.RegisterMessage(TreeMarshal{})
+var TreeMarshalTypeID network.MessageID = 19
 
 // TreeMarshalCopyTree takes a TreeNode and returns a corresponding
 // TreeMarshal
@@ -328,18 +330,6 @@ func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, el *Roster) *TreeNode 
 	return tn
 }
 
-// An Roster is a list of ServerIdentity we choose to run  some tree on it ( and
-// therefor some protocols)
-type Roster struct {
-	ID RosterID
-	// TODO make that a map so search is O(1)
-	// List is the List of actual "entities"
-	// Be careful if you access it in go-routines (not safe by default)
-	List []*network.ServerIdentity
-	// Aggregate public key
-	Aggregate abstract.Point
-}
-
 // RosterID uniquely identifies an Roster
 type RosterID uuid.UUID
 
@@ -348,9 +338,6 @@ type RosterID uuid.UUID
 func (elId RosterID) String() string {
 	return uuid.UUID(elId).String()
 }
-
-// RosterTypeID of Roster message as registered in network
-var RosterTypeID = network.RegisterMessage(Roster{})
 
 // NewRoster creates a new ServerIdentity from a list of entities. It also
 // adds a UUID which is randomly chosen.
@@ -563,7 +550,7 @@ func (t *TreeNode) Name() string {
 	return t.ServerIdentity.Address.String()
 }
 
-var _ = network.RegisterMessage(TreeNode{})
+//var _ = network.RegisterMessage(TreeNode{})
 
 // NewTreeNode creates a new TreeNode with the proper Id
 func NewTreeNode(entityIdx int, ni *network.ServerIdentity) *TreeNode {

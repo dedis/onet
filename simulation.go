@@ -16,6 +16,12 @@ import (
 	"github.com/dedis/onet/network"
 )
 
+var simulationConfigFileID network.MessageID = 18
+
+func init() {
+	network.RegisterMessage(simulationConfigFileID, SimulationConfigFile{})
+}
+
 type simulationCreate func(string) (Simulation, error)
 
 var simulationRegistered map[string]simulationCreate
@@ -77,7 +83,6 @@ type SimulationConfigFile struct {
 // LoadSimulationConfig gets all configuration from dir + SimulationFileName and instantiates the
 // corresponding host 'ha'.
 func LoadSimulationConfig(dir, ha string) ([]*SimulationConfig, error) {
-	network.RegisterMessage(SimulationConfigFile{})
 	bin, err := ioutil.ReadFile(dir + "/" + SimulationFileName)
 	if err != nil {
 		return nil, err
@@ -134,7 +139,6 @@ func LoadSimulationConfig(dir, ha string) ([]*SimulationConfig, error) {
 // Save takes everything in the SimulationConfig structure and saves it to
 // dir + SimulationFileName
 func (sc *SimulationConfig) Save(dir string) error {
-	network.RegisterMessage(&SimulationConfigFile{})
 	scf := &SimulationConfigFile{
 		TreeMarshal: sc.Tree.MakeTreeMarshal(),
 		Roster:      sc.Roster,

@@ -788,8 +788,8 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 }
 
 // Unwrap implements the MessageProxy interface for the Overlay.
-func (d *defaultProtoIO) PacketType() network.MessageTypeID {
-	return network.MessageTypeID([16]byte{})
+func (d *defaultProtoIO) PacketType() network.MessageID {
+	panic("should never be called as I'm the default protoIO")
 }
 
 // Name implements the MessageProxy interface. It returns the value "default".

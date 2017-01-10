@@ -13,8 +13,12 @@ const (
 	ProtocolHandlersName = "ProtocolHandlers"
 	ProtocolBlockingName = "ProtocolBlocking"
 )
+const NodeTestMsgID network.MessageID = 60
+const NodeTestAggMsgID network.MessageID = 61
 
 func init() {
+	network.RegisterMessage(NodeTestMsgID, NodeTestMsg{})
+	network.RegisterMessage(NodeTestAggMsgID, NodeTestAggMsg{})
 	GlobalProtocolRegister(ProtocolHandlersName, NewProtocolHandlers)
 	GlobalProtocolRegister("ProtocolBlocking", NewProtocolBlocking)
 	GlobalProtocolRegister(ProtocolChannelsName, NewProtocolChannels)
@@ -66,7 +70,7 @@ func TestNodeChannelCreate(t *testing.T) {
 	}
 	err = tni.DispatchChannel([]*ProtocolMsg{&ProtocolMsg{
 		Msg:     NodeTestMsg{3},
-		MsgType: network.RegisterMessage(NodeTestMsg{}),
+		MsgType: network.MessageType(NodeTestMsg{}),
 		From: &Token{
 			TreeID:     tree.ID,
 			TreeNodeID: tree.Root.ID,
@@ -101,7 +105,7 @@ func TestNodeChannel(t *testing.T) {
 	}
 	err = tni.DispatchChannel([]*ProtocolMsg{&ProtocolMsg{
 		Msg:     NodeTestMsg{3},
-		MsgType: network.RegisterMessage(NodeTestMsg{}),
+		MsgType: network.MessageType(NodeTestMsg{}),
 		From: &Token{
 			TreeID:     tree.ID,
 			TreeNodeID: tree.Root.ID,
@@ -212,7 +216,7 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 }
 
 func TestTreeNodeFlags(t *testing.T) {
-	testType := network.MessageTypeID(uuid.Nil)
+	testType := network.MessageType(uuid.Nil)
 	local := NewLocalTest()
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()

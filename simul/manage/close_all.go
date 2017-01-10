@@ -17,9 +17,14 @@ the `Close`-message will shut down all network communications.
 The protocol waits for the `Close`-message to arrive at the root.
 */
 
+const (
+	PrepareCloseID network.MessageID = 80 + iota
+	CloseID
+)
+
 func init() {
-	network.RegisterMessage(PrepareClose{})
-	network.RegisterMessage(Close{})
+	network.RegisterMessage(PrepareCloseID, PrepareClose{})
+	network.RegisterMessage(CloseID, Close{})
 	onet.GlobalProtocolRegister("CloseAll", NewCloseAll)
 }
 

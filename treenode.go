@@ -26,16 +26,16 @@ type TreeNodeInstance struct {
 	mtx sync.Mutex
 
 	// channels holds all channels available for the different message-types
-	channels map[network.MessageTypeID]interface{}
+	channels map[network.MessageID]interface{}
 	// registered handler-functions for that protocol
-	handlers map[network.MessageTypeID]interface{}
+	handlers map[network.MessageID]interface{}
 	// flags for messages - only one channel/handler possible
-	messageTypeFlags map[network.MessageTypeID]uint32
+	messageTypeFlags map[network.MessageID]uint32
 	// The protocolInstance belonging to that node
 	instance ProtocolInstance
 	// aggregate messages in order to dispatch them at once in the protocol
 	// instance
-	msgQueue map[network.MessageTypeID][]*ProtocolMsg
+	msgQueue map[network.MessageID][]*ProtocolMsg
 	// done callback
 	onDoneCallback func() bool
 	// queue holding msgs
@@ -69,10 +69,10 @@ type MsgHandler func([]*interface{})
 func newTreeNodeInstance(o *Overlay, tok *Token, tn *TreeNode, io MessageProxy) *TreeNodeInstance {
 	n := &TreeNodeInstance{overlay: o,
 		token:                tok,
-		channels:             make(map[network.MessageTypeID]interface{}),
-		handlers:             make(map[network.MessageTypeID]interface{}),
-		messageTypeFlags:     make(map[network.MessageTypeID]uint32),
-		msgQueue:             make(map[network.MessageTypeID][]*ProtocolMsg),
+		channels:             make(map[network.MessageID]interface{}),
+		handlers:             make(map[network.MessageID]interface{}),
+		messageTypeFlags:     make(map[network.MessageID]uint32),
+		msgQueue:             make(map[network.MessageID][]*ProtocolMsg),
 		treeNode:             tn,
 		msgDispatchQueue:     make([]*ProtocolMsg, 0, 1),
 		msgDispatchQueueWait: make(chan bool, 1),
@@ -155,7 +155,6 @@ func (n *TreeNodeInstance) Suite() abstract.Suite {
 // elements: a TreeNode and a message. It will send every message that are the
 // same type to this channel.
 // This function handles also
-// - registration of the message-type
 // - aggregation or not of messages: if you give a channel of slices, the
 //   messages will be aggregated, else they will come one-by-one
 func (n *TreeNodeInstance) RegisterChannel(c interface{}) error {
@@ -188,7 +187,10 @@ func (n *TreeNodeInstance) RegisterChannel(c interface{}) error {
 	}
 	// Automatic registration of the message to the network library.
 	m := reflect.New(cr.Elem().Field(1).Type)
-	typ := network.RegisterMessage(m.Interface())
+	typ := network.MessageType(m.Interface())
+	if typ == network.ErrorID {
+		return fmt.Errorf("message %s not registered to the network", m.Type().String())
+	}
 	n.channels[typ] = c
 	//typ := network.RTypeToUUID(cr.Elem().Field(1).Type) n.channels[typ] = c
 	n.messageTypeFlags[typ] = flags
@@ -211,7 +213,6 @@ func (n *TreeNodeInstance) RegisterChannels(channels ...interface{}) error {
 // elements: a TreeNode and a message. It will send every message that are the
 // same type to this channel.
 // This function handles also
-// - registration of the message-type
 // - aggregation or not of messages: if you give a channel of slices, the
 //   messages will be aggregated, else they will come one-by-one
 func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
@@ -243,7 +244,10 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 	}
 	// Automatic registration of the message to the network library.
 	ptr := reflect.New(ci.Field(1).Type)
-	typ := network.RegisterMessage(ptr.Interface())
+	typ := network.MessageType(ptr.Interface())
+	if typ == network.ErrorID {
+		return fmt.Errorf("message %s not registered to the network stack", ptr.Type().String())
+	}
 	n.handlers[typ] = c
 	n.messageTypeFlags[typ] = flags
 	log.Lvl3("Registered handler", typ, "with flags", flags)
@@ -352,7 +356,7 @@ func (n *TreeNodeInstance) DispatchChannel(msgSlice []*ProtocolMsg) error {
 		}
 		// Debugging some rare error found in travis
 		switch {
-		case mt == network.ErrorType:
+		case mt == network.ErrorID:
 			log.Print("https://github.com/dedis/onet/issues/51",
 				log.Stack())
 		case n.channels[mt] == nil:
@@ -438,17 +442,17 @@ func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
 }
 
 // SetFlag makes sure a given flag is set
-func (n *TreeNodeInstance) SetFlag(mt network.MessageTypeID, f uint32) {
+func (n *TreeNodeInstance) SetFlag(mt network.MessageID, f uint32) {
 	n.messageTypeFlags[mt] |= f
 }
 
 // ClearFlag makes sure a given flag is removed
-func (n *TreeNodeInstance) ClearFlag(mt network.MessageTypeID, f uint32) {
+func (n *TreeNodeInstance) ClearFlag(mt network.MessageID, f uint32) {
 	n.messageTypeFlags[mt] &^= f
 }
 
 // HasFlag returns true if the given flag is set
-func (n *TreeNodeInstance) HasFlag(mt network.MessageTypeID, f uint32) bool {
+func (n *TreeNodeInstance) HasFlag(mt network.MessageID, f uint32) bool {
 	return n.messageTypeFlags[mt]&f != 0
 }
 
@@ -456,7 +460,7 @@ func (n *TreeNodeInstance) HasFlag(mt network.MessageTypeID, f uint32) bool {
 // instances will get all its children messages at once.
 // node is the node the host is representing in this Tree, and onetMsg is the
 // message being analyzed.
-func (n *TreeNodeInstance) aggregate(onetMsg *ProtocolMsg) (network.MessageTypeID, []*ProtocolMsg, bool) {
+func (n *TreeNodeInstance) aggregate(onetMsg *ProtocolMsg) (network.MessageID, []*ProtocolMsg, bool) {
 	mt := onetMsg.MsgType
 	fromParent := !n.IsRoot() && onetMsg.From.TreeNodeID.Equal(n.Parent().ID)
 	if fromParent || !n.HasFlag(mt, AggregateMessages) {

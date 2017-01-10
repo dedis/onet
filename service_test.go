@@ -19,11 +19,20 @@ const dummyService2Name = "dummyService2"
 const ismServiceName = "ismService"
 const backForthServiceName = "backForth"
 
+const (
+	SimpleMessageForthID network.MessageID = 54 + iota
+	SimpleMessageBackID
+	SimpleRequestID
+	dummyMsgType
+	SimpleResponseType
+)
+
 func init() {
-	network.RegisterMessage(SimpleMessageForth{})
-	network.RegisterMessage(SimpleMessageBack{})
-	network.RegisterMessage(SimpleRequest{})
-	dummyMsgType = network.RegisterMessage(DummyMsg{})
+	network.RegisterMessage(SimpleMessageForthID, SimpleMessageForth{})
+	network.RegisterMessage(SimpleMessageBackID, SimpleMessageBack{})
+	network.RegisterMessage(SimpleRequestID, SimpleRequest{})
+	network.RegisterMessage(dummyMsgType, DummyMsg{})
+	network.RegisterMessage(SimpleResponseType, SimpleResponse{})
 	RegisterNewService(ismServiceName, newServiceMessages)
 	RegisterNewService(dummyService2Name, newDummyService2)
 	GlobalProtocolRegister("DummyProtocol2,", newDummyProtocol2)
@@ -428,8 +437,6 @@ type SimpleResponse struct {
 	Val int
 }
 
-var SimpleResponseType = network.RegisterMessage(SimpleResponse{})
-
 type simpleService struct {
 	ctx *Context
 }
@@ -483,8 +490,6 @@ type DummyConfig struct {
 type DummyMsg struct {
 	A int
 }
-
-var dummyMsgType network.MessageTypeID
 
 func newDummyProtocol(tni *TreeNodeInstance, conf DummyConfig, link chan bool) *DummyProtocol {
 	return &DummyProtocol{tni, link, conf}
