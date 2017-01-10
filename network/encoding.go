@@ -93,8 +93,10 @@ func MessageType(msg Message) MessageTypeID {
 }
 
 // Marshal marshals a struct with its respective type into a
-// slice of bytes. That slice of bytes can be then decoded with
-// Unmarshal. msg must be a pointer to the message.
+// slice of bytes. It firsts marshals the type as a uuid,i.e.
+// a 16 byte length slice,then the struct encoded by protobuf.
+// That slice of bytes can be then decoded with Unmarshal.
+// msg must be a pointer to the message.
 func Marshal(msg Message) ([]byte, error) {
 	var msgType MessageTypeID
 	if msgType = MessageType(msg); msgType == ErrorType {
