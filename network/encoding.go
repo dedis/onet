@@ -92,8 +92,8 @@ func MessageType(msg Message) MessageTypeID {
 	return msgType
 }
 
-// Marshal marshals a struct with its respective type into a
-// slice of bytes. It firsts marshals the type as a uuid,i.e.
+// Marshal outputs the type and the byte representation of a structure.
+// It firsts marshals the type as a uuid,i.e.
 // a 16 byte length slice,then the struct encoded by protobuf.
 // That slice of bytes can be then decoded with Unmarshal.
 // msg must be a pointer to the message.
@@ -173,6 +173,10 @@ func (env *Envelope) SetError(err error) {
 	env.err = err
 }
 
+var registry = newTypeRegistry()
+
+var globalOrder = binary.BigEndian
+
 type typeRegistry struct {
 	types map[MessageTypeID]reflect.Type
 	lock  sync.Mutex
@@ -201,6 +205,3 @@ func (tr *typeRegistry) put(mid MessageTypeID, typ reflect.Type) {
 	tr.types[mid] = typ
 }
 
-var registry = newTypeRegistry()
-
-var globalOrder = binary.BigEndian
