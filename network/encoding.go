@@ -31,6 +31,7 @@ type MessageID uint32
 
 const maxID = (1 << 32) - 1
 
+// HashID is the hash function used to generate the MessageID out of a string
 var HashID = sha256.New
 
 // ReservedIDs represent the reserved space for the network library. <0...10>.
@@ -88,6 +89,7 @@ func MessageType(msg Message) MessageID {
 	return registry.msgID(msgType)
 }
 
+// ID returns the MessageID identified by this name
 func ID(name string) MessageID {
 	h := HashID()
 	h.Write([]byte(name))

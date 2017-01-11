@@ -93,6 +93,10 @@ func (si *ServerIdentity) String() string {
 	return si.Address.String()
 }
 
+// GlobalNamespace is the basic namespace for all messages types handled by the
+// network. Usually, you want to use the same namespace within your application
+// and registering message like
+// `RegisterMessage(GlobalNamespace + "mystruct",MyStruct{})`
 const GlobalNamespace = "ch.epfl.dedis."
 
 // ServerIdentityMessageID can be used to recognise an ServerIdentity-message
