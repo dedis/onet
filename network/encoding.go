@@ -51,9 +51,6 @@ func (mId MessageID) Equal(t MessageID) bool {
 // cothority/packages should be expected to use that.
 const NamespaceURL = "https://dedis.epfl.ch/"
 
-// NamespaceBodyType is the namespace used for PacketTypeID
-const NamespaceBodyType = NamespaceURL + "/protocolType/"
-
 // RegisterMessage registers any struct or ptr and returns the
 // corresponding MessageTypeID. Once a struct is registered, it can be sent and
 // received by the network library.
@@ -65,16 +62,6 @@ func RegisterMessage(id MessageID, msg Message) {
 	t := val.Type()
 	registry.put(id, t)
 }
-
-/*func computeMessageType(msg Message) MessageTypeID {*/
-//val := reflect.ValueOf(msg)
-//if val.Kind() == reflect.Ptr {
-//val = val.Elem()
-//}
-//url := NamespaceBodyType + val.Type().String()
-//u := uuid.NewV5(uuid.NamespaceURL, url)
-//return MessageTypeID(u)
-//}
 
 // MessageType returns a Message's MessageTypeID if registered or ErrorID if
 // the message has not been registered with RegisterMessage().
@@ -90,9 +77,8 @@ func MessageType(msg Message) MessageID {
 // msg must be a pointer to the message.
 func Marshal(msg Message) ([]byte, error) {
 	var msgID MessageID
-	var msgType = reflect.TypeOf(msg)
 
-	if msgID = registry.msgId(msgType); msgID == ErrorID {
+	if msgID = MessageType(msg); msgID == ErrorID {
 		return nil, fmt.Errorf("message %s not registered", reflect.TypeOf(msg))
 	}
 	b := new(bytes.Buffer)
@@ -152,18 +138,6 @@ func DefaultConstructors(suite abstract.Suite) protobuf.Constructors {
 	constructors[reflect.TypeOf(&point).Elem()] = func() interface{} { return suite.Point() }
 	constructors[reflect.TypeOf(&secret).Elem()] = func() interface{} { return suite.Scalar() }
 	return constructors
-}
-
-// Error returns the error that has been encountered during the unmarshaling of
-// this message.
-func (env *Envelope) Error() error {
-	return env.err
-}
-
-// SetError is workaround so we can set the error after creation of the
-// application message
-func (env *Envelope) SetError(err error) {
-	env.err = err
 }
 
 type typeRegistry struct {
