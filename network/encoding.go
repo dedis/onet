@@ -169,9 +169,9 @@ var globalOrder = binary.BigEndian
 // https://github.com/golang/go/commit/feb2a5d6103dad76b6374c5f346e33d55612cb2a
 var EmptyEnvelope = Envelope{MsgType: MessageTypeID(uuid.Nil)}
 
-// Marshal marshals a struct with its respective type into a
-// slice of bytes. That slice of bytes can be then decoded with
-// Unmarshal. msg must be a pointer to the message.
+// Marshal outputs the type and the byte representation of a struct.
+// That slice of bytes can be then decoded with Unmarshal.
+// msg must be a pointer to the message.
 func Marshal(msg Message) ([]byte, error) {
 	var msgType MessageTypeID
 	if msgType = MessageType(msg); msgType == ErrorType {
