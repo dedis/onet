@@ -13,9 +13,11 @@ import (
 )
 
 var testProto = "test"
+var SimpleMessageID network.MessageID
 
 func init() {
-	network.RegisterMessage(SimpleMessage{})
+	SimpleMessageID = network.RegisterMessage("simple", SimpleMessage{})
+	OuterPacketType = network.RegisterMessage("outer", OuterPacket{})
 }
 
 // ProtocolTest is the most simple protocol to be implemented, ignoring
@@ -266,7 +268,7 @@ type OuterPacket struct {
 	Inner *SimpleMessage
 }
 
-var OuterPacketType = network.RegisterMessage(OuterPacket{})
+var OuterPacketType network.MessageID = 53
 
 type TestMessageProxy struct{}
 
@@ -301,7 +303,7 @@ func (t *TestMessageProxy) Unwrap(msg interface{}) (interface{}, *OverlayMsg, er
 		return nil, nil, errors.New("message nil")
 	}
 
-	real, ok := msg.(OuterPacket)
+	real, ok := msg.(*OuterPacket)
 	if !ok {
 		chanProtoIOFeedback <- "wrong type of message in unwrap"
 		return nil, nil, errors.New("wrong message")
@@ -310,7 +312,7 @@ func (t *TestMessageProxy) Unwrap(msg interface{}) (interface{}, *OverlayMsg, er
 	return real.Inner, real.Info, nil
 }
 
-func (t *TestMessageProxy) PacketType() network.MessageTypeID {
+func (t *TestMessageProxy) PacketType() network.MessageID {
 	return OuterPacketType
 }
 

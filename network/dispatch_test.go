@@ -19,7 +19,11 @@ type basicMessage struct {
 	Value int
 }
 
-var basicMessageType = RegisterMessage(&basicMessage{})
+var basicMessageType MessageID
+
+func init() {
+	basicMessageType = RegisterMessage("basicMessage", &basicMessage{})
+}
 
 func TestBlockingDispatcher(t *testing.T) {
 

@@ -3,28 +3,53 @@ package onet
 import (
 	"sync"
 
+	"github.com/dedis/crypto/abstract"
 	"github.com/dedis/onet/network"
 	"github.com/satori/go.uuid"
 )
 
 // ProtocolMsgID is to be embedded in every message that is made for a
 // ID of ProtocolMsg message as registered in network
-var ProtocolMsgID = network.RegisterMessage(ProtocolMsg{})
+var ProtocolMsgID network.MessageID
 
 // RequestTreeMsgID of RequestTree message as registered in network
-var RequestTreeMsgID = network.RegisterMessage(RequestTree{})
+var RequestTreeMsgID network.MessageID
 
 // RequestRosterMsgID of RequestRoster message as registered in network
-var RequestRosterMsgID = network.RegisterMessage(RequestRoster{})
-
-// SendTreeMsgID of TreeMarshal message as registered in network
-var SendTreeMsgID = TreeMarshalTypeID
+var RequestRosterMsgID network.MessageID
 
 // SendRosterMsgID of Roster message as registered in network
 var SendRosterMsgID = RosterTypeID
 
 // ConfigMsgID of the generic config message
-var ConfigMsgID = network.RegisterMessage(ConfigMsg{})
+var ConfigMsgID network.MessageID
+
+// RosterTypeID of Roster message as registered in network
+var RosterTypeID network.MessageID
+
+// An Roster is a list of ServerIdentity we choose to run  some tree on it ( and
+// therefor some protocols)
+type Roster struct {
+	ID RosterID
+	// TODO make that a map so search is O(1)
+	// List is the List of actual "entities"
+	// Be careful if you access it in go-routines (not safe by default)
+	List []*network.ServerIdentity
+	// Aggregate public key
+	Aggregate abstract.Point
+}
+
+func n(name string) string {
+	return network.GlobalNamespace + "onet." + name
+}
+
+func init() {
+	ProtocolMsgID = network.RegisterMessage(n("protocol"), ProtocolMsg{})
+	RequestTreeMsgID = network.RegisterMessage(n("treerequest"), RequestTree{})
+	RequestRosterMsgID = network.RegisterMessage(n("rosterrequest"), RequestRoster{})
+	ConfigMsgID = network.RegisterMessage(n("config"), ConfigMsg{})
+	RosterTypeID = network.RegisterMessage(n("roster"), Roster{})
+}
 
 // ProtocolMsg is to be embedded in every message that is made for a
 // ProtocolInstance
@@ -36,7 +61,7 @@ type ProtocolMsg struct {
 	// NOTE: this is taken from network.NetworkMessage
 	ServerIdentity *network.ServerIdentity
 	// MsgType of the underlying data
-	MsgType network.MessageTypeID
+	MsgType network.MessageID
 	// The interface to the actual Data
 	Msg network.Message
 	// The actual data as binary blob

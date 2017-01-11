@@ -235,7 +235,7 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 
 		packet.ServerIdentity = remote
 
-		if err := r.Dispatch(&packet); err != nil {
+		if err := r.Dispatch(packet); err != nil {
 			log.Lvl3("Error dispatching:", err)
 		}
 
@@ -334,15 +334,15 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 		return nil, fmt.Errorf("Error while receiving ServerIdentity during negotiation %s", err)
 	}
 	// Check if it is correct
-	if nm.MsgType != ServerIdentityType {
+	if nm.MsgType != ServerIdentityMessageID {
 		return nil, fmt.Errorf("Received wrong type during negotiation %s", nm.MsgType.String())
 	}
 	// Set the ServerIdentity for this connection
-	dst := nm.Msg.(ServerIdentity)
+	dst := nm.Msg.(*ServerIdentity)
 
 	if err != nil {
 		return nil, err
 	}
 	log.Lvl4(r.address, "Identity received from", dst.Address)
-	return &dst, nil
+	return dst, nil
 }

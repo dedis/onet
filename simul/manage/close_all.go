@@ -17,9 +17,19 @@ the `Close`-message will shut down all network communications.
 The protocol waits for the `Close`-message to arrive at the root.
 */
 
+// The IDs of the message used by this protocol.
+var (
+	PrepareCloseID network.MessageID
+	CloseID        network.MessageID
+)
+
+func n(name string) string {
+	return network.GlobalNamespace + "simul.manage" + name
+}
+
 func init() {
-	network.RegisterMessage(PrepareClose{})
-	network.RegisterMessage(Close{})
+	PrepareCloseID = network.RegisterMessage(n("prepare"), PrepareClose{})
+	CloseID = network.RegisterMessage(n("close"), Close{})
 	onet.GlobalProtocolRegister("CloseAll", NewCloseAll)
 }
 

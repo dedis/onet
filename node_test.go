@@ -14,7 +14,12 @@ const (
 	ProtocolBlockingName = "ProtocolBlocking"
 )
 
+var NodeTestMsgID network.MessageID
+var NodeTestAggMsgID network.MessageID
+
 func init() {
+	NodeTestMsgID = network.RegisterMessage("nodetest", NodeTestMsg{})
+	NodeTestAggMsgID = network.RegisterMessage("aggmsg", NodeTestAggMsg{})
 	GlobalProtocolRegister(ProtocolHandlersName, NewProtocolHandlers)
 	GlobalProtocolRegister("ProtocolBlocking", NewProtocolBlocking)
 	GlobalProtocolRegister(ProtocolChannelsName, NewProtocolChannels)
@@ -66,7 +71,7 @@ func TestNodeChannelCreate(t *testing.T) {
 	}
 	err = tni.DispatchChannel([]*ProtocolMsg{&ProtocolMsg{
 		Msg:     NodeTestMsg{3},
-		MsgType: network.RegisterMessage(NodeTestMsg{}),
+		MsgType: network.MessageType(NodeTestMsg{}),
 		From: &Token{
 			TreeID:     tree.ID,
 			TreeNodeID: tree.Root.ID,
@@ -101,7 +106,7 @@ func TestNodeChannel(t *testing.T) {
 	}
 	err = tni.DispatchChannel([]*ProtocolMsg{&ProtocolMsg{
 		Msg:     NodeTestMsg{3},
-		MsgType: network.RegisterMessage(NodeTestMsg{}),
+		MsgType: network.MessageType(NodeTestMsg{}),
 		From: &Token{
 			TreeID:     tree.ID,
 			TreeNodeID: tree.Root.ID,
@@ -140,6 +145,7 @@ func TestNodeNew(t *testing.T) {
 }
 
 func TestTreeNodeProtocolHandlers(t *testing.T) {
+	log.TestOutput(true, 5)
 	local := NewLocalTest()
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()
@@ -212,7 +218,7 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 }
 
 func TestTreeNodeFlags(t *testing.T) {
-	testType := network.MessageTypeID(uuid.Nil)
+	testType := network.MessageType(uuid.Nil)
 	local := NewLocalTest()
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()
@@ -324,6 +330,7 @@ func NewProtocolHandlers(n *TreeNodeInstance) (ProtocolInstance, error) {
 	}
 	if err := p.RegisterHandlers(p.HandleMessageOne,
 		p.HandleMessageAggregate); err != nil {
+		log.Print("THere's an error register handlers...", err)
 		return nil, err
 	}
 	return p, nil
@@ -331,7 +338,9 @@ func NewProtocolHandlers(n *TreeNodeInstance) (ProtocolInstance, error) {
 
 func (p *ProtocolHandlers) Start() error {
 	for _, c := range p.Children() {
+		log.Print("ProtocolHandlers Sending !")
 		err := p.SendTo(c, &NodeTestMsg{12})
+		log.Print("ProtocolHandlers Sent! ", err)
 		if err != nil {
 			log.Error("Error sending to ", c.Name(), ":", err)
 		}
@@ -343,6 +352,7 @@ func (p *ProtocolHandlers) HandleMessageOne(msg struct {
 	*TreeNode
 	NodeTestMsg
 }) error {
+	log.Print("HandleMessageOne called")
 	IncomingHandlers <- p.TreeNodeInstance
 	return nil
 }

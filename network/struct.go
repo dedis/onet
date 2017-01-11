@@ -58,8 +58,8 @@ type Envelope struct {
 	// ServerIdentity of the others.
 	ServerIdentity *ServerIdentity
 	// What kind of msg do we have
-	MsgType MessageTypeID
-	// The underlying message
+	MsgType MessageID
+	// A *pointer* to the underlying message
 	Msg Message
 	// which constructors are used
 	Constructors protobuf.Constructors
@@ -80,7 +80,8 @@ type ServerIdentity struct {
 	Description string
 }
 
-// ServerIdentityID uniquely identifies an ServerIdentity struct
+// ServerIdentityID uniquely identifies an ServerIdentity struct amongst any
+// others ServerIdentity.
 type ServerIdentityID uuid.UUID
 
 // Equal returns true if both ServerIdentityID are equal or false otherwise.
@@ -92,8 +93,14 @@ func (si *ServerIdentity) String() string {
 	return si.Address.String()
 }
 
-// ServerIdentityType can be used to recognise an ServerIdentity-message
-var ServerIdentityType = RegisterMessage(ServerIdentity{})
+// GlobalNamespace is the basic namespace for all messages types handled by the
+// network. Usually, you want to use the same namespace within your application
+// and registering message like
+// `RegisterMessage(GlobalNamespace + "mystruct",MyStruct{})`
+const GlobalNamespace = "ch.epfl.dedis."
+
+// ServerIdentityMessageID can be used to recognise an ServerIdentity-message
+var ServerIdentityMessageID MessageID
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
@@ -188,4 +195,8 @@ func (c *counterSafe) updateTx(delta uint64) {
 	c.Lock()
 	defer c.Unlock()
 	c.tx += delta
+}
+
+func init() {
+	ServerIdentityMessageID = RegisterMessage(GlobalNamespace+"network.serveridentity", ServerIdentity{})
 }

@@ -74,7 +74,7 @@ func (s *spawnProto) Start() error {
 
 type spawnMsg struct {
 	*TreeNode
-	I int
+	I SimpleMessage
 }
 
 // Invalid handler

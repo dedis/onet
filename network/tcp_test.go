@@ -16,9 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var statusMsgID MessageID
+var SimpleMessageType MessageID
+var BigMsgID MessageID
+
 func init() {
-	RegisterMessage(BigMsg{})
-	SimpleMessageType = RegisterMessage(SimpleMessage{})
+	BigMsgID = RegisterMessage("bigMsg", BigMsg{})
+	SimpleMessageType = RegisterMessage("simpleMessage", SimpleMessage{})
+	statusMsgID = RegisterMessage("statusMsg", statusMessage{})
 }
 
 type BigMsg struct {
@@ -140,7 +145,7 @@ func TestTCPConnReceiveRaw(t *testing.T) {
 	}
 	// prepare the msg
 	msg := &BigMsg{Array: make([]byte, 7893)}
-	buff, err := MarshalRegisteredType(msg)
+	buff, err := Marshal(msg)
 	require.Nil(t, err)
 
 	fn := func(c net.Conn) {
@@ -487,8 +492,6 @@ type SimpleMessage struct {
 	I int
 }
 
-var SimpleMessageType MessageTypeID
-
 type simpleMessageProc struct {
 	t     *testing.T
 	relay chan SimpleMessage
@@ -505,16 +508,14 @@ func (smp *simpleMessageProc) Process(e *Envelope) {
 	if e.MsgType != SimpleMessageType {
 		smp.t.Fatal("Wrong message")
 	}
-	sm := e.Msg.(SimpleMessage)
-	smp.relay <- sm
+	sm := e.Msg.(*SimpleMessage)
+	smp.relay <- *sm
 }
 
 type statusMessage struct {
 	Ok  bool
 	Val int
 }
-
-var statusMsgID = RegisterMessage(statusMessage{})
 
 type simpleProcessor struct {
 	relay chan statusMessage
@@ -530,9 +531,9 @@ func (sp *simpleProcessor) Process(env *Envelope) {
 
 		sp.relay <- statusMessage{false, 0}
 	}
-	sm := env.Msg.(statusMessage)
+	sm := env.Msg.(*statusMessage)
 
-	sp.relay <- sm
+	sp.relay <- *sm
 }
 
 func sendrcv_proc(from, to *Router) error {

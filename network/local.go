@@ -247,7 +247,7 @@ func (lc *LocalConn) start() {
 // will be sent to the remote endpoint.
 // If there is an error in the connection, it will be returned.
 func (lc *LocalConn) Send(msg Message) error {
-	buff, err := MarshalRegisteredType(msg)
+	buff, err := Marshal(msg)
 	if err != nil {
 		return err
 	}
@@ -258,15 +258,15 @@ func (lc *LocalConn) Send(msg Message) error {
 // Receive takes a context (that is not used) and waits for a packet to
 // be ready. It returns the received packet.
 // In case of an error the packet is nil and the error is returned.
-func (lc *LocalConn) Receive() (Envelope, error) {
+func (lc *LocalConn) Receive() (*Envelope, error) {
 	buff, opened := <-lc.outgoingQueue
 	if !opened {
-		return EmptyEnvelope, ErrClosed
+		return nil, ErrClosed
 	}
 	lc.updateRx(uint64(len(buff)))
 
-	id, body, err := UnmarshalRegisteredType(buff, DefaultConstructors(Suite))
-	return Envelope{
+	id, body, err := Unmarshal(buff)
+	return &Envelope{
 		MsgType: id,
 		Msg:     body,
 	}, err

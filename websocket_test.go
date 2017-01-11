@@ -12,7 +12,6 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
@@ -33,7 +32,7 @@ func TestNewWebSocket(t *testing.T) {
 		"", "http://"+url)
 	log.ErrFatal(err)
 	req := &SimpleResponse{}
-	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	log.Lvlf1("Sending message Request: %x", network.MessageType(req))
 	buf, err := protobuf.Encode(req)
 	log.ErrFatal(err)
 	log.ErrFatal(websocket.Message.Send(ws, buf))
