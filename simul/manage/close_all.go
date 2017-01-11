@@ -17,6 +17,7 @@ the `Close`-message will shut down all network communications.
 The protocol waits for the `Close`-message to arrive at the root.
 */
 
+// The IDs of the message used by this protocol.
 const (
 	PrepareCloseID network.MessageID = 80 + iota
 	CloseID

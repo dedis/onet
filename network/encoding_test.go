@@ -32,13 +32,13 @@ func catchDefer(f func()) (b bool) {
 
 func TestRegister(t *testing.T) {
 	var ty = reflect.TypeOf(TestRegisterS{})
-	if i := registry.msgId(ty); i != ErrorID {
+	if i := registry.msgID(ty); i != ErrorID {
 		t.Error("TestRegister should not yet be there")
 	}
 
 	RegisterMessage(idS, &TestRegisterS{})
 	assert.Equal(t, registry.msgType(idS), ty)
-	assert.Equal(t, registry.msgId(ty), idS)
+	assert.Equal(t, registry.msgID(ty), idS)
 
 	if tt := registry.msgType(idS); tt != ty {
 		t.Error("TestRegister is different now")

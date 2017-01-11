@@ -46,6 +46,7 @@ type ProtocolCount struct {
 	}
 }
 
+// The IDs representing the messages used by this protocol.
 const (
 	PrepareCountID network.MessageID = 90 + iota
 	NodeIsUpID

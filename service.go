@@ -67,6 +67,7 @@ type GenericConfig struct {
 	Data []byte
 }
 
+// GenericConfigID is the ID mapping to a GenericConfig struct.
 var GenericConfigID network.MessageID = 17
 
 // A serviceFactory is used to register a NewServiceFunc

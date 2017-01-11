@@ -23,16 +23,18 @@ var Suite = ed25519.NewAES128SHA256Ed25519(false)
 // Message is a type for any message that the user wants to send
 type Message interface{}
 
+// MessageID represents an unique identifier for each struct that must be
+// marshalled/unmarshalled by the network library.
 type MessageID uint32
 
-// ReservedIDS represents the reserved space for the network library. <0...10>.
+// ReservedIDs represent the reserved space for the network library. <0...10>.
 // If a message is registered in this domain, the behavior is undefined.
 var ReservedIDs = 10
 
 // ErrorID is reserved by the network library. When you receive a message of
 // ErrorID, it is generally because an error happened, then you can call
 // Error() on it.
-var ErrorID MessageID = 0
+var ErrorID MessageID
 
 // String returns the name of the structure if it is known, else it returns
 // the hexadecimal value of the Id.
@@ -69,7 +71,7 @@ func RegisterMessage(id MessageID, msg Message) {
 // the message has not been registered with RegisterMessage().
 func MessageType(msg Message) MessageID {
 	msgType := reflect.TypeOf(msg)
-	return registry.msgId(msgType)
+	return registry.msgID(msgType)
 }
 
 // Marshal marshals a struct with its respective type into a
@@ -128,7 +130,7 @@ func Unmarshal(buf []byte) (MessageID, Message, error) {
 // DumpTypes is used for debugging - it prints out all known types
 func DumpTypes() {
 	for t, m := range registry.types {
-		log.Print("Type", t, "has message", m)
+		log.Printf("ID:", t, " => ", m)
 	}
 }
 
@@ -164,7 +166,7 @@ func (tr *typeRegistry) msgType(mid MessageID) reflect.Type {
 	return tr.types[mid]
 }
 
-func (tr *typeRegistry) msgId(t reflect.Type) MessageID {
+func (tr *typeRegistry) msgID(t reflect.Type) MessageID {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	if t.Kind() == reflect.Ptr {
