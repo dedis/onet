@@ -11,9 +11,7 @@ import (
 	"github.com/dedis/crypto/ed25519"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
-)
-
-/// Encoding part ///
+) /// Encoding part ///
 
 // Suite used globally by this network library.
 // For the moment, this will stay,as our focus is not on having the possibility
@@ -26,6 +24,10 @@ var Suite = ed25519.NewAES128SHA256Ed25519(false)
 type Message interface{}
 
 type MessageID uint32
+
+// ReservedIDS represents the reserved space for the network library. <0...10>.
+// If a message is registered in this domain, the behavior is undefined.
+var ReservedIDs = 10
 
 // ErrorID is reserved by the network library. When you receive a message of
 // ErrorID, it is generally because an error happened, then you can call
