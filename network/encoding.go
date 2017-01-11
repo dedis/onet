@@ -130,7 +130,7 @@ func Unmarshal(buf []byte) (MessageID, Message, error) {
 // DumpTypes is used for debugging - it prints out all known types
 func DumpTypes() {
 	for t, m := range registry.types {
-		log.Printf("ID:", t, " => ", m)
+		log.Printf("ID %d => %s", t, m)
 	}
 }
 
