@@ -16,10 +16,10 @@ import (
 	"github.com/dedis/onet/network"
 )
 
-var simulationConfigFileID network.MessageID = 18
+var simulationConfigFileID network.MessageID
 
 func init() {
-	network.RegisterMessage(simulationConfigFileID, SimulationConfigFile{})
+	simulationConfigFileID = network.RegisterMessage(n("simulationconfig"), SimulationConfigFile{})
 }
 
 type simulationCreate func(string) (Simulation, error)

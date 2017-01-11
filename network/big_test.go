@@ -36,8 +36,7 @@ func TestTCPHugeConnections(t *testing.T) {
 		Msg:   make([]byte, msgSize),
 		Pcrc:  25,
 	}
-	var bigMessageType MessageID = 50
-	RegisterMessage(bigMessageType, big)
+	var bigMessageType = RegisterMessage("bigMessage", big)
 
 	ids := make([]*ServerIdentity, nbrHosts)
 	hosts := make([]*TCPListener, nbrHosts)

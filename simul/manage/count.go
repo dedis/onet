@@ -19,9 +19,9 @@ still goes on.
 */
 
 func init() {
-	network.RegisterMessage(PrepareCountID, PrepareCount{})
-	network.RegisterMessage(CountID, Count{})
-	network.RegisterMessage(NodeIsUpID, NodeIsUp{})
+	PrepareCountID = network.RegisterMessage(n("preparec"), PrepareCount{})
+	CountID = network.RegisterMessage(n("count"), Count{})
+	NodeIsUpID = network.RegisterMessage(n("nodeup"), NodeIsUp{})
 	onet.GlobalProtocolRegister("Count", NewCount)
 }
 
@@ -47,10 +47,10 @@ type ProtocolCount struct {
 }
 
 // The IDs representing the messages used by this protocol.
-const (
-	PrepareCountID network.MessageID = 90 + iota
-	NodeIsUpID
-	CountID
+var (
+	PrepareCountID network.MessageID
+	NodeIsUpID     network.MessageID
+	CountID        network.MessageID
 )
 
 // PrepareCount is sent so that every node can contact the root to say

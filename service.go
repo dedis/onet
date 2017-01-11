@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	network.RegisterMessage(GenericConfigID, GenericConfig{})
+	GenericConfigID = network.RegisterMessage(n("genericconfig"), GenericConfig{})
 }
 
 // Service is a generic interface to define any type of services.

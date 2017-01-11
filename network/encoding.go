@@ -2,8 +2,10 @@ package network
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 
@@ -26,6 +28,10 @@ type Message interface{}
 // MessageID represents an unique identifier for each struct that must be
 // marshalled/unmarshalled by the network library.
 type MessageID uint32
+
+const maxID = (1 << 32) - 1
+
+var HashID = sha256.New
 
 // ReservedIDs represent the reserved space for the network library. <0...10>.
 // If a message is registered in this domain, the behavior is undefined.
@@ -60,16 +66,19 @@ const NamespaceBodyType = NamespaceURL + "/protocolType/"
 
 var globalOrder = binary.BigEndian
 
-// RegisterMessage registers any struct or ptr and returns the
-// corresponding MessageTypeID. Once a struct is registered, it can be sent and
-// received by the network library.
-func RegisterMessage(id MessageID, msg Message) {
+// RegisterMessage registers any struct or ptr so it can be marshalled and
+// unmarshalled by the network library. It returns a MessageID generated from
+// the name which is hashed with the HashID hash function and reduced to a
+// MessageID which is currently a uint64.
+func RegisterMessage(name string, msg Message) MessageID {
 	val := reflect.ValueOf(msg)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 	t := val.Type()
+	id := ID(name)
 	registry.put(id, t)
+	return id
 }
 
 // MessageType returns a Message's MessageTypeID if registered or ErrorID if
@@ -77,6 +86,18 @@ func RegisterMessage(id MessageID, msg Message) {
 func MessageType(msg Message) MessageID {
 	msgType := reflect.TypeOf(msg)
 	return registry.msgID(msgType)
+}
+
+func ID(name string) MessageID {
+	h := HashID()
+	h.Write([]byte(name))
+	i := new(big.Int).SetBytes(h.Sum(nil))
+	i.Mod(i, big.NewInt(maxID))
+	id := i.Int64()
+	if id > maxID {
+		panic("something's wrong")
+	}
+	return MessageID(i.Int64())
 }
 
 // Marshal outputs the type and the byte representation of a structure.  It

@@ -80,7 +80,8 @@ type ServerIdentity struct {
 	Description string
 }
 
-// ServerIdentityID uniquely identifies an ServerIdentity struct
+// ServerIdentityID uniquely identifies an ServerIdentity struct amongst any
+// others ServerIdentity.
 type ServerIdentityID uuid.UUID
 
 // Equal returns true if both ServerIdentityID are equal or false otherwise.
@@ -92,8 +93,10 @@ func (si *ServerIdentity) String() string {
 	return si.Address.String()
 }
 
-// ServerIdentityType can be used to recognise an ServerIdentity-message
-var ServerIdentityType MessageID = 1
+const GlobalNamespace = "ch.epfl.dedis."
+
+// ServerIdentityMessageID can be used to recognise an ServerIdentity-message
+var ServerIdentityMessageID MessageID
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
@@ -191,5 +194,5 @@ func (c *counterSafe) updateTx(delta uint64) {
 }
 
 func init() {
-	RegisterMessage(ServerIdentityType, ServerIdentity{})
+	ServerIdentityMessageID = RegisterMessage(GlobalNamespace+"network.serveridentity", ServerIdentity{})
 }

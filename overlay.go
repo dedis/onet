@@ -70,9 +70,9 @@ func NewOverlay(c *Conode) *Overlay {
 	c.RegisterProcessor(o,
 		ProtocolMsgID,      // protocol instance's messages
 		RequestTreeMsgID,   // request a tree
-		SendTreeMsgID,      // send a tree back to a request
+		TreeMarshalTypeID,  // send a tree back to a request
 		RequestRosterMsgID, // request a roster
-		SendRosterMsgID,    // send a roster back to request
+		RosterTypeID,       // send a roster back to request
 		ConfigMsgID)        // fetch config information
 	return o
 }

@@ -354,8 +354,8 @@ type AddressTest struct {
 	Val  int
 }
 
-var AddressTestType MessageID = 53
+var AddressTestType MessageID
 
 func init() {
-	RegisterMessage(AddressTestType, &AddressTest{})
+	AddressTestType = RegisterMessage("addressTest", &AddressTest{})
 }

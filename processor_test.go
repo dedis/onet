@@ -17,7 +17,7 @@ const testServiceName = "testService"
 func init() {
 	RegisterNewService(testServiceName, newTestService)
 	ServiceFactory.ServiceID(testServiceName)
-	network.RegisterMessage(testMsgID, &testMsg{})
+	testMsgID = network.RegisterMessage("testmsg", &testMsg{})
 }
 
 func TestProcessor_AddMessage(t *testing.T) {

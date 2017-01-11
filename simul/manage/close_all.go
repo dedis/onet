@@ -18,14 +18,18 @@ The protocol waits for the `Close`-message to arrive at the root.
 */
 
 // The IDs of the message used by this protocol.
-const (
-	PrepareCloseID network.MessageID = 80 + iota
-	CloseID
+var (
+	PrepareCloseID network.MessageID
+	CloseID        network.MessageID
 )
 
+func n(name string) string {
+	return network.GlobalNamespace + "simul.manage" + name
+}
+
 func init() {
-	network.RegisterMessage(PrepareCloseID, PrepareClose{})
-	network.RegisterMessage(CloseID, Close{})
+	PrepareCloseID = network.RegisterMessage(n("prepare"), PrepareClose{})
+	CloseID = network.RegisterMessage(n("close"), Close{})
 	onet.GlobalProtocolRegister("CloseAll", NewCloseAll)
 }
 

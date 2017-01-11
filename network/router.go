@@ -334,7 +334,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 		return nil, fmt.Errorf("Error while receiving ServerIdentity during negotiation %s", err)
 	}
 	// Check if it is correct
-	if nm.MsgType != ServerIdentityType {
+	if nm.MsgType != ServerIdentityMessageID {
 		return nil, fmt.Errorf("Received wrong type during negotiation %s", nm.MsgType.String())
 	}
 	// Set the ServerIdentity for this connection

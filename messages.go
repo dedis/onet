@@ -10,25 +10,22 @@ import (
 
 // ProtocolMsgID is to be embedded in every message that is made for a
 // ID of ProtocolMsg message as registered in network
-var ProtocolMsgID network.MessageID = 10
+var ProtocolMsgID network.MessageID
 
 // RequestTreeMsgID of RequestTree message as registered in network
-var RequestTreeMsgID network.MessageID = 11
+var RequestTreeMsgID network.MessageID
 
 // RequestRosterMsgID of RequestRoster message as registered in network
-var RequestRosterMsgID network.MessageID = 12
-
-// SendTreeMsgID of TreeMarshal message as registered in network
-var SendTreeMsgID = TreeMarshalTypeID
+var RequestRosterMsgID network.MessageID
 
 // SendRosterMsgID of Roster message as registered in network
 var SendRosterMsgID = RosterTypeID
 
 // ConfigMsgID of the generic config message
-var ConfigMsgID network.MessageID = 15
+var ConfigMsgID network.MessageID
 
 // RosterTypeID of Roster message as registered in network
-var RosterTypeID network.MessageID = 16
+var RosterTypeID network.MessageID
 
 // An Roster is a list of ServerIdentity we choose to run  some tree on it ( and
 // therefor some protocols)
@@ -42,12 +39,16 @@ type Roster struct {
 	Aggregate abstract.Point
 }
 
+func n(name string) string {
+	return network.GlobalNamespace + "onet." + name
+}
+
 func init() {
-	network.RegisterMessage(ProtocolMsgID, ProtocolMsg{})
-	network.RegisterMessage(RequestTreeMsgID, RequestTree{})
-	network.RegisterMessage(RequestRosterMsgID, RequestRoster{})
-	network.RegisterMessage(ConfigMsgID, ConfigMsg{})
-	network.RegisterMessage(RosterTypeID, Roster{})
+	ProtocolMsgID = network.RegisterMessage(n("protocol"), ProtocolMsg{})
+	RequestTreeMsgID = network.RegisterMessage(n("treerequest"), RequestTree{})
+	RequestRosterMsgID = network.RegisterMessage(n("rosterrequest"), RequestRoster{})
+	ConfigMsgID = network.RegisterMessage(n("config"), ConfigMsg{})
+	RosterTypeID = network.RegisterMessage(n("roster"), Roster{})
 }
 
 // ProtocolMsg is to be embedded in every message that is made for a

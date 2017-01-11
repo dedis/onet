@@ -19,20 +19,20 @@ const dummyService2Name = "dummyService2"
 const ismServiceName = "ismService"
 const backForthServiceName = "backForth"
 
-const (
-	SimpleMessageForthID network.MessageID = 54 + iota
-	SimpleMessageBackID
-	SimpleRequestID
-	dummyMsgType
-	SimpleResponseType
+var (
+	SimpleMessageForthID network.MessageID
+	SimpleMessageBackID  network.MessageID
+	SimpleRequestID      network.MessageID
+	dummyMsgType         network.MessageID
+	SimpleResponseType   network.MessageID
 )
 
 func init() {
-	network.RegisterMessage(SimpleMessageForthID, SimpleMessageForth{})
-	network.RegisterMessage(SimpleMessageBackID, SimpleMessageBack{})
-	network.RegisterMessage(SimpleRequestID, SimpleRequest{})
-	network.RegisterMessage(dummyMsgType, DummyMsg{})
-	network.RegisterMessage(SimpleResponseType, SimpleResponse{})
+	SimpleMessageForthID = network.RegisterMessage("simplebackforth", SimpleMessageForth{})
+	SimpleMessageBackID = network.RegisterMessage("simpleback", SimpleMessageBack{})
+	SimpleRequestID = network.RegisterMessage("simplerequest", SimpleRequest{})
+	dummyMsgType = network.RegisterMessage("dummy", DummyMsg{})
+	SimpleResponseType = network.RegisterMessage("simpleresponse", SimpleResponse{})
 	RegisterNewService(ismServiceName, newServiceMessages)
 	RegisterNewService(dummyService2Name, newDummyService2)
 	GlobalProtocolRegister("DummyProtocol2,", newDummyProtocol2)

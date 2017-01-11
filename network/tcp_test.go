@@ -16,13 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var statusMsgID MessageID = 56
-var SimpleMessageType MessageID = 55
+var statusMsgID MessageID
+var SimpleMessageType MessageID
+var BigMsgID MessageID
 
 func init() {
-	RegisterMessage(54, BigMsg{})
-	RegisterMessage(SimpleMessageType, SimpleMessage{})
-	RegisterMessage(statusMsgID, statusMessage{})
+	BigMsgID = RegisterMessage("bigMsg", BigMsg{})
+	SimpleMessageType = RegisterMessage("simpleMessage", SimpleMessage{})
+	statusMsgID = RegisterMessage("statusMsg", statusMessage{})
 }
 
 type BigMsg struct {

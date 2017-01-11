@@ -13,11 +13,11 @@ import (
 )
 
 var testProto = "test"
-var SimpleMessageID network.MessageID = 51
+var SimpleMessageID network.MessageID
 
 func init() {
-	network.RegisterMessage(SimpleMessageID, SimpleMessage{})
-	network.RegisterMessage(OuterPacketType, OuterPacket{})
+	SimpleMessageID = network.RegisterMessage("simple", SimpleMessage{})
+	OuterPacketType = network.RegisterMessage("outer", OuterPacket{})
 }
 
 // ProtocolTest is the most simple protocol to be implemented, ignoring

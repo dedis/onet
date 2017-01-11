@@ -24,8 +24,8 @@ import (
 // It contains the PeerId of the parent and the sub tree of the children.
 
 func init() {
-	network.RegisterMessage(TreeMarshalTypeID, TreeMarshal{})
-	network.RegisterMessage(tbmStructID, tbmStruct{})
+	TreeMarshalTypeID = network.RegisterMessage(n("treemarshal"), TreeMarshal{})
+	tbmStructID = network.RegisterMessage(n("tbm"), tbmStruct{})
 }
 
 // Tree is a topology to be used by any network layer/host layer
