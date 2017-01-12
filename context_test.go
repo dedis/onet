@@ -27,7 +27,7 @@ func TestContextSaveLoad(t *testing.T) {
 	pub, _ := network.Suite.Point().Pick(nil, random.Stream)
 	si := network.NewServerIdentity(pub,
 		network.NewAddress(network.Local, "localhost:0"))
-	cn := &Conode{
+	cn := &Server{
 		Router: &network.Router{
 			ServerIdentity: si,
 		},
@@ -71,7 +71,7 @@ func TestContext_Path(t *testing.T) {
 	pub, _ := network.Suite.Point().Pick(nil, random.Stream)
 	si := network.NewServerIdentity(pub,
 		network.NewAddress(network.Local, "localhost:0"))
-	cn := &Conode{
+	cn := &Server{
 		Router: &network.Router{
 			ServerIdentity: si,
 		},
