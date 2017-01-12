@@ -34,10 +34,6 @@ const maxID = (1 << 32) - 1
 // HashID is the hash function used to generate the MessageID out of a string
 var HashID = sha256.New
 
-// ReservedIDs represent the reserved space for the network library. <0...10>.
-// If a message is registered in this domain, the behavior is undefined.
-var ReservedIDs = 10
-
 // ErrorID is reserved by the network library. When you receive a message of
 // ErrorID, it is generally because an error happened, then you can call
 // Error() on it.
@@ -68,16 +64,16 @@ const NamespaceBodyType = NamespaceURL + "/protocolType/"
 var globalOrder = binary.BigEndian
 
 // RegisterMessage registers any struct or ptr so it can be marshalled and
-// unmarshalled by the network library. It returns a MessageID generated from
-// the name which is hashed with the HashID hash function and reduced to a
-// MessageID which is currently a uint64.
-func RegisterMessage(name string, msg Message) MessageID {
+// unmarshalled by the network library. The ns parameters must uniquely identify
+// this packet. It returns a MessageID generated from ns which is hashed with
+// the HashID hash function and reduced to the MessageID's size.
+func RegisterMessage(ns string, msg Message) MessageID {
 	val := reflect.ValueOf(msg)
 	if val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
 	t := val.Type()
-	id := ID(name)
+	id := ID(ns)
 	registry.put(id, t)
 	return id
 }
