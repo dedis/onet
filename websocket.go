@@ -58,6 +58,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	webHost, err := getWebAddress(si, true)
 	log.ErrFatal(err)
 	w.mux = http.NewServeMux()
+	w.mux.Handle("/ping/", &wsHandler{"ping", nil})
 	w.server = &graceful.Server{
 		Timeout: 100 * time.Millisecond,
 		Server: &http.Server{
@@ -137,9 +138,10 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s := t.service
+		log.Print(t.serviceName, r.URL.Path)
 		var reply []byte
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
-		log.Lvl3("Got request for", t.serviceName, path)
+		log.LLvl3("Got request for", t.serviceName, path)
 		reply, ce = s.ProcessClientRequest(path, buf)
 		if ce == nil {
 			err := ws.WriteMessage(mt, reply)
@@ -185,6 +187,30 @@ func NewClientKeep(s string) *Client {
 	}
 }
 
+func connectToWebsocket(dst *network.ServerIdentity, service, path string) (*websocket.Conn, ClientError) {
+	// Open connection to service.
+	url, err := getWebAddress(dst, false)
+	if err != nil {
+		return nil, NewClientError(err)
+	}
+	d := &websocket.Dialer{}
+	var conn *websocket.Conn
+	// Re-try to connect in case the websocket is just about to start
+	for a := 0; a < network.MaxRetryConnect; a++ {
+		log.LLvlf4("Sending to %s/%s/%s", url, service, path)
+		conn, _, err = d.Dial(fmt.Sprintf("ws://%s/%s/%s", url, service, path),
+			http.Header{"Origin": []string{"http://" + url}})
+		if err == nil {
+			break
+		}
+		time.Sleep(network.WaitRetry)
+	}
+	if err != nil {
+		return nil, NewClientError(err)
+	}
+	return conn, nil
+}
+
 // Send will marshal the message into a ClientRequest message and send it.
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, ClientError) {
 	c.Lock()
@@ -195,22 +221,8 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		c.Close()
 	}
 	if c.si == nil {
-		// Open connection to service.
-		url, err := getWebAddress(dst, false)
-		if err != nil {
-			return nil, NewClientError(err)
-		}
-		log.Lvlf4("Sending %x to %s/%s/%s", buf, url, c.service, path)
-		d := &websocket.Dialer{}
-		// Re-try to connect in case the websocket is just about to start
-		for a := 0; a < network.MaxRetryConnect; a++ {
-			c.conn, _, err = d.Dial(fmt.Sprintf("ws://%s/%s/%s", url, c.service, path),
-				http.Header{"Origin": []string{"http://" + url}})
-			if err == nil {
-				break
-			}
-			time.Sleep(network.WaitRetry)
-		}
+		var err error
+		c.conn, err = connectToWebsocket(dst, c.service, path)
 		if err != nil {
 			return nil, NewClientError(err)
 		}
