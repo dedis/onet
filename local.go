@@ -174,7 +174,7 @@ func (l *LocalTest) CloseAll() {
 	}
 	for _, node := range l.Nodes {
 		log.Lvl3("Closing node", node)
-		node.Close()
+		node.closeDispatch()
 	}
 	l.Nodes = make([]*TreeNodeInstance, 0)
 	// Give the nodes some time to correctly close down

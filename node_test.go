@@ -221,15 +221,15 @@ func TestTreeNodeFlags(t *testing.T) {
 		t.Fatal("Couldn't create node.")
 	}
 	tni := p.(*ProtocolChannels).TreeNodeInstance
-	if tni.HasFlag(testType, AggregateMessages) {
+	if tni.hasFlag(testType, AggregateMessages) {
 		t.Fatal("Should NOT have AggregateMessages-flag")
 	}
-	tni.SetFlag(testType, AggregateMessages)
-	if !tni.HasFlag(testType, AggregateMessages) {
+	tni.setFlag(testType, AggregateMessages)
+	if !tni.hasFlag(testType, AggregateMessages) {
 		t.Fatal("Should HAVE AggregateMessages-flag cleared")
 	}
-	tni.ClearFlag(testType, AggregateMessages)
-	if tni.HasFlag(testType, AggregateMessages) {
+	tni.clearFlag(testType, AggregateMessages)
+	if tni.hasFlag(testType, AggregateMessages) {
 		t.Fatal("Should NOT have AggregateMessages-flag")
 	}
 }
