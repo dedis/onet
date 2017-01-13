@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"testing"
 	"time"
+
+	"github.com/dedis/onet/log"
 )
 
 type DummyCounterIO struct {
@@ -40,10 +42,15 @@ func TestCounterIOMeasureRecord(t *testing.T) {
 	// Important otherwise data don't get written down to the monitor yet.
 	time.Sleep(100 * time.Millisecond)
 	str := new(bytes.Buffer)
-	stat := mon.Stats()
+	log.Print("HEERREEE")
+	stat := mon.stats
+	log.Print("HEERREEE")
 	stat.Collect()
+	log.Print("HEERREEE")
 	stat.WriteHeader(str)
+	log.Print("HEERREEE")
 	stat.WriteValues(str)
+	log.Print("HEERREEE")
 	wr, re := stat.Value("dummy_tx"), stat.Value("dummy_rx")
 	if wr == nil || wr.Avg() != 10 {
 		t.Logf("stats => %v", stat.values)
