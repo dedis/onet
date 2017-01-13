@@ -320,6 +320,7 @@ func NewTCPServer(port int) *Server {
 			l.Close()
 			break
 		}
+		log.Lvl2("Found closed port:", addr)
 	}
 	router := network.NewRouter(id, tcpHost)
 	h := NewServer(router, priv)
@@ -328,17 +329,6 @@ func NewTCPServer(port int) *Server {
 		log.Print("Waiting to listen on", port)
 		time.Sleep(10 * time.Millisecond)
 	}
-	//for {
-	//	log.Print("Waiting for Websocket", h.ServerIdentity)
-	//	c, ce := connectToWebsocket(h.ServerIdentity, "ping", "ping")
-	//	if ce != nil {
-	//		log.Print("Waiting for Websocket", h.ServerIdentity)
-	//		time.Sleep(10 * time.Millisecond)
-	//	} else {
-	//		c.Close()
-	//		break
-	//	}
-	//}
 	return h
 }
 
