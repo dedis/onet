@@ -13,6 +13,8 @@ import (
 
 	"sync"
 
+	"net"
+
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
@@ -55,31 +57,49 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		services:  make(map[string]Service),
 		startstop: make(chan bool),
 	}
-	webHost, err := getWebAddress(si, true)
-	log.ErrFatal(err)
-	w.mux = http.NewServeMux()
-	w.mux.Handle("/ping/", &wsHandler{"ping", nil})
-	w.server = &graceful.Server{
-		Timeout: 100 * time.Millisecond,
-		Server: &http.Server{
-			Addr:    webHost,
-			Handler: w.mux,
-		},
-		NoSignalHandling: true,
+	if si.Address.ConnType() != network.Local {
+		webHost, err := getWebAddress(si, true)
+		log.ErrFatal(err)
+		w.mux = http.NewServeMux()
+		w.mux.Handle("/ping/", &wsHandler{"ping", nil})
+		w.server = &graceful.Server{
+			Timeout: 100 * time.Millisecond,
+			Server: &http.Server{
+				Addr:    webHost,
+				Handler: w.mux,
+			},
+			NoSignalHandling: true,
+		}
 	}
 	return w
 }
 
 // start listening on the port.
 func (w *WebSocket) start() {
+	if w.server == nil {
+		log.Lvl2("Don't start webserver on local connection")
+		return
+	}
+	log.LLvl3("Starting to listen on", w.server.Server.Addr)
 	w.Lock()
 	w.started = true
 	w.Unlock()
-	log.LLvl3("Starting to listen on", w.server.Server.Addr)
+	listening := make(chan error, 1)
 	go func() {
-		w.server.ListenAndServe()
+		conn, err := net.Listen("tcp", w.server.Addr)
+		if err != nil {
+			listening <- err
+			return
+		}
+		listening <- nil
+		w.server.Serve(conn)
 		w.startstop <- false
 	}()
+	err := <-listening
+	if err != nil {
+		log.Error("Couldn't start listen for websocket:", err)
+		return
+	}
 	w.startstop <- true
 }
 
@@ -87,11 +107,13 @@ func (w *WebSocket) start() {
 // path and it's sub-endpoints will be forwarded to ProcessClientRequest.
 func (w *WebSocket) registerService(service string, s Service) error {
 	w.services[service] = s
-	h := &wsHandler{
-		service:     s,
-		serviceName: service,
+	if w.server != nil {
+		h := &wsHandler{
+			service:     s,
+			serviceName: service,
+		}
+		w.mux.Handle(fmt.Sprintf("/%s/", service), h)
 	}
-	w.mux.Handle(fmt.Sprintf("/%s/", service), h)
 	return nil
 }
 

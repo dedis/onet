@@ -137,7 +137,8 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 func (c *Server) Start() {
 	go c.Router.Start()
 	log.Print("Address is:", c.ServerIdentity.Address)
-	c.websocket.start()
-	log.Print("Websocket is started")
-	time.Sleep(100 * time.Millisecond)
+	if c.websocket != nil {
+		c.websocket.start()
+		log.Print("Websocket is started")
+	}
 }
