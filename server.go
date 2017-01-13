@@ -138,7 +138,11 @@ func (c *Server) Start() {
 	go c.Router.Start()
 	log.Print("Address is:", c.ServerIdentity.Address)
 	if c.websocket != nil {
-		c.websocket.start()
+		if err := c.websocket.start(); err != nil {
+			log.Error("Error while starting websocket:", err)
+			c.Router.Stop()
+			c.Start()
+		}
 		log.Print("Websocket is started")
 	}
 }

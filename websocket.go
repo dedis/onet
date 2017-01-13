@@ -75,10 +75,10 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 }
 
 // start listening on the port.
-func (w *WebSocket) start() {
+func (w *WebSocket) start() error {
 	if w.server == nil {
 		log.Lvl2("Don't start webserver on local connection")
-		return
+		return nil
 	}
 	log.LLvl3("Starting to listen on", w.server.Server.Addr)
 	w.Lock()
@@ -98,9 +98,10 @@ func (w *WebSocket) start() {
 	err := <-listening
 	if err != nil {
 		log.Error("Couldn't start listen for websocket:", err)
-		return
+		return err
 	}
 	w.startstop <- true
+	return nil
 }
 
 // registerService stores a service to the given path. All requests to that
