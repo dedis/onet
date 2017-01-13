@@ -135,13 +135,22 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 // Start makes the router and the websocket listen on their respective
 // ports.
 func (c *Server) Start() {
+	search := strings.HasSuffix(c.ServerIdentity.Address.String(), ":0")
 	go c.Router.Start()
 	log.Print("Address is:", c.ServerIdentity.Address)
 	if c.websocket != nil {
 		if err := c.websocket.start(); err != nil {
-			log.Error("Error while starting websocket:", err)
-			c.Router.Stop()
-			c.Start()
+			if search {
+				log.Error("Error while starting websocket:", err)
+				// Don't stop router, as we need to keep the address
+				// blocked...
+				a := c.ServerIdentity.Address
+				c.ServerIdentity.Address =
+					network.NewAddress(a.ConnType(), a.Host()+":0")
+				c.Start()
+			} else {
+				log.Fatal("Couldn't start websocket:", err)
+			}
 		}
 		log.Print("Websocket is started")
 	}
