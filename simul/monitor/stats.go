@@ -92,11 +92,8 @@ func (s *Stats) WriteHeader(w io.Writer) {
 // WriteValues will write the values to the specified writer
 func (s *Stats) WriteValues(w io.Writer) {
 	// by default
-	log.Print("Before collect")
 	s.Collect()
-	log.Print("After collect")
 	s.Lock()
-	log.Print("After Lock")
 	defer s.Unlock()
 	// write static fields
 	var values []string
@@ -108,9 +105,7 @@ func (s *Stats) WriteValues(w io.Writer) {
 	// write the values
 	for _, k := range s.keys {
 		v := s.values[k]
-		log.Print("Before append")
 		values = append(values, v.Values()...)
-		log.Print("After append")
 	}
 	fmt.Fprintf(w, "%s", strings.Join(values, ","))
 	fmt.Fprintf(w, "\n")
