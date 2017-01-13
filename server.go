@@ -135,6 +135,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 // Start makes the router and the websocket listen on their respective
 // ports.
 func (c *Server) Start() {
+	log.Print("Address is:", c.ServerIdentity.Address)
 	search := strings.HasSuffix(c.ServerIdentity.Address.String(), ":0")
 	go c.Router.Start()
 	log.Print("Address is:", c.ServerIdentity.Address)
