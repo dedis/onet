@@ -3,8 +3,8 @@ package onet
 import (
 	"testing"
 
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 func init() {

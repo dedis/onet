@@ -7,9 +7,9 @@ import (
 	"math/rand"
 
 	"github.com/dedis/crypto/abstract"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
 	"github.com/satori/go.uuid"
+	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/network"
 )
 
 // In this file we define the main structures used for a running protocol

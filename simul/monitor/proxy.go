@@ -7,7 +7,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 // Implements a simple proxy

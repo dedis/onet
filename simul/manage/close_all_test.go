@@ -5,8 +5,8 @@ import (
 
 	"time"
 
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 // Tests a 2-node system

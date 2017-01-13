@@ -9,8 +9,8 @@ import (
 
 	"io"
 
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 func TestCothority(t *testing.T) {

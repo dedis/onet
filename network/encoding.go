@@ -9,9 +9,9 @@ import (
 
 	"github.com/dedis/crypto/abstract"
 	"github.com/dedis/crypto/ed25519"
-	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
 	"github.com/satori/go.uuid"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 /// Encoding part ///

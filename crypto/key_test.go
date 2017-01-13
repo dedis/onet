@@ -6,8 +6,8 @@ import (
 	"bytes"
 
 	"github.com/dedis/crypto/edwards"
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 var s = edwards.NewAES128SHA256Ed25519(false)

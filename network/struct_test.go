@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/dedis/crypto/config"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 func TestServerIdentity(t *testing.T) {
