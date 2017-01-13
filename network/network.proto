@@ -1,4 +1,4 @@
-package network
+package network;
 
 message ServerIdentity{
     required bytes public = 1;

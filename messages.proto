@@ -1,6 +1,6 @@
-package onet
+package onet;
 
-import "network/network.proto"
+import "network/network.proto";
 
 message Roster {
     optional bytes id = 1;
