@@ -45,7 +45,6 @@ func TestUnmarshalRegister(t *testing.T) {
 	rand.Read(randType[:])
 	buff = append(randType[:], buff[16:]...)
 	ty, b, err = Unmarshal(buff)
-	assert.Nil(t, err)
 	assert.NotNil(t, err)
 	assert.Equal(t, ErrorType, ty)
 }
