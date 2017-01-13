@@ -61,7 +61,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		webHost, err := getWebAddress(si, true)
 		log.ErrFatal(err)
 		w.mux = http.NewServeMux()
-		w.mux.Handle("/ping/", &wsHandler{"ping", nil})
+		//w.mux.Handle("/ping/", &wsHandler{"ping", nil})
 		w.server = &graceful.Server{
 			Timeout: 100 * time.Millisecond,
 			Server: &http.Server{
