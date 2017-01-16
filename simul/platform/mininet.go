@@ -21,6 +21,8 @@ import (
 
 	"sort"
 
+	"runtime"
+
 	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/app"
@@ -37,12 +39,14 @@ type MiniNet struct {
 	External string
 	// Directory we start - supposed to be `cothority/simul`
 	wd string
-	// Directory holding the cothority-go-file
-	cothorityDir string
+	// Directory holding the simulation main-file
+	simulDir string
 	// Directory storing the additional files
 	mininetDir string
 	// Directory for building
 	buildDir string
+	// Directory for deploying
+	deployDir string
 	// IPs of all hosts
 	HostIPs []string
 	// Channel to communicate stopping of experiment
@@ -82,11 +86,17 @@ type MiniNet struct {
 // the necessary internal variables.
 func (m *MiniNet) Configure(pc *Config) {
 	// Directory setup - would also be possible in /tmp
-	// Supposes we're in `cothority/simul`
 	m.wd, _ = os.Getwd()
-	m.cothorityDir = m.wd + "/cothority"
-	m.mininetDir = m.wd + "/platform/mininet"
+	m.simulDir = m.wd
+	_, filename, _, ok := runtime.Caller(1)
+	if !ok {
+		log.Fatal("Couldn't get my path")
+	}
+	var err error
+	m.mininetDir, err = filepath.Abs(path.Dir(filename))
+	log.ErrFatal(err)
 	m.buildDir = m.mininetDir + "/build"
+	m.deployDir = m.mininetDir + "/deploy"
 	m.Login = "root"
 	log.ErrFatal(m.parseServers())
 	m.External = m.HostIPs[0]
@@ -99,10 +109,12 @@ func (m *MiniNet) Configure(pc *Config) {
 	m.Delay = 0
 	m.Bandwidth = 1000
 
-	// Clean the MiniNet-dir, create it and change into it
-	os.RemoveAll(m.buildDir)
-	log.ErrFatal(os.Mkdir(m.buildDir, 0700))
-	onet.WriteTomlConfig(*m, m.mininetDir+"/mininet.toml", m.mininetDir)
+	// Clean the MiniNet-dir, then (re-)create it
+	for _, d := range []string{m.buildDir, m.deployDir} {
+		os.RemoveAll(d)
+		log.ErrFatal(os.Mkdir(d, 0700))
+	}
+	onet.WriteTomlConfig(*m, "mininet.toml", m.buildDir)
 
 	if m.Simulation == "" {
 		log.Fatal("No simulation defined in runconfig")
@@ -116,13 +128,13 @@ func (m *MiniNet) Configure(pc *Config) {
 // build is the name of the app to build
 // empty = all otherwise build specific package
 func (m *MiniNet) Build(build string, arg ...string) error {
-	log.Lvl1("Building for", m.Login, m.External, build, "cothorityDir=", m.cothorityDir)
+	log.Lvl1("Building for", m.Login, m.External, build, "simulDir=", m.simulDir)
 	start := time.Now()
 
 	// Start with a clean build-directory
 	processor := "amd64"
 	system := "linux"
-	srcRel, err := filepath.Rel(m.wd, m.cothorityDir)
+	srcRel, err := filepath.Rel(m.wd, m.simulDir)
 	log.ErrFatal(err)
 
 	log.Lvl3("Relative-path is", srcRel, " will build into ", m.buildDir)
@@ -157,7 +169,7 @@ func (m *MiniNet) Cleanup() error {
 
 // Deploy creates the appropriate configuration-files and copies everything to the
 // MiniNet-installation.
-func (m *MiniNet) Deploy(rc RunConfig) error {
+func (m *MiniNet) Deploy(rc *RunConfig) error {
 	log.Lvl2("Localhost: Deploying and writing config-files")
 	sim, err := onet.NewSimulation(m.Simulation, string(rc.Toml()))
 	if err != nil {
@@ -168,13 +180,13 @@ func (m *MiniNet) Deploy(rc RunConfig) error {
 	// and such), then read in the app-configuration to overwrite eventual
 	// 'Servers', 'Hosts', '' or other fields
 	mininet := *m
-	mininetConfig := m.mininetDir + "/mininet.toml"
+	mininetConfig := m.deployDir + "/mininet.toml"
 	_, err = toml.Decode(string(rc.Toml()), &mininet)
 	if err != nil {
 		return err
 	}
 	log.Lvl3("Writing the config file :", mininet)
-	onet.WriteTomlConfig(mininet, mininetConfig, m.buildDir)
+	onet.WriteTomlConfig(mininet, mininetConfig, m.deployDir)
 
 	log.Lvl3("Creating hosts")
 	if err = m.parseServers(); err != nil {
@@ -186,18 +198,18 @@ func (m *MiniNet) Deploy(rc RunConfig) error {
 	}
 	log.Lvl3("Hosts are:", hosts)
 	log.Lvl3("List is:", list)
-	err = ioutil.WriteFile(m.buildDir+"/list", []byte(list), 0660)
+	err = ioutil.WriteFile(m.deployDir+"/list", []byte(list), 0660)
 	if err != nil {
 		return err
 	}
-	simulConfig, err := sim.Setup(m.buildDir, hosts)
+	simulConfig, err := sim.Setup(m.deployDir, hosts)
 	if err != nil {
 		return err
 	}
 	simulConfig.Config = string(rc.Toml())
 	m.config = simulConfig.Config
 	log.Lvl3("Saving configuration")
-	simulConfig.Save(m.buildDir)
+	simulConfig.Save(m.deployDir)
 
 	// Verify the installation is correct
 	gw := m.HostIPs[0]
@@ -210,7 +222,7 @@ func (m *MiniNet) Deploy(rc RunConfig) error {
 	}
 
 	// Copy our script
-	err = app.Copy(m.buildDir, m.mininetDir+"/start.py")
+	err = app.Copy(m.deployDir, m.mininetDir+"/start.py")
 	if err != nil {
 		log.Error(err)
 		return err
@@ -218,7 +230,7 @@ func (m *MiniNet) Deploy(rc RunConfig) error {
 
 	// Copy everything over to MiniNet
 	log.Lvl1("Copying over to", m.Login, "@", m.External)
-	err = Rsync(m.Login, m.External, m.buildDir+"/", "mininet_run/")
+	err = Rsync(m.Login, m.External, m.deployDir+"/", "mininet_run/")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -288,7 +300,7 @@ func (m *MiniNet) Wait() error {
 
 // Returns the servers to use for mininet.
 func (m *MiniNet) parseServers() error {
-	hosts, err := ioutil.ReadFile(path.Join(m.mininetDir, "server_list"))
+	hosts, err := ioutil.ReadFile(path.Join(m.buildDir, "server_list"))
 	if err != nil {
 		return fmt.Errorf("Couldn't find %[1]s/server_list - you can produce one with\n"+
 			"\t\t%[1]s/setup_servers.sh\n\t\tor\n\t\t%[1]s/setup_iccluster.sh", m.mininetDir)
@@ -320,7 +332,7 @@ func (m *MiniNet) parseServers() error {
 // SimulationName BandwidthMbps DelayMS
 // physicalIP1 MininetNet1/16 NumberConodes1
 // physicalIP2 MininetNet2/16 NumberConodes2
-func (m *MiniNet) getHostList(rc RunConfig) (hosts []string, list string, err error) {
+func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err error) {
 	hosts = []string{}
 	list = ""
 	physicalServers := len(m.HostIPs)
