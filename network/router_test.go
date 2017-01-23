@@ -106,7 +106,7 @@ func TestRouterErrorHandling(t *testing.T) {
 
 	// test if the error handler was called
 	select {
-	case _ = <-errHandlerCalled:
+	case <-errHandlerCalled:
 		// all good
 	default:
 		t.Error("Error handler should have been called after a disconnection")
