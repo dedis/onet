@@ -108,6 +108,7 @@ func TestRouterErrorHandling(t *testing.T) {
 
 	//stop node 2
 	h2.Stop()
+	time.Sleep(250 * time.Millisecond)
 
 	// test if the error handler was called
 	select {
