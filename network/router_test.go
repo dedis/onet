@@ -61,15 +61,54 @@ func testRouter(t *testing.T, fac routerFactory) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("TcpHost should have returned from Run() by now")
 	}
-
-	require.Nil(t, h.errorHappened)
-	errHandler := func(remote *ServerIdentity) {
-		//nothing to do here
-	}
-	h.SetErrorHandler(errHandler)
-	require.NotNil(t, h.errorHappened)
 }
 
+// Test connection of multiple Hosts and sending messages back and forth
+// also tests for the counterIO interface that it works well
+func TestRouterErrorHandling(t *testing.T) {
+	h1, err1 := NewTestRouterTCP(2109)
+	h2, err2 := NewTestRouterTCP(2110)
+	if err1 != nil || err2 != nil {
+		t.Fatal("Could not setup hosts")
+	}
+
+	go h1.Start()
+	go h2.Start()
+
+	defer func() {
+		h1.Stop()
+	}()
+
+	// tests the setting error handler
+	require.Nil(t, h1.errorHandler)
+	errHandlerCalled := false
+	errHandler := func(remote *ServerIdentity) {
+		errHandlerCalled = true
+	}
+	h1.SetErrorHandler(errHandler)
+	require.NotNil(t, h1.errorHandler)
+
+	//register handlers
+	proc := &simpleMessageProc{t, make(chan SimpleMessage)}
+	h1.RegisterProcessor(proc, SimpleMessageType)
+	h2.RegisterProcessor(proc, SimpleMessageType)
+
+	msgSimple := &SimpleMessage{3}
+	err := h1.Send(h2.ServerIdentity, msgSimple)
+	require.Nil(t, err)
+	decoded := <-proc.relay
+	assert.Equal(t, 3, decoded.I)
+	assert.Nil(t, h2.Send(h1.ServerIdentity, msgSimple))
+	decoded = <-proc.relay
+
+	//stop node 2
+	h2.Stop()
+
+	// test if the error handler was called
+	if !errHandlerCalled {
+		t.Error("Error handler should have been called after a disconnection")
+	}
+}
 func testRouterRemoveConnection(t *testing.T) {
 	r1, err := NewTestRouterTCP(2008)
 	require.Nil(t, err)
