@@ -361,5 +361,8 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 // on network error (e.g. Timeout, Connection Closed, or EOF) with the identity of the faulty
 // remote host as 1st parameter.
 func (r *Router) SetErrorHandler(errorHandler func(*ServerIdentity)) {
+	if errorHandler != nil {
+		panic("error handler was already set, cannot replace")
+	}
 	r.errorHandler = errorHandler
 }
