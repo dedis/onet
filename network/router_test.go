@@ -80,13 +80,18 @@ func TestRouterErrorHandling(t *testing.T) {
 	}()
 
 	// tests the setting error handler
-	require.Nil(t, h1.errorHandler)
+	require.NotNil(t, h1.errorHandlers)
+	if len(h1.errorHandlers) != 0 {
+		t.Error("errorHandlers should start empty")
+	}
 	errHandlerCalled := make(chan bool, 1)
 	errHandler := func(remote *ServerIdentity) {
 		errHandlerCalled <- true
 	}
-	h1.SetErrorHandler(errHandler)
-	require.NotNil(t, h1.errorHandler)
+	h1.AddErrorHandler(errHandler)
+	if len(h1.errorHandlers) != 1 {
+		t.Error("errorHandlers should now hold one function")
+	}
 
 	//register handlers
 	proc := &simpleMessageProc{t, make(chan SimpleMessage)}

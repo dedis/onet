@@ -41,9 +41,10 @@ type Router struct {
 	// wg waits for all handleConn routines to be done.
 	wg sync.WaitGroup
 
-	//if not nil, is called by this entity when any network error occurs (e.g. Timeout, Connection Closed, or EOF)
-	//should be set by using SetErrorHandler(). The 1st argument is the remote server with whom the error happened
-	errorHandler func(*ServerIdentity)
+	// Every handler in this list is called by this router when any network error occurs (Timeout, Connection
+	// Closed, or EOF). Those handler should be added by using SetErrorHandler(). The 1st argument is the remote
+	// server with whom the error happened
+	errorHandlers []func(*ServerIdentity)
 }
 
 // NewRouter returns a new Router attached to a ServerIdentity and the host we want to
@@ -54,6 +55,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connections:    make(map[ServerIdentityID][]Conn),
 		host:           h,
 		Dispatcher:     NewBlockingDispatcher(),
+		errorHandlers:  make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
 	return r
@@ -224,8 +226,8 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 		if err != nil {
 			if err == ErrTimeout {
 				log.Lvlf5("%s drops %s connection: timeout", r.ServerIdentity.Address, remote.Address)
-				if r.errorHandler != nil {
-					r.errorHandler(remote)
+				for _, v := range r.errorHandlers {
+					v(remote)
 				}
 				return
 			}
@@ -233,8 +235,8 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 			if err == ErrClosed || err == ErrEOF {
 				// Connection got closed.
 				log.Lvlf5("%s drops %s connection: closed", r.ServerIdentity.Address, remote.Address)
-				if r.errorHandler != nil {
-					r.errorHandler(remote)
+				for _, v := range r.errorHandlers {
+					v(remote)
 				}
 				return
 			}
@@ -357,12 +359,9 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 	return dst, nil
 }
 
-// SetErrorHandler sets the network error handler function for this entity. The function will be called
+// AddErrorHandler adds a network error handler function for this router. The functions will be called
 // on network error (e.g. Timeout, Connection Closed, or EOF) with the identity of the faulty
 // remote host as 1st parameter.
-func (r *Router) SetErrorHandler(errorHandler func(*ServerIdentity)) {
-	if errorHandler != nil {
-		panic("error handler was already set, cannot replace")
-	}
-	r.errorHandler = errorHandler
+func (r *Router) AddErrorHandler(errorHandler func(*ServerIdentity)) {
+	r.errorHandlers = append(r.errorHandlers, errorHandler)
 }
