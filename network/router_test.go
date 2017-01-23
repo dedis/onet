@@ -81,9 +81,9 @@ func TestRouterErrorHandling(t *testing.T) {
 
 	// tests the setting error handler
 	require.Nil(t, h1.errorHandler)
-	errHandlerCalled := false
+	errHandlerCalled := make(chan bool, 1)
 	errHandler := func(remote *ServerIdentity) {
-		errHandlerCalled = true
+		errHandlerCalled <- true
 	}
 	h1.SetErrorHandler(errHandler)
 	require.NotNil(t, h1.errorHandler)
@@ -105,7 +105,10 @@ func TestRouterErrorHandling(t *testing.T) {
 	h2.Stop()
 
 	// test if the error handler was called
-	if !errHandlerCalled {
+	select {
+	case _ = <-errHandlerCalled:
+		// all good
+	default:
 		t.Error("Error handler should have been called after a disconnection")
 	}
 }
