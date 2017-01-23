@@ -40,6 +40,10 @@ type Router struct {
 
 	// wg waits for all handleConn routines to be done.
 	wg sync.WaitGroup
+
+	//if not nil, is called by this entity when any network error occurs (e.g. TCP stream broken, host disconnected, etc)
+	//should be set by using SetErrorHandler(). The 1st argument is the remote server with whom the error happened
+	errorHappened func(*ServerIdentity)
 }
 
 // NewRouter returns a new Router attached to a ServerIdentity and the host we want to
@@ -220,12 +224,18 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 		if err != nil {
 			if err == ErrTimeout {
 				log.Lvlf5("%s drops %s connection: timeout", r.ServerIdentity.Address, remote.Address)
+				if r.errorHappened != nil {
+					r.errorHappened(remote)
+				}
 				return
 			}
 
 			if err == ErrClosed || err == ErrEOF {
 				// Connection got closed.
 				log.Lvlf5("%s drops %s connection: closed", r.ServerIdentity.Address, remote.Address)
+				if r.errorHappened != nil {
+					r.errorHappened(remote)
+				}
 				return
 			}
 			// Temporary error, continue.
@@ -345,4 +355,11 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 	}
 	log.Lvl4(r.address, "Identity received from", dst.Address)
 	return dst, nil
+}
+
+// SetErrorHandler sets the network error handler function for this entity. The function will be called
+// on network error (e.g. TCP broken stream, host disconnected, etc) with the identity of the faulty
+// remote host as 1st parameter.
+func (r *Router) SetErrorHandler(errorHandler func(*ServerIdentity)) {
+	r.errorHappened = errorHandler
 }

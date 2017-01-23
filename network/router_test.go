@@ -61,6 +61,13 @@ func testRouter(t *testing.T, fac routerFactory) {
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("TcpHost should have returned from Run() by now")
 	}
+
+	require.Nil(t, h.errorHappened)
+	errHandler := func(remote *ServerIdentity) {
+		//nothing to do here
+	}
+	h.SetErrorHandler(errHandler)
+	require.NotNil(t, h.errorHappened)
 }
 
 func testRouterRemoveConnection(t *testing.T) {
