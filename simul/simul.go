@@ -15,8 +15,8 @@ import (
 	"flag"
 	"os"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/simul/platform"
+	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/simul/platform"
 )
 
 // The address of this server - if there is only one server in the config

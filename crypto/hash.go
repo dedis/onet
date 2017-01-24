@@ -11,7 +11,7 @@ import (
 	"reflect"
 
 	"github.com/dedis/crypto/abstract"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 // Hash simply returns the Hash of the slice of bytes given

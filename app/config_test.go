@@ -10,8 +10,8 @@ import (
 
 	"os"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/network"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

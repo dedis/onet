@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/dedis/crypto/random"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/network"
 	"github.com/stretchr/testify/require"
 )
 

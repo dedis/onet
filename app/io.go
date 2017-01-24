@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 var in *bufio.Reader

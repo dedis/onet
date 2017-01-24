@@ -3,11 +3,11 @@ package platform
 import (
 	"sync"
 
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1"
+	"gopkg.in/dedis/onet.v1/log"
 
-	"github.com/dedis/onet/simul/manage"
-	"github.com/dedis/onet/simul/monitor"
+	"gopkg.in/dedis/onet.v1/simul/manage"
+	"gopkg.in/dedis/onet.v1/simul/monitor"
 )
 
 // Simulate starts the server and will setup the protocol.

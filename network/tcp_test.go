@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/dedis/crypto/config"
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

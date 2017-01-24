@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/simul/platform"
+	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/simul/platform"
 )
 
 var testfile = `Machines = 8

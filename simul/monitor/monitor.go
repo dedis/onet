@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 // This file handles the collection of measurements, aggregates them and
