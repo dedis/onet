@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"gopkg.in/dedis/onet.v1/log"
 	"github.com/montanaflynn/stats"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
 // Stats contains all structures that are related to the computations of stats

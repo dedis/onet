@@ -12,9 +12,9 @@ import (
 
 	"github.com/dedis/crypto/abstract"
 	"github.com/dedis/crypto/config"
+	"github.com/satori/go.uuid"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
-	"github.com/satori/go.uuid"
 )
 
 // LocalTest represents all that is needed for a local test-run
