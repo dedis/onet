@@ -44,7 +44,7 @@ type Router struct {
 	// Every handler in this list is called by this router when a network error occurs (Timeout, Connection
 	// Closed, or EOF). Those handler should be added by using SetErrorHandler(). The 1st argument is the remote
 	// server with whom the error happened
-	connectionsErrorHandler []func(*ServerIdentity)
+	connectionErrorHandlers []func(*ServerIdentity)
 
 	// keep bandwidth of closed connections
 	traffic counterSafe
@@ -58,7 +58,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connections:             make(map[ServerIdentityID][]Conn),
 		host:                    h,
 		Dispatcher:              NewBlockingDispatcher(),
-		connectionsErrorHandler: make([]func(*ServerIdentity), 0),
+		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
 	return r
@@ -207,7 +207,7 @@ func (r *Router) removeConnection(si *ServerIdentity, c Conn) {
 
 // triggerConnectionErrorHandlers trigger all registered connectionsErrorHandlers
 func (r *Router) triggerConnectionErrorHandlers(remote *ServerIdentity) {
-	for _, v := range r.connectionsErrorHandler {
+	for _, v := range r.connectionErrorHandlers {
 		v(remote)
 	}
 }
@@ -373,5 +373,5 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 // on network error (e.g. Timeout, Connection Closed, or EOF) with the identity of the faulty
 // remote host as 1st parameter.
 func (r *Router) AddErrorHandler(errorHandler func(*ServerIdentity)) {
-	r.connectionsErrorHandler = append(r.connectionsErrorHandler, errorHandler)
+	r.connectionErrorHandlers = append(r.connectionErrorHandlers, errorHandler)
 }

@@ -80,8 +80,8 @@ func TestRouterErrorHandling(t *testing.T) {
 	}()
 
 	// tests the setting error handler
-	require.NotNil(t, h1.connectionsErrorHandler)
-	if len(h1.connectionsErrorHandler) != 0 {
+	require.NotNil(t, h1.connectionErrorHandlers)
+	if len(h1.connectionErrorHandlers) != 0 {
 		t.Error("errorHandlers should start empty")
 	}
 	errHandlerCalled := make(chan bool, 1)
@@ -89,7 +89,7 @@ func TestRouterErrorHandling(t *testing.T) {
 		errHandlerCalled <- true
 	}
 	h1.AddErrorHandler(errHandler)
-	if len(h1.connectionsErrorHandler) != 1 {
+	if len(h1.connectionErrorHandlers) != 1 {
 		t.Error("errorHandlers should now hold one function")
 	}
 
