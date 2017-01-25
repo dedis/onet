@@ -80,8 +80,8 @@ func TestRouterErrorHandling(t *testing.T) {
 	}()
 
 	// tests the setting error handler
-	require.NotNil(t, h1.errorHandlers)
-	if len(h1.errorHandlers) != 0 {
+	require.NotNil(t, h1.connectionsErrorHandler)
+	if len(h1.connectionsErrorHandler) != 0 {
 		t.Error("errorHandlers should start empty")
 	}
 	errHandlerCalled := make(chan bool, 1)
@@ -89,7 +89,7 @@ func TestRouterErrorHandling(t *testing.T) {
 		errHandlerCalled <- true
 	}
 	h1.AddErrorHandler(errHandler)
-	if len(h1.errorHandlers) != 1 {
+	if len(h1.connectionsErrorHandler) != 1 {
 		t.Error("errorHandlers should now hold one function")
 	}
 
@@ -108,13 +108,12 @@ func TestRouterErrorHandling(t *testing.T) {
 
 	//stop node 2
 	h2.Stop()
-	time.Sleep(250 * time.Millisecond)
 
 	// test if the error handler was called
 	select {
 	case <-errHandlerCalled:
 		// all good
-	default:
+	case <-time.After(250 * time.Millisecond):
 		t.Error("Error handler should have been called after a disconnection")
 	}
 }
