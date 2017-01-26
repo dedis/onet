@@ -22,6 +22,8 @@ import (
 	// CoSi-protocol is not part of the cothority.
 
 	// For the moment, the server only serves CoSi requests
+	"math/big"
+
 	"github.com/dedis/crypto/abstract"
 	crypconf "github.com/dedis/crypto/config"
 )
@@ -76,7 +78,7 @@ func InteractiveConfig(binaryName string) {
 		portStr = port
 	}
 
-	serverBinding = network.NewTCPAddress(hostStr + ":" + portStr)
+	serverBinding = network.NewTLSAddress(hostStr + ":" + portStr)
 	if !serverBinding.Valid() {
 		log.Error("Unable to validate address given", serverBinding)
 		return
@@ -133,12 +135,19 @@ func InteractiveConfig(binaryName string) {
 
 	// create the keys
 	privStr, pubStr := createKeyPair()
+	ips, err := net.LookupIP(publicAddress.Host())
+	log.ErrFatal(err)
+	cert, key, err := network.NewCertKey(network.NewTLSCert(big.NewInt(1), "ch", "epfl", "dedis",
+		1, []byte{}, ips), 256)
+	log.ErrFatal(err)
 	conf := &CothorityConfig{
 		Public:  pubStr,
 		Private: privStr,
 		Address: publicAddress,
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
+		TLSCert: cert,
+		TLSKey:  key,
 	}
 
 	var configDone bool
@@ -282,7 +291,7 @@ func askReachableAddress(port string) network.Address {
 		// add the port
 		ipStr = ipStr + ":" + port
 	}
-	return network.NewTCPAddress(ipStr)
+	return network.NewTLSAddress(ipStr)
 }
 
 // tryConnect binds to the given IP address and ask an internet service to

@@ -20,6 +20,8 @@ type CothorityConfig struct {
 	Private     string
 	Address     network.Address
 	Description string
+	TLSCert     network.TLSCertPEM
+	TLSKey      network.TLSKeyPEM
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -57,9 +59,12 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	si := network.NewServerIdentity(point, hc.Address)
-	si.Description = hc.Description
-	server := onet.NewServerTCP(si, secret)
+	si := network.NewServerIdentityTLS(point, hc.Address, hc.TLSCert)
+	router, err := network.NewTLSRouter(si, hc.TLSKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	server := onet.NewServer(router, secret)
 	return hc, server, nil
 }
 
@@ -83,6 +88,7 @@ type ServerToml struct {
 	Address     network.Address
 	Public      string
 	Description string
+	Cert        network.TLSCertPEM
 }
 
 // Group holds the Roster and the server-description.
@@ -175,7 +181,7 @@ func (s *ServerToml) toServerIdentity(suite abstract.Suite) (*network.ServerIden
 // If an error occurs, it will be printed to StdErr and nil
 // is returned.
 func NewServerToml(suite abstract.Suite, public abstract.Point, addr network.Address,
-	desc string) *ServerToml {
+	desc string, cert network.TLSCertPEM) *ServerToml {
 	var buff bytes.Buffer
 	if err := crypto.Write64Pub(suite, &buff, public); err != nil {
 		log.Error("Error writing public key")
@@ -185,6 +191,7 @@ func NewServerToml(suite abstract.Suite, public abstract.Point, addr network.Add
 		Address:     addr,
 		Public:      buff.String(),
 		Description: desc,
+		Cert:        cert,
 	}
 }
 
