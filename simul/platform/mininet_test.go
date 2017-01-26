@@ -81,14 +81,14 @@ func TestMiniNet_parseServers(t *testing.T) {
 	tmpfile.WriteString("192.168.0.2\n")
 	tmpfile.Close()
 	os.Rename(tmpfile.Name(), path.Join(filepath.Dir(tmpfile.Name()), "server_list"))
-	m := MiniNet{mininetDir: filepath.Dir(tmpfile.Name())}
+	m := MiniNet{wd: filepath.Dir(tmpfile.Name())}
 	err = m.parseServers()
 	log.ErrFatal(err)
 	assert.Equal(t, 2, len(m.HostIPs))
 }
 
-func makeRunConfig(servers, hosts int) RunConfig {
-	return RunConfig{fields: map[string]string{
+func makeRunConfig(servers, hosts int) *RunConfig {
+	return &RunConfig{fields: map[string]string{
 		"servers": strconv.Itoa(servers),
 		"hosts":   strconv.Itoa(hosts),
 	}}

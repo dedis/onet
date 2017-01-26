@@ -37,7 +37,7 @@ type MiniNet struct {
 	Login string
 	// The outside host on the platform
 	External string
-	// Directory we start - supposed to be `cothority/simul`
+	// Directory we start - the simulation-directory of the service/protocol
 	wd string
 	// Directory holding the simulation main-file
 	simulDir string
@@ -88,15 +88,16 @@ func (m *MiniNet) Configure(pc *Config) {
 	// Directory setup - would also be possible in /tmp
 	m.wd, _ = os.Getwd()
 	m.simulDir = m.wd
-	_, filename, _, ok := runtime.Caller(1)
+	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		log.Fatal("Couldn't get my path")
 	}
 	var err error
 	m.mininetDir, err = filepath.Abs(path.Dir(filename))
 	log.ErrFatal(err)
-	m.buildDir = m.mininetDir + "/build"
-	m.deployDir = m.mininetDir + "/deploy"
+	m.mininetDir = filepath.Join(m.mininetDir, "mininet")
+	m.buildDir = m.wd + "/build"
+	m.deployDir = m.wd + "/deploy"
 	m.Login = "root"
 	log.ErrFatal(m.parseServers())
 	m.External = m.HostIPs[0]
@@ -109,7 +110,7 @@ func (m *MiniNet) Configure(pc *Config) {
 	m.Delay = 0
 	m.Bandwidth = 1000
 
-	// Clean the MiniNet-dir, then (re-)create it
+	// Clean the build- and deploy-dir, then (re-)create them
 	for _, d := range []string{m.buildDir, m.deployDir} {
 		os.RemoveAll(d)
 		log.ErrFatal(os.Mkdir(d, 0700))
@@ -137,8 +138,8 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	srcRel, err := filepath.Rel(m.wd, m.simulDir)
 	log.ErrFatal(err)
 
-	log.Lvl3("Relative-path is", srcRel, " will build into ", m.buildDir)
-	out, err := Build("./"+srcRel, m.buildDir+"/cothority",
+	log.Lvl3("Relative-path is", srcRel, ". Will build into", m.buildDir)
+	out, err := Build("./"+srcRel, m.buildDir+"/conode",
 		processor, system, arg...)
 	log.ErrFatal(err, out)
 
@@ -228,6 +229,13 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 		return err
 	}
 
+	// Copy conode-binary
+	err = app.Copy(m.deployDir, m.buildDir+"/conode")
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
 	// Copy everything over to MiniNet
 	log.Lvl1("Copying over to", m.Login, "@", m.External)
 	err = Rsync(m.Login, m.External, m.deployDir+"/", "mininet_run/")
@@ -300,10 +308,11 @@ func (m *MiniNet) Wait() error {
 
 // Returns the servers to use for mininet.
 func (m *MiniNet) parseServers() error {
-	hosts, err := ioutil.ReadFile(path.Join(m.buildDir, "server_list"))
+	slName := path.Join(m.wd, "server_list")
+	hosts, err := ioutil.ReadFile(slName)
 	if err != nil {
-		return fmt.Errorf("Couldn't find %[1]s/server_list - you can produce one with\n"+
-			"\t\t%[1]s/setup_servers.sh\n\t\tor\n\t\t%[1]s/setup_iccluster.sh", m.mininetDir)
+		return fmt.Errorf("Couldn't find %s - you can produce one with\n"+
+			"\t\t%[2]s/setup_servers.sh\n\t\tor\n\t\t%[2]s/setup_iccluster.sh", slName, m.mininetDir)
 	}
 	m.HostIPs = []string{}
 	for _, hostRaw := range strings.Split(string(hosts), "\n") {

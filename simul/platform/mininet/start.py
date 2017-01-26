@@ -42,6 +42,8 @@ socatSend = "udp-sendto"
 socatRcv = "udp4-listen"
 # Whether to redirect all socats to the main-gateway at 10.1.0.1
 socatDirect = True
+# If we want to end up in the CLI
+startCLI = True
 
 def dbg(lvl, *str):
     if lvl <= debugLvl:
@@ -81,38 +83,41 @@ class BaseRouter(Node):
         super(BaseRouter, self).terminate()
 
 
-class Cothority(Host):
-    """A cothority running in a host"""
+class Conode(Host):
+    """A conode running in a host"""
     def config(self, gw=None, simul="", rootLog=None, **params):
         self.gw = gw
         self.simul = simul
         self.rootLog = rootLog
-        super(Cothority, self).config(**params)
+        super(Conode, self).config(**params)
         if runSSHD:
             self.cmd('/usr/sbin/sshd -D &')
 
-    def startCothority(self):
+    def startConode(self):
         if self.rootLog and socatDirect:
             socat="socat - %s:%s:%d" % (socatSend, self.rootLog, socatPort)
         else:
             socat="socat - %s:%s:%d" % (socatSend, self.gw, socatPort)
 
         args = "-debug %s -address %s:2000 -simul %s" % (debugLvl, self.IP(), self.simul)
-        if True:
+        if False:
             args += " -monitor %s:10000" % global_root
         ldone = ""
         # When the first conode on a physical server ends, tell `start.py`
         # to go on. ".0.1" is the BaseRouter.
         if self.IP().endswith(".0.2"):
-            ldone = "; date > " + logdone
-        dbg( 3, "Starting cothority on node", self.IP(), ldone )
-        self.cmd('( %s ./cothority %s 2>&1 %s ) | %s &' %
-                     (debugStr, args, ldone, socat ))
+            ldone = "> /tmp/conode.log"
+            # ldone = "; date > " + logdone
+        dbg( 3, "Starting conode on node", self.IP(), ldone, args )
+        # self.cmd('( %s ./conode %s 2>&1 %s ) | %s &' %
+        self.cmd('( %s ./conode %s 2>&1 %s ) &' %
+                     (debugStr, args, ldone ))
+                     # (debugStr, args, ldone, socat ))
 
     def terminate(self):
-        dbg( 3, "Stopping cothority" )
-        self.cmd('killall socat cothority')
-        super(Cothority, self).terminate()
+        dbg( 3, "Stopping conode" )
+        self.cmd('killall socat conode')
+        super(Conode, self).terminate()
 
 
 class InternetTopo(Topo):
@@ -134,7 +139,7 @@ class InternetTopo(Topo):
 
             for i in range(1, int(n) + 1):
                 ipStr = ipAdd(i + 1, prefix, baseIp)
-                host = self.addHost('h%d' % i, cls=Cothority,
+                host = self.addHost('h%d' % i, cls=Conode,
                                     ip = '%s/%d' % (ipStr, prefix),
                                     defaultRoute='via %s' % gw,
 			                	    simul=simulation, gw=gw,
@@ -156,14 +161,15 @@ def RunNet():
     net.start()
 
     for host in net.hosts[1:]:
-        host.startCothority()
+        host.startConode()
 
     # Also set setLogLevel('info') if you want to use this, else
     # there is no correct reporting on commands.
-    # CLI(net)
+    if startCLI:
+        CLI(net)
     log = open(logfile, "r")
     while not os.path.exists(logdone):
-        dbg( 4, "Waiting for cothority to finish at " + platform.node() )
+        dbg( 4, "Waiting for conode to finish at " + platform.node() )
         try:
             print(log.read(), end="")
             sys.stdout.flush()
@@ -173,7 +179,7 @@ def RunNet():
         time.sleep(1)
     log.close()
 
-    dbg( 2, "cothority is finished %s" % myNet )
+    dbg( 2, "conode is finished %s" % myNet )
     net.stop()
 
 def GetNetworks(filename):
@@ -240,9 +246,11 @@ def call_other(server, list_file):
 # The only argument given to the script is the server-list. Everything
 # else will be read from that and searched in the computer-configuration.
 if __name__ == '__main__':
-    # setLogLevel('info')
-    # With this loglevel CLI(net) does not report correctly.
-    lg.setLogLevel( 'critical')
+    if startCLI:
+        setLogLevel('info')
+    else:
+        # With this loglevel CLI(net) does not report correctly.
+        lg.setLogLevel( 'critical')
     if len(sys.argv) < 2:
         dbg(0, "please give list-name")
         sys.exit(-1)
@@ -255,14 +263,15 @@ if __name__ == '__main__':
         # rm_file(logfile)
         rm_file(logdone)
         call("mn -c > /dev/null 2>&1", shell=True)
-        dbg( 2, "Starting mininet for %s" % myNet )
+        dbg( 1, "Starting mininet for %s" % myNet )
         t1 = threading.Thread(target=RunNet)
         t1.start()
         time.sleep(1)
 
     threads = []
     if len(sys.argv) > 2:
-        dbg( 1, "Starting remotely on nets", otherNets)
+        if len(otherNets) > 0:
+            dbg( 1, "Starting remotely on nets", otherNets)
         for (server, mn, nbr) in otherNets:
             dbg( 3, "Cleaning up", server )
             call("ssh -q %s 'mn -c; pkill -9 -f start.py' > /dev/null 2>&1" % server, shell=True)
