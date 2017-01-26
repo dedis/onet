@@ -6,7 +6,7 @@ import (
 
 	"fmt"
 
-	"github.com/dedis/cothority/log"
+	"github.com/dedis/onet/log"
 )
 
 /*
@@ -131,15 +131,6 @@ func NewTLSConn(si *ServerIdentity) (*TLSConn, error) {
 		return nil, err
 	}
 	return &TLSConn{c}, nil
-}
-
-// NewTLSClient returns a new client using the TLS network communication
-// layer.
-func NewTLSClient() *Client {
-	fn := func(own, remote *ServerIdentity) (Conn, error) {
-		return NewTLSConn(remote)
-	}
-	return newClient(fn)
 }
 
 // NewTLSAddress returns a new Address that has type PlainTLS with the given
