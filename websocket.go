@@ -64,7 +64,6 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 			Addr:    webHost,
 			Handler: w.mux,
 		},
-		NoSignalHandling: true,
 	}
 	return w
 }
@@ -77,7 +76,6 @@ func (w *WebSocket) start() {
 	log.Lvl3("Starting to listen on", w.server.Server.Addr)
 	go func() {
 		w.server.ListenAndServe()
-		w.startstop <- false
 	}()
 	w.startstop <- true
 }
@@ -102,7 +100,6 @@ func (w *WebSocket) stop() {
 		return
 	}
 	log.Lvl3("Stopping", w.server.Server.Addr)
-	<-w.startstop
 	w.server.Stop(100 * time.Millisecond)
 	<-w.startstop
 	w.started = false
@@ -119,6 +116,12 @@ type wsHandler struct {
 func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := websocket.Upgrader{
 		EnableCompression: true,
+		// As the website will not be served from ourselves, we
+		// need to accept _all_ origins. Cross-site scriptiong is
+		// required.
+		CheckOrigin: func(*http.Request) bool {
+			return true
+		},
 	}
 	ws, err := u.Upgrade(w, r, http.Header{})
 	if err != nil {
