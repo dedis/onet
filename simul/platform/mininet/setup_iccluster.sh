@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd "$(dirname ${BASH_SOURCE[0]})"
+mininet="$(dirname ${BASH_SOURCE[0]})"
 
 if [ -z "$1" ]; then
 	echo "Syntax: $0 #1 #2 ..."
@@ -13,4 +13,4 @@ for s in $@; do
   ICCLUSTERS="$ICCLUSTERS $SERVER"
 done
 
-./setup_servers.sh $ICCLUSTERS
+"$mininet/setup_servers.sh" $ICCLUSTERS

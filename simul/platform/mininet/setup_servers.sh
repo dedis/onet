@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd "$(dirname ${BASH_SOURCE[0]})"
+mininet="$(dirname ${BASH_SOURCE[0]})"
 set -e
 
 SERVER_GW="$1"

@@ -43,7 +43,7 @@ socatRcv = "udp4-listen"
 # Whether to redirect all socats to the main-gateway at 10.1.0.1
 socatDirect = True
 # If we want to end up in the CLI
-startCLI = True
+startCLI = False
 
 def dbg(lvl, *str):
     if lvl <= debugLvl:
@@ -100,19 +100,16 @@ class Conode(Host):
             socat="socat - %s:%s:%d" % (socatSend, self.gw, socatPort)
 
         args = "-debug %s -address %s:2000 -simul %s" % (debugLvl, self.IP(), self.simul)
-        if False:
+        if True:
             args += " -monitor %s:10000" % global_root
         ldone = ""
         # When the first conode on a physical server ends, tell `start.py`
         # to go on. ".0.1" is the BaseRouter.
         if self.IP().endswith(".0.2"):
-            ldone = "> /tmp/conode.log"
-            # ldone = "; date > " + logdone
-        dbg( 3, "Starting conode on node", self.IP(), ldone, args )
-        # self.cmd('( %s ./conode %s 2>&1 %s ) | %s &' %
-        self.cmd('( %s ./conode %s 2>&1 %s ) &' %
-                     (debugStr, args, ldone ))
-                     # (debugStr, args, ldone, socat ))
+            ldone = "; date > " + logdone
+        dbg( 3, "Starting conode on node", self.IP(), args, ldone, socat )
+        self.cmd('( %s ./conode %s 2>&1 %s ) | %s &' %
+                     (debugStr, args, ldone, socat ))
 
     def terminate(self):
         dbg( 3, "Stopping conode" )
