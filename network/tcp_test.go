@@ -482,6 +482,13 @@ func NewTestServerIdentity(address Address) *ServerIdentity {
 	return e
 }
 
+// Returns a new tls ServerIdentity
+func NewTestServerIdentityTLS(address Address, cert TLSCertPEM) *ServerIdentity {
+	si := NewTestServerIdentity(address)
+	si.Cert = cert
+	return si
+}
+
 // SimpleMessage is just used to transfer one integer
 type SimpleMessage struct {
 	I int

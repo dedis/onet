@@ -78,6 +78,8 @@ type ServerIdentity struct {
 	Address Address
 	// Description of the server
 	Description string
+	// The self-signed TLS-certificate for that ServerIdentity, PEM-encoded.
+	Cert TLSCertPEM
 }
 
 // ServerIdentityID uniquely identifies an ServerIdentity struct
@@ -111,6 +113,17 @@ func NewServerIdentity(public abstract.Point, address Address) *ServerIdentity {
 		Address: address,
 		ID:      ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url)),
 	}
+}
+
+// NewServerIdentityTLS creates a new ServerIdentity and initialises it with
+// the given certificate for a tls-connection.
+func NewServerIdentityTLS(public abstract.Point, address Address, cert TLSCertPEM) *ServerIdentity {
+	if address.ConnType() != TLS {
+		return nil
+	}
+	si := NewServerIdentity(public, address)
+	si.Cert = cert
+	return si
 }
 
 // Equal tests on same public key
