@@ -7,6 +7,8 @@ import (
 
 	"errors"
 
+	"strings"
+
 	"gopkg.in/dedis/crypto.v0/abstract"
 )
 
@@ -93,13 +95,7 @@ func PubToStringHex(suite abstract.Suite, point abstract.Point) (string, error) 
 // StringHexToPub reads a hexadecimal representation of a public point and convert it to the
 // right struct
 func StringHexToPub(suite abstract.Suite, s string) (abstract.Point, error) {
-	encoded, err := hex.DecodeString(s)
-	if err != nil {
-		return nil, err
-	}
-	point := suite.Point()
-	err = point.UnmarshalBinary(encoded)
-	return point, err
+	return ReadHexPub(suite, strings.NewReader(s))
 }
 
 // PubToString64 converts a Public point to a base64 representation
@@ -111,13 +107,7 @@ func PubToString64(suite abstract.Suite, point abstract.Point) (string, error) {
 // String64ToPub reads a base64 representation of a public point and converts it
 // back to a point.
 func String64ToPub(suite abstract.Suite, s string) (abstract.Point, error) {
-	encoded, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return nil, err
-	}
-	point := suite.Point()
-	err = point.UnmarshalBinary(encoded)
-	return point, err
+	return Read64Pub(suite, strings.NewReader(s))
 }
 
 // ScalarToStringHex encodes a scalar to hexadecimal
@@ -128,13 +118,7 @@ func ScalarToStringHex(suite abstract.Suite, scalar abstract.Scalar) (string, er
 
 // StringHexToScalar reads a scalar in hexadecimal from string
 func StringHexToScalar(suite abstract.Suite, str string) (abstract.Scalar, error) {
-	enc, err := hex.DecodeString(str)
-	if err != nil {
-		return nil, err
-	}
-	s := suite.Scalar()
-	err = s.UnmarshalBinary(enc)
-	return s, err
+	return ReadHexScalar(suite, strings.NewReader(str))
 }
 
 // ScalarToString64 encodes a scalar to a base64
@@ -145,13 +129,7 @@ func ScalarToString64(suite abstract.Suite, scalar abstract.Scalar) (string, err
 
 // String64ToScalar reads a scalar in base64 from a string
 func String64ToScalar(suite abstract.Suite, str string) (abstract.Scalar, error) {
-	enc, err := base64.StdEncoding.DecodeString(str)
-	if err != nil {
-		return nil, err
-	}
-	s := suite.Scalar()
-	err = s.UnmarshalBinary(enc)
-	return s, err
+	return Read64Scalar(suite, strings.NewReader(str))
 }
 
 func write64(suite abstract.Suite, wc io.WriteCloser, data ...interface{}) error {
@@ -176,11 +154,4 @@ func getHex(r io.Reader, len int) ([]byte, error) {
 		return nil, err
 	}
 	return bufByte, nil
-}
-
-func writeHex(suite abstract.Suite, wc io.WriteCloser, data ...interface{}) error {
-	if err := suite.Write(wc, data); err != nil {
-		return err
-	}
-	return wc.Close()
 }
