@@ -3,7 +3,7 @@ package network
 import (
 	"testing"
 
-	"github.com/dedis/crypto/config"
+	"gopkg.in/dedis/crypto.v0/config"
 	"gopkg.in/dedis/onet.v1/log"
 )
 

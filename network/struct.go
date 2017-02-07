@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/crypto/abstract"
 	"github.com/dedis/protobuf"
 	"github.com/satori/go.uuid"
+	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/crypto"
 	"gopkg.in/dedis/onet.v1/log"
 )

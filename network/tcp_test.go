@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/crypto/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/crypto.v0/config"
 	"gopkg.in/dedis/onet.v1/log"
 )
 

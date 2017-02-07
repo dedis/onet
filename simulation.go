@@ -10,8 +10,8 @@ import (
 	"net"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dedis/crypto/abstract"
-	"github.com/dedis/crypto/config"
+	"gopkg.in/dedis/crypto.v0/abstract"
+	"gopkg.in/dedis/crypto.v0/config"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
 )
@@ -264,7 +264,7 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 		if sc.PrivateKeys[entities[0].Address].Equal(
 			sc.PrivateKeys[entities[1].Address]) {
 			log.Fatal("Please update dedis/crypto with\n" +
-				"go get -u github.com/dedis/crypto")
+				"go get -u gopkg.in/dedis/crypto.v0")
 		}
 	}
 

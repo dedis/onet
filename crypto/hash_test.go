@@ -10,9 +10,9 @@ import (
 
 	"encoding"
 
-	"github.com/dedis/crypto/abstract"
-	"github.com/dedis/crypto/ed25519"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/dedis/crypto.v0/abstract"
+	"gopkg.in/dedis/crypto.v0/ed25519"
 	"gopkg.in/dedis/onet.v1/log"
 )
 

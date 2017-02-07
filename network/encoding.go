@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/dedis/crypto/abstract"
-	"github.com/dedis/crypto/ed25519"
 	"github.com/dedis/protobuf"
 	"github.com/satori/go.uuid"
+	"gopkg.in/dedis/crypto.v0/abstract"
+	"gopkg.in/dedis/crypto.v0/ed25519"
 	"gopkg.in/dedis/onet.v1/log"
 )
 

@@ -5,8 +5,8 @@ import (
 
 	"bytes"
 
-	"github.com/dedis/crypto/edwards"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/crypto.v0/edwards"
 	"gopkg.in/dedis/onet.v1/log"
 )
 
