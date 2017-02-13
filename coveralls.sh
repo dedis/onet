@@ -7,7 +7,10 @@ DIR_SOURCE="$(find . -maxdepth 10 -type f -not -path '*/vendor*' -name '*.go' | 
 #if [ "$TRAVIS_BUILD_DIR" ]; then
 #  cd $TRAVIS_BUILD_DIR
 #fi
-cd $GOPATH/src/gopkg.in/dedis/onet.v1
+cd $GOPATH/src/gopkg.in/dedis
+rm -rf onet.v1
+ln -s $GOPATH/src/github.com/dedis/onet onet.v1
+cd onet.v1
 
 # Run test coverage on each subdirectories and merge the coverage profile.
 all_tests_passed=true
