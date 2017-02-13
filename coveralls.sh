@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 # Source: https://github.com/h12w/gosweep/blob/master/gosweep.sh
+# Adjusted to work for onet.v1-gopkg
 
 DIR_EXCLUDE="$@"
 DIR_SOURCE="$(find . -maxdepth 10 -type f -not -path '*/vendor*' -name '*.go' | xargs -I {} dirname {} | sort | uniq)"
 
-#if [ "$TRAVIS_BUILD_DIR" ]; then
-#  cd $TRAVIS_BUILD_DIR
-#fi
 cd $GOPATH/src/gopkg.in/dedis
 rm -rf onet.v1
 ln -s $GOPATH/src/github.com/dedis/onet onet.v1
@@ -18,7 +16,7 @@ all_tests_passed=true
 echo "mode: atomic" > profile.cov
 for dir in $DIR_SOURCE; do
 	if ! echo $DIR_EXCLUDE | grep -q $dir; then
-	    go test -short -race -covermode=atomic -coverprofile=$dir/profile.tmp -v $dir
+	    go test -short -race -covermode=atomic -coverprofile=$dir/profile.tmp $dir
 
     	if [ $? -ne 0 ]; then
         	all_tests_passed=false
