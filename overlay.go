@@ -762,7 +762,6 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	switch inner := msg.(type) {
 	case *ProtocolMsg:
 		onetMsg := inner
-		var err error
 		_, protoMsg, err := network.Unmarshal(onetMsg.MsgSlice)
 		if err != nil {
 			return nil, nil, err
@@ -782,7 +781,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	case *Roster:
 		returnOverlay.Roster = inner
 	default:
-		err = fmt.Errorf("default protoIO: unwrapping an unknown message type %s",
+		err = fmt.Errorf("default protoIO: unwrapping an unknown message type %v",
 			inner)
 	}
 	return returnMsg, returnOverlay, err
