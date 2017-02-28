@@ -37,7 +37,6 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
-	"regexp"
 )
 
 // Deterlab holds all fields necessary for a Deterlab-run
@@ -344,72 +343,53 @@ func (d *Deterlab) Wait() error {
 // Write the hosts.txt file automatically
 // from project name and number of servers
 func (d *Deterlab) createHosts() {
-	numServers := d.Servers
-
 	// Query deterlab's API for servers
 	log.Lvl2("Querying Deterlab's API to retrieve server names and addresses")
 	command := fmt.Sprintf("/usr/testbed/bin/expinfo -l -e %s,%s", d.Project, d.Experiment)
-	cmdOutputBytes, err := SSHRun(d.Login, d.Host, command)
+	apiReply, err := SSHRun(d.Login, d.Host, command)
 	if err != nil {
 		log.Fatal("Error while querying Deterlab:", err)
 	}
+	d.parseHosts(string(apiReply))
+}
 
-	// Parse the output
-	outputStr := string(cmdOutputBytes)
-
-	// extract the interesting bit
-	str1 := strings.Split(outputStr, "Link Info:\n")
-	str2 := strings.Split(str1[1], "\n\n")
-	str3 := strings.Split(str2[0], "---------\n")
-	interestingBit := str3[1]
-	lines := strings.Split(interestingBit, "\n")
-
-	// extract one line over two
-	interestingLines := make([]string, 0)
-	for i, line := range lines {
-		if i%2 == 0 {
-			interestingLines = append(interestingLines, line)
-		}
+func (d *Deterlab) parseHosts(str string) {
+	// Get the link-information, which is the second block in `expinfo`-output
+	linkInfo := strings.Split(str, "\n\n")[1]
+	// Test for correct version in case the API-output changes
+	if !strings.HasPrefix(linkInfo, "Virtual Lan/Link Info:") {
+		log.Fatal("Didn't recognize output of 'expinfo'")
 	}
+	nodes := strings.Split(linkInfo, "\n")[3:]
 
-	// format : LAN	name:interface	ip	[otherdata]
-	// number of spaces is varying
-	regex := regexp.MustCompile("^([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)")
-	// lost with this regex ? http://regexr.com/3fe0m
+	d.Phys = []string{}
+	d.Virt = []string{}
+	names := make(map[string]bool)
 
-	d.Phys = make([]string, 0, numServers)
-	d.Virt = make([]string, 0, numServers)
-
-	for i := range interestingLines {
-		matches := regex.FindStringSubmatch(interestingLines[i])
-
-		if len(matches) < 6 {
-			log.Fatal("Couldn't parse Deterlab's API output")
+	for i, node := range nodes {
+		if i%2 == 1 {
+			continue
 		}
-		nameInterface := matches[3] // client-0:0
-		parts := strings.Split(nameInterface, ":")
-		name := parts[0] // client-0
-		ip := matches[5]
+		matches := strings.Fields(node)
+		if len(matches) != 6 {
+			log.Fatal("Expinfo-output seems to have changed!")
+		}
+		// Convert client-0:0 to client-0
+		name := strings.Split(matches[1], ":")[0]
+		ip := matches[2]
 
 		fullName := fmt.Sprintf("%s.%s.%s.isi.deterlab.net", name, d.Experiment, d.Project)
 		log.Lvl3("Discovered", fullName, "on ip", ip)
 
-		// if a server has serveral interfaces, do not spawn it multiple times
-		alreadyIn := false
-		for _, phys := range d.Phys {
-			if phys == fullName {
-				log.Lvl2("Ignoring second interface for server", name)
-				alreadyIn = true
-			}
-		}
-		if !alreadyIn {
+		if _, exists := names[fullName]; !exists {
 			d.Phys = append(d.Phys, fullName)
 			d.Virt = append(d.Virt, ip)
+			names[fullName] = true
 		}
 	}
 
-	log.Info("Physical:", d.Phys)
-	log.Info("Internal:", d.Virt)
+	log.Lvl2("Physical:", d.Phys)
+	log.Lvl2("Internal:", d.Virt)
 }
 
 // Checks whether host, login and project are defined. If any of them are missing, it will
