@@ -3,19 +3,43 @@ package platform
 import (
 	"testing"
 
+	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
 )
 
 func TestDeterlab_parseHosts(t *testing.T) {
 	d := &Deterlab{}
-	d.parseHosts(deterHosts1)
+	require.NotNil(t, d.parseHosts(""))
+	require.NotNil(t, d.parseHosts(deterHostsErr1))
+	require.NotNil(t, d.parseHosts(deterHostsErr2))
+
+	log.ErrFatal(d.parseHosts(deterHosts1))
 	require.Equal(t, 9, len(d.Virt))
 	require.Equal(t, 9, len(d.Phys))
 
-	d.parseHosts(deterHosts2)
+	log.ErrFatal(d.parseHosts(deterHosts2))
 	require.Equal(t, 2, len(d.Virt))
 	require.Equal(t, 2, len(d.Phys))
 }
+
+const deterHostsErr1 = `
+Experiment: SAFER/LB-LLD
+State: active
+
+Virtual Lan/Link Info:
+ID              Member/Proto    IP/Mask         Delay     BW (Kbs)  Loss Rate
+--------------- --------------- --------------- --------- --------- ---------
+lanclients      client-0:0      10.0.1.1        5.00      100000    0.00000000`
+
+const deterHostsErr2 = `
+Experiment: SAFER/LB-LLD
+State: active
+
+Virtual Lan/Link Info:
+ID              Member/Proto    IP/Mask         Delay     BW (Kbs)  Loss Rate
+--------------- --------------- --------------- --------- --------- ---------
+lanclients      client-0:0      10.0.1.1        5.00      100000
+                ethernet        255.255.255.0   5.00      100000    0.00000000`
 
 const deterHosts1 = `
 Experiment: SAFER/LB-LLD

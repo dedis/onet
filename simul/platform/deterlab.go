@@ -34,6 +34,8 @@ import (
 
 	"path/filepath"
 
+	"errors"
+
 	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
@@ -350,17 +352,25 @@ func (d *Deterlab) createHosts() {
 	if err != nil {
 		log.Fatal("Error while querying Deterlab:", err)
 	}
-	d.parseHosts(string(apiReply))
+	log.ErrFatal(d.parseHosts(string(apiReply)))
 }
 
-func (d *Deterlab) parseHosts(str string) {
+func (d *Deterlab) parseHosts(str string) error {
 	// Get the link-information, which is the second block in `expinfo`-output
-	linkInfo := strings.Split(str, "\n\n")[1]
+	infos := strings.Split(str, "\n\n")
+	if len(infos) < 2 {
+		return errors.New("didn't recognize output of 'expinfo'")
+	}
+	linkInfo := infos[1]
 	// Test for correct version in case the API-output changes
 	if !strings.HasPrefix(linkInfo, "Virtual Lan/Link Info:") {
-		log.Fatal("Didn't recognize output of 'expinfo'")
+		return errors.New("didn't recognize output of 'expinfo'")
 	}
-	nodes := strings.Split(linkInfo, "\n")[3:]
+	linkLines := strings.Split(linkInfo, "\n")
+	if len(linkLines) < 5 {
+		return errors.New("didn't recognice output of 'expinfo'")
+	}
+	nodes := linkLines[3:]
 
 	d.Phys = []string{}
 	d.Virt = []string{}
@@ -372,7 +382,7 @@ func (d *Deterlab) parseHosts(str string) {
 		}
 		matches := strings.Fields(node)
 		if len(matches) != 6 {
-			log.Fatal("Expinfo-output seems to have changed!")
+			return errors.New("expinfo-output seems to have changed")
 		}
 		// Convert client-0:0 to client-0
 		name := strings.Split(matches[1], ":")[0]
@@ -390,6 +400,7 @@ func (d *Deterlab) parseHosts(str string) {
 
 	log.Lvl2("Physical:", d.Phys)
 	log.Lvl2("Internal:", d.Virt)
+	return nil
 }
 
 // Checks whether host, login and project are defined. If any of them are missing, it will
