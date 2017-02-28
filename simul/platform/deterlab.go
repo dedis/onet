@@ -371,10 +371,12 @@ func (d *Deterlab) createHosts() {
 	} else {
 		log.Lvl3("Found", ServersListTomlFile, ", using it for assigning IPs to servers")
 
+		numServers := d.Servers
+
 		// the simulation's main toml file requests a number of server (i.e. Servers=X). we need our mapping
 		// to have at least that many servers obviously; more isn't a problem, they won't be used.
-		if len(servers.Servers) < d.Servers {
-			log.Fatal("Simulation's toml specifies", d.Servers, "servers, but", ServersListTomlFile,
+		if len(servers.Servers) < numServers {
+			log.Fatal("Simulation's toml specifies", numServers, "servers, but", ServersListTomlFile,
 				"specifies only", len(servers.Servers), " servers.")
 		}
 
