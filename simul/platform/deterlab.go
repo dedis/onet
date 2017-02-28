@@ -34,6 +34,7 @@ import (
 
 	"path/filepath"
 
+	"errors"
 	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
@@ -98,8 +99,8 @@ const ServersListTomlFile = "servers.toml"
 // Server is a mapping "deterlab machine name" -> physical IP address
 // example : server-0.EXP.PROJECT.isi.deterlab.net -> 10.1.2.3
 type Server struct {
-	Name     string
-	IP      string
+	Name string
+	IP   string
 }
 
 // ServersListToml is a list of mappings "deterlab machine name" -> physical
@@ -360,6 +361,40 @@ func (d *Deterlab) Wait() error {
 // Write the hosts.txt file automatically
 // from project name and number of servers
 func (d *Deterlab) createHosts() {
+
+	//try to open the file; if it fail, fallback to hard-coded mode
+	servers, err := decodeServersTomlFile(ServersListTomlFile)
+
+	if err != nil {
+		log.Error("Could not find or open", ServersListTomlFile, ", falling back to hard-coded values")
+		d.createDefaultHosts()
+	} else {
+		log.Lvl3("Found", ServersListTomlFile, ", using it for assigning IPs to servers")
+
+		// the simulation's main toml file requests a number of server (i.e. Servers=X). we need our mapping
+		// to have at least that many servers obviously; more isn't a problem, they won't be used.
+		if len(servers.Servers) < d.Servers {
+			log.Fatal("Simulation's toml specifies", d.Servers, "servers, but", ServersListTomlFile,
+				"specifies only", len(servers.Servers), " servers.")
+		}
+
+		d.Phys = make([]string, 0, numServers)
+		d.Virt = make([]string, 0, numServers)
+
+		for _, host := range servers.Servers {
+			d.Phys = append(d.Phys, host.Name)
+			d.Virt = append(d.Virt, host.IP)
+		}
+
+		log.Lvl3("Physical:", d.Phys)
+		log.Lvl3("Internal:", d.Virt)
+
+	}
+}
+
+// creates hosts name of the form server-X.EXP.PROJECT.isi.deterlab.net,
+// and IPs of the form 10.255.0.X
+func (d *Deterlab) createDefaultHosts() {
 	numServers := d.Servers
 
 	ip := "10.255.0."
@@ -373,6 +408,26 @@ func (d *Deterlab) createHosts() {
 
 	log.Lvl3("Physical:", d.Phys)
 	log.Lvl3("Internal:", d.Virt)
+}
+
+// decodeServersTomlFile decodes the toml file into a ServersListToml struct
+func decodeServersTomlFile(filePath string) (*ServersListToml, error) {
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		e := fmt.Sprint("Could not read file \"", filePath, "\"")
+		log.Error(e)
+		return nil, errors.New(e)
+	}
+
+	defer f.Close()
+
+	servers := &ServersListToml{}
+	_, err = toml.DecodeReader(f, hosts)
+	if err != nil {
+		return nil, err
+	}
+	return servers, nil
 }
 
 // Checks whether host, login and project are defined. If any of them are missing, it will
