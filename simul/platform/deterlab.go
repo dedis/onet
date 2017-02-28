@@ -425,7 +425,7 @@ func decodeServersTomlFile(filePath string) (*ServersListToml, error) {
 	defer f.Close()
 
 	servers := &ServersListToml{}
-	_, err = toml.DecodeReader(f, hosts)
+	_, err = toml.DecodeReader(f, servers)
 	if err != nil {
 		return nil, err
 	}
