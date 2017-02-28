@@ -91,6 +91,23 @@ type Deterlab struct {
 	RunWait int
 }
 
+// ServersListTomlFile is the toml file containing the mappings
+// "deterlab machine name" -> physical IP address
+const ServersListTomlFile = "servers.toml"
+
+// Server is a mapping "deterlab machine name" -> physical IP address
+// example : server-0.EXP.PROJECT.isi.deterlab.net -> 10.1.2.3
+type Server struct {
+	Name     string
+	IP      string
+}
+
+// ServersListToml is a list of mappings "deterlab machine name" -> physical
+// IP address, parsable from a toml file
+type ServersListToml struct {
+	Servers []*Server `toml:"servers"`
+}
+
 var simulConfig *onet.SimulationConfig
 
 // Configure initialises the directories and loads the saved config
