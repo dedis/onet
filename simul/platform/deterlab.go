@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"time"
 
-	"errors"
 	"os/user"
 
 	"runtime"
