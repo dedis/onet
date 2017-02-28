@@ -37,6 +37,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
+	"regexp"
 )
 
 // Deterlab holds all fields necessary for a Deterlab-run
@@ -345,17 +346,64 @@ func (d *Deterlab) Wait() error {
 func (d *Deterlab) createHosts() {
 	numServers := d.Servers
 
-	ip := "10.255.0."
-	name := d.Project + ".isi.deterlab.net"
-	d.Phys = make([]string, 0, numServers)
-	d.Virt = make([]string, 0, numServers)
-	for i := 1; i <= numServers; i++ {
-		d.Phys = append(d.Phys, fmt.Sprintf("server-%d.%s.%s", i-1, d.Experiment, name))
-		d.Virt = append(d.Virt, fmt.Sprintf("%s%d", ip, i))
+	// Query deterlab's API for servers
+	log.Lvl2("Querying Deterlab's API to retrieve server names and addresses")
+	command := fmt.Sprintf("/usr/testbed/bin/expinfo -l -e %s,%s", d.Project, d.Experiment)
+	cmdOutputBytes, err := SSHRun(d.Login, d.Host, command)
+	if err != nil {
+		log.Fatal("Error while querying Deterlab:", err)
 	}
 
-	log.Lvl3("Physical:", d.Phys)
-	log.Lvl3("Internal:", d.Virt)
+	// Parse the output
+	outputStr := string(cmdOutputBytes)
+
+	// extract the interesting bit
+	str1 := strings.Split(outputStr, "Link Info:\n")
+	str2 := strings.Split(str1[1], "\n\n")
+	str3 := strings.Split(str2[0], "---------\n")
+	interestingBit := str3[1]
+	lines := strings.Split(interestingBit, "\n")
+
+	// extract one line over two
+	interestingLines := make([]string, 0)
+	for i, line := range lines {
+		if i%2 == 0 {
+			interestingLines = append(interestingLines, line)
+		}
+	}
+
+	d.Phys = make([]string, 0, numServers)
+	d.Virt = make([]string, 0, numServers)
+
+	for i := range interestingLines {
+
+		// format : LAN	name:interface	ip	[otherdata]
+		matches := strings.Fields(interestingLines[i])
+
+		nameInterface := matches[1] // client-0:0
+		parts := strings.Split(nameInterface, ":")
+		name := parts[0] // client-0
+		ip := matches[2]
+
+		fullName := fmt.Sprintf("%s.%s.%s.isi.deterlab.net", name, d.Experiment, d.Project)
+		log.Lvl3("Discovered", fullName, "on ip", ip)
+
+		// if a server has serveral interfaces, do not spawn it multiple times
+		alreadyIn := false
+		for _, phys := range d.Phys {
+			if phys == fullName {
+				log.Lvl2("Ignoring second interface for server", name)
+				alreadyIn = true
+			}
+		}
+		if !alreadyIn {
+			d.Phys = append(d.Phys, fullName)
+			d.Virt = append(d.Virt, ip)
+		}
+	}
+
+	log.Info("Physical:", d.Phys)
+	log.Info("Internal:", d.Virt)
 }
 
 // Checks whether host, login and project are defined. If any of them are missing, it will
