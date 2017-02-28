@@ -372,24 +372,18 @@ func (d *Deterlab) createHosts() {
 		}
 	}
 
-	// format : LAN	name:interface	ip	[otherdata]
-	// number of spaces is varying
-	regex := regexp.MustCompile("^([^ ]+)([ ]+)([^ ]+)([ ]+)([^ ]+)")
-	// lost with this regex ? http://regexr.com/3fe0m
-
 	d.Phys = make([]string, 0, numServers)
 	d.Virt = make([]string, 0, numServers)
 
 	for i := range interestingLines {
-		matches := regex.FindStringSubmatch(interestingLines[i])
 
-		if len(matches) < 6 {
-			log.Fatal("Couldn't parse Deterlab's API output")
-		}
-		nameInterface := matches[3] // client-0:0
+		// format : LAN	name:interface	ip	[otherdata]
+		matches := strings.Fields(interestingLines[i])
+
+		nameInterface := matches[1] // client-0:0
 		parts := strings.Split(nameInterface, ":")
 		name := parts[0] // client-0
-		ip := matches[5]
+		ip := matches[2]
 
 		fullName := fmt.Sprintf("%s.%s.%s.isi.deterlab.net", name, d.Experiment, d.Project)
 		log.Lvl3("Discovered", fullName, "on ip", ip)
