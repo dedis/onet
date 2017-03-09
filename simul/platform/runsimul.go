@@ -117,7 +117,7 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		syncWait := monitor.NewTimeMeasure("SimulSyncWait")
 		wgSimulInit.Add(len(rootSC.Tree.Roster.List))
 		for _, conode := range rootSC.Tree.Roster.List {
-			rootSC.Server.Send(conode, &simulInit{})
+			go rootSC.Server.Send(conode, &simulInit{})
 		}
 		wgSimulInit.Wait()
 		syncWait.Record()
