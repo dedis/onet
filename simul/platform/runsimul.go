@@ -11,7 +11,8 @@ import (
 	"github.com/dedis/onet/simul/monitor"
 )
 
-type startSimulation struct{}
+type simulInit struct{}
+type simulInitDone struct{}
 
 // Simulate starts the server and will setup the protocol.
 func Simulate(serverAddress, simul, monitorAddress string) error {
@@ -30,11 +31,12 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		}
 	}
 	sims := make([]onet.Simulation, len(scs))
-	startsimul := network.RegisterMessage(startSimulation{})
+	simulInitID := network.RegisterMessage(simulInit{})
+	simulInitDoneID := network.RegisterMessage(simulInitDone{})
 	var rootSC *onet.SimulationConfig
 	var rootSim onet.Simulation
 	// having a waitgroup so the binary stops when all servers are closed
-	var wg sync.WaitGroup
+	var wgServer, wgSimulInit sync.WaitGroup
 	var ready = make(chan bool)
 	for i, sc := range scs {
 		// Starting all servers for that server
@@ -43,10 +45,10 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		log.Lvl3(serverAddress, "Starting server", server.ServerIdentity.Address)
 		// Launch a server and notifies when it's done
 
-		wg.Add(1)
+		wgServer.Add(1)
 		go func(c *onet.Server, m monitor.Measure) {
 			ready <- true
-			defer wg.Done()
+			defer wgServer.Done()
 			c.Start()
 			// record bandwidth
 			m.Record()
@@ -60,12 +62,18 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 			return err
 		}
 		sims[i] = sim
-		server.RegisterProcessorFunc(startsimul, func(env *network.Envelope) {
-			err = sim.Node(scs[i])
-			if err != nil {
-				log.Error(err)
-			}
-		})
+		func(sc *onet.SimulationConfig) {
+			server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) {
+				err = sim.Node(sc)
+				if err != nil {
+					log.Error(err)
+				}
+				sc.Server.Send(env.ServerIdentity, &simulInitDone{})
+			})
+			server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) {
+				wgSimulInit.Done()
+			})
+		}(sc)
 		if server.ServerIdentity.ID == sc.Tree.Root.ServerIdentity.ID {
 			log.Lvl2(serverAddress, "is root-node, will start protocol")
 			rootSim = sim
@@ -106,9 +114,13 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		}
 		childrenWait.Record()
 		log.Lvl2("Broadcasting start")
+		syncWait := monitor.NewTimeMeasure("SimulSyncWait")
+		wgSimulInit.Add(len(rootSC.Tree.Roster.List))
 		for _, conode := range rootSC.Tree.Roster.List {
-			rootSC.Server.Send(conode, &startSimulation{})
+			rootSC.Server.Send(conode, &simulInit{})
 		}
+		wgSimulInit.Wait()
+		syncWait.Record()
 		log.Lvl1("Starting new node", simul)
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
 		err := rootSim.Run(rootSC)
@@ -141,7 +153,7 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 	}
 
 	log.Lvl3(serverAddress, scs[0].Server.ServerIdentity, "is waiting for all servers to close")
-	wg.Wait()
+	wgServer.Wait()
 	log.Lvl2(serverAddress, "has all servers closed")
 	if monitorAddress != "" {
 		monitor.EndAndCleanup()
