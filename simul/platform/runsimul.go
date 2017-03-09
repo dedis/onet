@@ -6,9 +6,12 @@ import (
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
 
+	"github.com/dedis/onet/network"
 	"github.com/dedis/onet/simul/manage"
 	"github.com/dedis/onet/simul/monitor"
 )
+
+type startSimulation struct{}
 
 // Simulate starts the server and will setup the protocol.
 func Simulate(serverAddress, simul, monitorAddress string) error {
@@ -27,6 +30,7 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		}
 	}
 	sims := make([]onet.Simulation, len(scs))
+	startsimul := network.RegisterMessage(startSimulation{})
 	var rootSC *onet.SimulationConfig
 	var rootSim onet.Simulation
 	// having a waitgroup so the binary stops when all servers are closed
@@ -55,11 +59,13 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		if err != nil {
 			return err
 		}
-		err = sim.Node(sc)
-		if err != nil {
-			return err
-		}
 		sims[i] = sim
+		server.RegisterProcessorFunc(startsimul, func(env *network.Envelope) {
+			err = sim.Node(scs[i])
+			if err != nil {
+				log.Error(err)
+			}
+		})
 		if server.ServerIdentity.ID == sc.Tree.Root.ServerIdentity.ID {
 			log.Lvl2(serverAddress, "is root-node, will start protocol")
 			rootSim = sim
@@ -69,7 +75,7 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 	if rootSim != nil {
 		// If this cothority has the root-server, it will start the simulation
 		log.Lvl2("Starting protocol", simul, "on server", rootSC.Server.ServerIdentity.Address)
-		//log.Lvl5("Tree is", rootSC.Tree.Dump())
+		log.Lvl5("Tree is", rootSC.Tree.Dump())
 
 		// First count the number of available children
 		childrenWait := monitor.NewTimeMeasure("ChildrenWait")
@@ -99,6 +105,10 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 			timeout *= 2
 		}
 		childrenWait.Record()
+		log.Lvl2("Broadcasting start")
+		for _, conode := range rootSC.Tree.Roster.List {
+			rootSC.Server.Send(conode, &startSimulation{})
+		}
 		log.Lvl1("Starting new node", simul)
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
 		err := rootSim.Run(rootSC)
