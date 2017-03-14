@@ -312,12 +312,12 @@ func tryConnect(ip, binding network.Address) error {
 	<-listening
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
 	if err != nil {
+		log.Info("Succesfully connected istelf to port")
+		conn.Close()
 	} else {
 		log.Panic("Could not connect itself to public address. This is most"+
 			" probably an error in your system-setup. Please make sure this conode "+
 			"can connect to", ip.NetworkAddress())
-		log.Info("Succesfully connected istelf to port")
-		conn.Close()
 	}
 
 	_, port, err := net.SplitHostPort(ip.NetworkAddress())
