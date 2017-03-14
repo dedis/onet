@@ -19,7 +19,8 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 
-	"github.com/cloudfoundry/gosigar"
+	"github.com/shirou/gopsutil/mem"
+
 	// CoSi-protocol is not part of the cothority.
 
 	// For the moment, the server only serves CoSi requests
@@ -311,8 +312,10 @@ func tryConnect(ip, binding network.Address) error {
 	<-listening
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
 	if err != nil {
-		log.Error("Could not connect itself to public address:", err)
 	} else {
+		log.Panic("Could not connect itself to public address. This is most"+
+			" probably an error in your system-setup. Please make sure this conode "+
+			"can connect to", ip.NetworkAddress())
 		log.Info("Succesfully connected istelf to port")
 		conn.Close()
 	}
@@ -361,12 +364,12 @@ func tryConnect(ip, binding network.Address) error {
 func checkAvailableMemory() {
 	log.Info("checking system memory")
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
-		mem := sigar.Mem{}
-		if err := mem.Get(); err != nil {
+		v, err := mem.VirtualMemory()
+		if err != nil {
 			log.Error("Could not get systems memory:", err)
 		}
-		//mem.Total is the total memory in bytes
-		memoryInMB := (mem.Total / 1024) / 1024
+		//v.Total is the total memory in bytes
+		memoryInMB := (v.Total / 1024) / 1024
 		if memoryInMB <= 512 {
 			log.Error("System has less than 512MB of memory ")
 		} else if memoryInMB <= 1024 {
