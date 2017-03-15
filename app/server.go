@@ -311,14 +311,12 @@ func tryConnect(ip, binding network.Address) error {
 	defer func() { stopCh <- true }()
 	<-listening
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
-	if err != nil {
-		log.ErrFatal(err, "Could not connect itself to public address. This is most"+
-			" probably an error in your system-setup. Please make sure this conode "+
-			"can connect to", ip.NetworkAddress())
-	} else {
-		log.Info("Succesfully connected istelf to port")
-		conn.Close()
-	}
+	log.ErrFatal(err, "Could not connect itself to public address. This is most"+
+		" probably an error in your system-setup. Please make sure this conode "+
+		"can connect to", ip.NetworkAddress())
+
+	log.Info("Succesfully connected istelf to port")
+	conn.Close()
 
 	_, port, err := net.SplitHostPort(ip.NetworkAddress())
 	if err != nil {
