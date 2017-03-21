@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+currentDir=${PWD##*/}
+if [ "$currentDir" = "onet" ]
+then
+    echo "This script should not be executed in the 'onet' directory"
+    exit 1
+fi
+
+while true; do
+    read -p "Warning: this script changes the content of some files. Do you wish to continue? " yn
+    case $yn in
+        [Yy]* ) break;;
+        [Nn]* ) exit;;
+        * ) echo "Please answer yes or no.";;
+    esac
+done
+
 for path in :github.com/dedis/cothority/sda:gopkg.in/dedis/onet.v1: \
     :github.com/dedis/cothority/network:gopkg.in/dedis/onet.v1/network: \
     :github.com/dedis/cothority/log:gopkg.in/dedis/onet.v1/log: \
