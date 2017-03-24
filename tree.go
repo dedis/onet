@@ -474,7 +474,7 @@ func (el *Roster) GenerateBigNaryTree(N, nodes int) *Tree {
 func (el *Roster) GenerateNaryTreeWithRoot(N int, rootServerIdentity *network.ServerIdentity) *Tree {
 	rootIndex, _ := el.Search(rootServerIdentity.ID)
 	if rootIndex < 0 {
-		log.Fatal(rootServerIdentity, el.List, log.Stack())
+		log.Lvl2("Asked for non-existing root:", rootServerIdentity, el.List, log.Stack())
 		return nil
 	}
 	cList := el.List
