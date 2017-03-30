@@ -1,19 +1,12 @@
 package app
 
 import (
-	"bufio"
 	"bytes"
 	"strings"
 	"testing"
 
-	"io/ioutil"
-
-	"os"
-
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var o bytes.Buffer
