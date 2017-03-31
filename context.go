@@ -126,8 +126,10 @@ func (c *Context) String() string {
 	return c.server.ServerIdentity.String()
 }
 
-var contextData = map[string][]byte{}
-var contextDataLock = sync.Mutex{}
+var testContextData = struct {
+	service map[string][]byte
+	sync.Mutex
+}{}
 
 // Save takes an identifier and an interface. The interface will be network.Marshaled
 // and saved under a filename based on the identifier. An eventual error will be returned.
@@ -150,9 +152,9 @@ func (c *Context) Save(id string, data interface{}) error {
 	}
 	fname := c.absFilename(id)
 	if getContextDataPath() == "" {
-		contextDataLock.Lock()
-		contextData[fname] = buf
-		contextDataLock.Unlock()
+		testContextData.Lock()
+		testContextData[fname] = buf
+		testContextData.Unlock()
 		return nil
 	}
 	return ioutil.WriteFile(fname, buf, 0640)
@@ -169,9 +171,9 @@ func (c *Context) Load(id string) (interface{}, error) {
 	var buf []byte
 	if getContextDataPath() == "" {
 		var ok bool
-		contextDataLock.Lock()
-		buf, ok = contextData[c.absFilename(id)]
-		contextDataLock.Unlock()
+		testContextData.Lock()
+		buf, ok = testContextData.service[c.absFilename(id)]
+		testContextData.Unlock()
 		if !ok {
 			return nil, errors.New("This entry doesn't exist")
 		}
@@ -190,9 +192,9 @@ func (c *Context) Load(id string) (interface{}, error) {
 // contextData map.
 func (c *Context) DataAvailable(id string) bool {
 	if getContextDataPath() == "" {
-		contextDataLock.Lock()
-		_, ok := contextData[c.absFilename(id)]
-		contextDataLock.Unlock()
+		testContextData.Lock()
+		_, ok := testContextData.service[c.absFilename(id)]
+		testContextData.Unlock()
 		return ok
 	}
 	_, err := os.Stat(c.absFilename(id))
