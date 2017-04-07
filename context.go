@@ -129,7 +129,7 @@ func (c *Context) String() string {
 var testContextData = struct {
 	service map[string][]byte
 	sync.Mutex
-}{}
+}{service: make(map[string][]byte, 0)}
 
 // Save takes an identifier and an interface. The interface will be network.Marshaled
 // and saved under a filename based on the identifier. An eventual error will be returned.
@@ -153,7 +153,7 @@ func (c *Context) Save(id string, data interface{}) error {
 	fname := c.absFilename(id)
 	if getContextDataPath() == "" {
 		testContextData.Lock()
-		testContextData[fname] = buf
+		testContextData.service[fname] = buf
 		testContextData.Unlock()
 		return nil
 	}
