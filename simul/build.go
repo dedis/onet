@@ -155,8 +155,9 @@ func RunTests(name string, runconfigs []*platform.RunConfig) {
 		if i == 0 {
 			stats.WriteHeader(f)
 		}
-		if strings.ToLower(rc.Get("EveryRoundStats")) == "true" {
-			stats.WriteValuesEveryRoundStats(f)
+		if rc.Get("IndividualStats") != "" {
+			err := stats.WriteIndividualStats(f)
+			log.ErrFatal(err)
 		} else {
 			stats.WriteValues(f)
 		}
