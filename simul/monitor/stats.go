@@ -113,11 +113,11 @@ func (s *Stats) WriteValues(w io.Writer) {
 	fmt.Fprintf(w, "\n")
 }
 
-// WriteValuesEveryRoundStats will write the values to the specified writer but without
+// WriteIndividualStats will write the values to the specified writer but without
 // making averages. Each value should either be:
 //   - represented once - then it'll be copied to all runs
 //   - have the same frequency as the other non-once values
-func (s *Stats) WriteValuesEveryRoundStats(w io.Writer) error {
+func (s *Stats) WriteIndividualStats(w io.Writer) error {
 	// by default
 	s.Lock()
 	defer s.Unlock()
@@ -505,7 +505,7 @@ func (t *Value) Values() []string {
 
 // SingleValues returns the string representation of an entry in the value
 func (t *Value) SingleValues(i int) []string {
-	v := "NaN"
+	v := fmt.Sprintf("%f", t.store[0])
 	if i < len(t.store) {
 		v = fmt.Sprintf("%f", t.store[i])
 	}

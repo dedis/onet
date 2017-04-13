@@ -16,12 +16,12 @@ func TestSimulation(t *testing.T) {
 	simul.Start("count.toml", "csv1.toml", "csv2.toml")
 }
 
-func TestSimulation_EveryRoundStats(t *testing.T) {
-	simul.Start("everyroundstats.toml")
-	csv, err := ioutil.ReadFile("test_data/everyroundstats.csv")
+func TestSimulation_IndividualStats(t *testing.T) {
+	simul.Start("individualstats.toml")
+	csv, err := ioutil.ReadFile("test_data/individualstats.csv")
 	log.ErrFatal(err)
-	// header + 3 rounds + final newline
-	assert.Equal(t, 5, len(strings.Split(string(csv), "\n")))
+	// header + 5 rounds + final newline
+	assert.Equal(t, 7, len(strings.Split(string(csv), "\n")))
 
 	simul.Start("csv1.toml")
 	csv, err = ioutil.ReadFile("test_data/csv1.csv")
