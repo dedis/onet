@@ -11,6 +11,8 @@ import (
 
 	"strings"
 
+	"sync"
+
 	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/crypto.v0/random"
 	"gopkg.in/dedis/onet.v1/log"
@@ -24,53 +26,81 @@ type ContextData struct {
 
 func TestContextSaveLoad(t *testing.T) {
 	setContextDataPath("")
-	c := createContext()
-	testLoadSave(t, true, c)
+	nbr := 10
+	c := make([]*Context, nbr)
+	for i := range c {
+		c[i] = createContext()
+	}
+	var wg sync.WaitGroup
+	wg.Add(nbr)
+	testLoadSave(t, true, c[0])
+	for i := range c {
+		go func(i int) {
+			testLoadSave(t, false, c[i])
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
 
-	tmp := "/tmp/conode"
-	log.ErrFatal(os.RemoveAll(tmp))
+	tmp, err := ioutil.TempDir("", "conode")
+	log.ErrFatal(err)
+	defer os.RemoveAll(tmp)
 	os.Setenv(ENVServiceData, tmp)
 	initContextDataPath()
-	testLoadSave(t, false, c)
+	wg.Add(nbr)
+	for i := range c {
+		go func(i int) {
+			testLoadSave(t, false, c[i])
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
 	files, err := ioutil.ReadDir(tmp)
 	log.ErrFatal(err)
 	require.False(t, files[0].IsDir())
 	require.True(t, files[0].Mode().IsRegular())
 	require.True(t, strings.HasSuffix(files[0].Name(), ".bin"))
-	log.ErrFatal(os.RemoveAll(tmp))
 }
 
 func testLoadSave(t *testing.T, first bool, c *Context) {
 	file := "test"
 	cd := &ContextData{42, "meaning of life"}
 	if first {
-		require.NotNil(t, c.Save(file, cd))
+		if c.Save(file, cd) == nil {
+			log.Fatal("should not save", log.Stack())
+		}
 		network.RegisterMessage(ContextData{})
 	}
 	log.ErrFatal(c.Save(file, cd))
 
 	_, err := c.Load(file + "_")
-	require.NotNil(t, err)
+	if err == nil {
+		log.Fatal("this should not exist")
+	}
 	cdInt, err := c.Load(file)
 	log.ErrFatal(err)
 	cd2, ok := cdInt.(*ContextData)
-	require.True(t, ok)
-	require.Equal(t, cd, cd2)
+	if !ok {
+		log.Fatal("contextData should exist")
+	}
+	if cd.I != cd2.I || cd.S != cd2.S {
+		log.Fatal("stored and loaded data should be equal", cd, cd2)
+	}
 }
 
 func TestContext_Path(t *testing.T) {
 	setContextDataPath("")
 	c := createContext()
 	base := c.absFilename("test")
-	tmp := "/tmp/conode"
-	log.ErrFatal(os.RemoveAll(tmp))
+	tmp, err := ioutil.TempDir("", "conode")
+	log.ErrFatal(err)
+	defer os.RemoveAll(tmp)
 	os.Setenv(ENVServiceData, tmp)
 	initContextDataPath()
 	require.Equal(t, tmp, contextDataPath)
-	_, err := os.Stat(tmp)
+	_, err = os.Stat(tmp)
 	log.ErrFatal(err)
 	require.Equal(t, path.Join(tmp, base), c.absFilename("test"))
-	log.ErrFatal(os.RemoveAll(tmp))
 }
 
 type CD2 struct {

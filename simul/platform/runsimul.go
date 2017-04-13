@@ -3,6 +3,7 @@ package platform
 import (
 	"sync"
 
+	"github.com/BurntSushi/toml"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
@@ -37,20 +38,33 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 	// having a waitgroup so the binary stops when all servers are closed
 	var wgServer, wgSimulInit sync.WaitGroup
 	var ready = make(chan bool)
+	measureNodeBW := true
+	if len(scs) > 0 {
+		cfg := &conf{}
+		_, err := toml.Decode(scs[0].Config, cfg)
+		if err != nil {
+			return err
+		}
+		measureNodeBW = cfg.IndividualStats == ""
+	}
 	for i, sc := range scs {
 		// Starting all servers for that server
 		server := sc.Server
-		measures[i] = monitor.NewCounterIOMeasure("bandwidth", server)
 		log.Lvl3(serverAddress, "Starting server", server.ServerIdentity.Address)
+		if measureNodeBW {
+			measures[i] = monitor.NewCounterIOMeasure("bandwidth", server)
+		}
 		// Launch a server and notifies when it's done
-
 		wgServer.Add(1)
 		go func(c *onet.Server, m monitor.Measure) {
 			ready <- true
 			defer wgServer.Done()
 			c.Start()
-			// record bandwidth
-			m.Record()
+			// record bandwidth, except if we're measuring every
+			// round individually
+			if measureNodeBW {
+				m.Record()
+			}
 			log.Lvl3(serverAddress, "Simulation closed server", c.ServerIdentity)
 		}(server, measures[i])
 		// wait to be sure the goroutine started
@@ -159,4 +173,8 @@ func Simulate(serverAddress, simul, monitorAddress string) error {
 		monitor.EndAndCleanup()
 	}
 	return nil
+}
+
+type conf struct {
+	IndividualStats string
 }
