@@ -49,6 +49,11 @@ func (mId MessageTypeID) Equal(t MessageTypeID) bool {
 	return bytes.Compare(uuid.UUID(mId).Bytes(), uuid.UUID(t).Bytes()) == 0
 }
 
+//IsNil returns true iff the MessageTypeID is Nil
+func (mId MessageTypeID) IsNil() bool {
+	return mId.Equal(MessageTypeID(uuid.Nil))
+}
+
 // NamespaceURL is the basic namespace used for uuid
 // XXX should move that to external of the library as not every
 // cothority/packages should be expected to use that.
