@@ -17,12 +17,12 @@ func (pid ProtocolID) String() string {
 	return uuid.UUID(pid).String()
 }
 
-// Equal returns true if and only if the given ProtocolID equals the current one.
+// Equal returns true if and only if the given ProtocolID equals pid.
 func (pid ProtocolID) Equal(pid2 ProtocolID) bool {
 	return uuid.Equal(uuid.UUID(pid), uuid.UUID(pid2))
 }
 
-//IsNil returns true iff the ProtocolID is Nil
+// IsNil returns true iff the ProtocolID is Nil
 func (pid ProtocolID) IsNil() bool {
 	return pid.Equal(ProtocolID(uuid.Nil))
 }

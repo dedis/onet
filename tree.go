@@ -49,7 +49,7 @@ func (tId TreeID) String() string {
 	return uuid.UUID(tId).String()
 }
 
-//IsNil returns true iff the TreeID is Nil
+// IsNil returns true iff the TreeID is Nil
 func (tId TreeID) IsNil() bool {
 	return tId.Equal(TreeID(uuid.Nil))
 }
@@ -354,12 +354,12 @@ func (elId RosterID) String() string {
 	return uuid.UUID(elId).String()
 }
 
-// Equal returns true if and only if the given RosterID equals the current one.
-func (elId RosterID) Equal(elId2 RosterID) bool {
-	return uuid.Equal(uuid.UUID(elId), uuid.UUID(elId2))
+// Equal returns true if and only if the given RosterID equals elId.
+func (elId RosterID) Equal(elID2 RosterID) bool {
+	return uuid.Equal(uuid.UUID(elId), uuid.UUID(elID2))
 }
 
-//IsNil returns true iff the RosterID is Nil
+// IsNil returns true iff the RosterID is Nil
 func (elId RosterID) IsNil() bool {
 	return elId.Equal(RosterID(uuid.Nil))
 }
@@ -568,13 +568,12 @@ func (tId TreeNodeID) String() string {
 	return uuid.UUID(tId).String()
 }
 
-// Equal returns true if and only if the given TreeNodeID equals the current
-// one.
+// Equal returns true if and only if the given TreeNodeID equals tId.
 func (tId TreeNodeID) Equal(tID2 TreeNodeID) bool {
 	return uuid.Equal(uuid.UUID(tId), uuid.UUID(tID2))
 }
 
-//IsNil returns true iff the TreeNodID is Nil
+// IsNil returns true iff the TreeNodID is Nil
 func (tId TreeNodeID) IsNil() bool {
 	return tId.Equal(TreeNodeID(uuid.Nil))
 }

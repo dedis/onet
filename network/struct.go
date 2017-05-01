@@ -93,7 +93,7 @@ func (eId ServerIdentityID) Equal(other ServerIdentityID) bool {
 	return uuid.Equal(uuid.UUID(eId), uuid.UUID(other))
 }
 
-//IsNil returns true iff the ServerIdentityID is Nil
+// IsNil returns true iff the ServerIdentityID is Nil
 func (eId ServerIdentityID) IsNil() bool {
 	return eId.Equal(ServerIdentityID(uuid.Nil))
 }

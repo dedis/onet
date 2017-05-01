@@ -49,7 +49,7 @@ func (mId MessageTypeID) Equal(t MessageTypeID) bool {
 	return bytes.Compare(uuid.UUID(mId).Bytes(), uuid.UUID(t).Bytes()) == 0
 }
 
-//IsNil returns true iff the MessageTypeID is Nil
+// IsNil returns true iff the MessageTypeID is Nil
 func (mId MessageTypeID) IsNil() bool {
 	return mId.Equal(MessageTypeID(uuid.Nil))
 }
