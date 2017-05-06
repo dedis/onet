@@ -39,7 +39,7 @@ type Tree struct {
 // TreeID uniquely identifies a Tree struct in the onet framework.
 type TreeID uuid.UUID
 
-// Equal returns true if and only if the given TreeID equals the current one.
+// Equal returns true if and only if the given TreeID equals tId.
 func (tId TreeID) Equal(tID2 TreeID) bool {
 	return uuid.Equal(uuid.UUID(tId), uuid.UUID(tID2))
 }
