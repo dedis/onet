@@ -2,6 +2,7 @@ package onet
 
 import (
 	"testing"
+	"time"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -87,7 +88,11 @@ func TestConfigPropagation(t *testing.T) {
 	err = rootInstance.SendToChildren(&dummyMsg{})
 	log.ErrFatal(err)
 	// wait until the processor has processed the expected number of config messages
-	<-done
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Didn't receive response in time")
+	}
 }
 
 // spawnCh is used to dispatch information from a spawnProto to the test

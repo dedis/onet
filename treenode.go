@@ -677,13 +677,14 @@ func (n *TreeNodeInstance) TreeNodeInstance() *TreeNodeInstance {
 // SetConfig sets the GenericConfig c to be passed down in the first message
 // alongside with the protocol if it is non nil. This config can later be read
 // by Services in the NewProtocol method.
-func (n *TreeNodeInstance) SetConfig(c *GenericConfig) {
+func (n *TreeNodeInstance) SetConfig(c *GenericConfig) error {
 	n.configMut.Lock()
 	defer n.configMut.Unlock()
-	n.config = c
-	for id := range n.sentTo {
-		n.sentTo[id] = false
+	if n.config != nil {
+		return errors.New("Can't set config twice")
 	}
+	n.config = c
+	return nil
 }
 
 func (n *TreeNodeInstance) isBound() bool {
