@@ -84,7 +84,10 @@ func TestConfigPropagation(t *testing.T) {
 
 	network.RegisterMessage(dummyMsg{})
 	rootInstance, _ := local.NewTreeNodeInstance(tree.Root, spawnName)
-	rootInstance.SetConfig(&GenericConfig{serviceConfig})
+	err = rootInstance.SetConfig(&GenericConfig{serviceConfig})
+	assert.Nil(t, err)
+	err = rootInstance.SetConfig(&GenericConfig{serviceConfig})
+	assert.NotNil(t, err)
 	err = rootInstance.SendToChildren(&dummyMsg{})
 	log.ErrFatal(err)
 	// wait until the processor has processed the expected number of config messages
@@ -93,6 +96,7 @@ func TestConfigPropagation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Didn't receive response in time")
 	}
+
 }
 
 // spawnCh is used to dispatch information from a spawnProto to the test
