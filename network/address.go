@@ -70,6 +70,50 @@ func (a Address) NetworkAddress() string {
 	return vals[1]
 }
 
+// validHostname returns true if the hostname is well formed or false otherwise.
+// A hostname is well formed if the following conditions are met:
+//	- each label contains from 1 to 63 characters
+//	- the entire hostname (including the delimiting dots, but not a trailing dot)
+// 		has a maximum of 253 ASCII characters
+//	- labels have only ASCII letters 'a' through 'z' (case-insensitive), the digits
+//		'0' through '9', and the hyphen (-). No other symbol is permitted
+//	- labels cannot start with a hyphen
+//	- labels cannot end with a hyphen
+//	- the last label is alphabetic
+// This method assumes that only the host part is passed as parameter
+// To be defined: how to include it with the rest of the code?
+//	- Valid() method: it is called if the examined IP address is not valid
+//	- Public(): maybe a request to the DNS should be done?
+// This function can be easily inserted/removed in/from the current implementation
+func validHostname(s string) bool {
+	if s == "localhost" {
+		return true
+	}
+
+	maxLength := 253
+	if s[len(s)-1] == '.' {
+		maxLength = 254
+		s = s[:len(s)-1] // remove the last dot --> easier computations
+	}
+
+	if len(s) > maxLength {
+		return false
+	}
+
+	labels := strings.Split(s, ".")
+
+	for _, element := range labels {
+		if (len(element) < 1 || len(element) > 63) {
+			return false
+		}
+	}
+
+	valid, _ := regexp.MatchString("^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)+([A-Za-z]|[A-Za-z][A-Za-z\\-]*[A-Za-z])$", s)
+	return valid
+}
+
+//func connType(t string) ConnType
+
 // Valid returns true if the address is well formed or false otherwise.
 // An address is well formed if it is of the form: ConnType://NetworkAddress.
 // ConnType must be one of the constants defined in this file,
@@ -100,7 +144,8 @@ func (a Address) Valid() bool {
 		// localhost is not recognized by net.ParseIP ?
 		return true
 	} else if net.ParseIP(ip) == nil {
-		return false
+		//return false
+		return validHostname(ip) // if the Host in the form of *.*.*.* , check whether it has a valid DNS name
 	}
 	return true
 }

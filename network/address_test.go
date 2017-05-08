@@ -50,6 +50,11 @@ func TestAddress(t *testing.T) {
 		{"tlsx10.0.0.4x2000", false, InvalidConnType, "", "", "", false},
 		{"tlxblurdie", false, InvalidConnType, "", "", "", false},
 		{"tls://blublublu", false, InvalidConnType, "", "", "", false},
+
+
+		{"tls://targethost:80", false, InvalidConnType, "", "", "", false},
+		{"tcp://targethost.ch:80", true, PlainTCP, "targethost.ch:80", "targethost.ch", "80", true},
+
 	}
 
 	for i, str := range tests {
@@ -62,4 +67,23 @@ func TestAddress(t *testing.T) {
 		assert.Equal(t, str.Port, add.Port())
 		assert.Equal(t, str.Public, add.Public())
 	}
+}
+
+
+// just a temporary test case
+func TestDNSNames(t *testing.T) {
+	myHostname := "myhost.secondlabel.org"
+	assert.True(t, validHostname(myHostname), "valid")
+	assert.True(t, validHostname("www.asd.lol.xd"), "valid")
+	assert.True(t, validHostname("a.a"), "valid")
+	assert.True(t, validHostname("localhost"), "valid")
+
+	assert.False(t, validHostname("192.168.1.1"), "valid")
+	assert.False(t, validHostname("randomtext"), "not valid")
+	assert.False(t, validHostname("..a"), "not valid")
+	assert.False(t, validHostname("a..a"), "not valid")
+	assert.False(t, validHostname("123213.213"), "valid")
+	assert.False(t, validHostname("-23.dwe"), "not valid")
+	assert.False(t, validHostname("..."), "not valid")
+	assert.False(t, validHostname("www.asd.lol.xd-"), "not valid")
 }
