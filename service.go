@@ -50,7 +50,7 @@ func (s ServiceID) String() string {
 	return uuid.UUID(s).String()
 }
 
-// Equal returns true if and only if the given ServiceID equals s.
+// Equal returns true if and only if s2 equals this ServiceID.
 func (s ServiceID) Equal(s2 ServiceID) bool {
 	return uuid.Equal(uuid.UUID(s), uuid.UUID(s2))
 }

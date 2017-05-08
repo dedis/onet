@@ -58,7 +58,7 @@ func (rId RoundID) String() string {
 	return uuid.UUID(rId).String()
 }
 
-// Equal returns true if and only if the given RoundID equals rId.
+// Equal returns true if and only if rID2 equals this RoundID.
 func (rId RoundID) Equal(rID2 RoundID) bool {
 	return uuid.Equal(uuid.UUID(rId), uuid.UUID(rID2))
 }
@@ -77,7 +77,7 @@ func (t TokenID) String() string {
 	return uuid.UUID(t).String()
 }
 
-// Equal returns true if and only if the given TokenID equals t.
+// Equal returns true if and only if t2 equals this TokenID.
 func (t TokenID) Equal(t2 TokenID) bool {
 	return uuid.Equal(uuid.UUID(t), uuid.UUID(t2))
 }

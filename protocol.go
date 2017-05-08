@@ -17,7 +17,7 @@ func (pid ProtocolID) String() string {
 	return uuid.UUID(pid).String()
 }
 
-// Equal returns true if and only if the given ProtocolID equals pid.
+// Equal returns true if and only if pid2 equals this ProtocolID.
 func (pid ProtocolID) Equal(pid2 ProtocolID) bool {
 	return uuid.Equal(uuid.UUID(pid), uuid.UUID(pid2))
 }
