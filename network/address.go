@@ -67,7 +67,27 @@ func (a Address) NetworkAddress() string {
 		return ""
 	}
 	vals := strings.Split(string(a), typeAddressSep)
-	return vals[1]
+	validNetworkAddress := vals[1]
+
+	host, port, err := net.SplitHostPort(validNetworkAddress)
+	if err != nil {
+		return ""
+	}
+
+	// checking the validity of the IP address (both IPv4 or IPv6)
+	if net.ParseIP(host) != nil {
+		return validNetworkAddress
+	}
+
+	// if host is not a valid IP address (i.e. ParseIP returns nil),
+	// it must be a hostname (since at the beginning we check whether the address is valid
+	ipAddress, err := net.LookupHost(host)
+	if err != nil {
+		return ""
+	}
+
+	// it returns the first found ip address
+	return net.JoinHostPort(ipAddress[0], port)
 }
 
 // validHostname returns true if the hostname is well formed or false otherwise.
@@ -80,15 +100,20 @@ func (a Address) NetworkAddress() string {
 //	- labels cannot start with a hyphen
 //	- labels cannot end with a hyphen
 //	- the last label is alphabetic
+// sources about the syntax of hostnames:
+//	- https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_host_names
+//	- https://en.wikipedia.org/wiki/List_of_Internet_top-level_domains#IDN_Test_TLDs
+//	- RFC 1035, RFC 1123
+//	To justify the fact that a TLD with a hyphen (-) is accepted:
+// 		-> no RFC says the opposite
+//		-> The second source shows some examples of TLD with hyphens (the ones used for punycode)
 // This method assumes that only the host part is passed as parameter
 // To be defined: how to include it with the rest of the code?
 //	- Valid() method: it is called if the examined IP address is not valid
 //	- Public(): maybe a request to the DNS should be done?
 // This function can be easily inserted/removed in/from the current implementation
 func validHostname(s string) bool {
-	if s == "localhost" {
-		return true
-	}
+	s = strings.ToLower(s)
 
 	maxLength := 253
 	if s[len(s)-1] == '.' {
@@ -108,11 +133,9 @@ func validHostname(s string) bool {
 		}
 	}
 
-	valid, _ := regexp.MatchString("^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)+([A-Za-z]|[A-Za-z][A-Za-z\\-]*[A-Za-z])$", s)
+	valid, _ := regexp.MatchString("^(([a-z0-9]|[a-z0-9][a-z0-9\\-]*[a-z0-9])\\.)*([a-z]+)$", s)
 	return valid
 }
-
-//func connType(t string) ConnType
 
 // Valid returns true if the address is well formed or false otherwise.
 // An address is well formed if it is of the form: ConnType://NetworkAddress.
@@ -144,8 +167,8 @@ func (a Address) Valid() bool {
 		// localhost is not recognized by net.ParseIP ?
 		return true
 	} else if net.ParseIP(ip) == nil {
-		//return false
-		return validHostname(ip) // if the Host in the form of *.*.*.* , check whether it has a valid DNS name
+		// if the Host is NOT in the form of *.*.*.* , check whether it has a valid DNS name
+		return validHostname(ip)
 	}
 	return true
 }
