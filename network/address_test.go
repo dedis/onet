@@ -51,10 +51,8 @@ func TestAddress(t *testing.T) {
 		{"tlxblurdie", false, InvalidConnType, "", "", "", false},
 		{"tls://blublublu", false, InvalidConnType, "", "", "", false},
 
-
 		{"tls://targethost:80", false, InvalidConnType, "", "", "", false},
 		{"tcp://targethost.ch:80", true, PlainTCP, "targethost.ch:80", "targethost.ch", "80", true},
-
 	}
 
 	for i, str := range tests {
@@ -68,7 +66,6 @@ func TestAddress(t *testing.T) {
 		assert.Equal(t, str.Public, add.Public())
 	}
 }
-
 
 // just a temporary test case
 func TestDNSNames(t *testing.T) {

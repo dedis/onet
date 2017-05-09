@@ -103,7 +103,7 @@ func validHostname(s string) bool {
 	labels := strings.Split(s, ".")
 
 	for _, element := range labels {
-		if (len(element) < 1 || len(element) > 63) {
+		if len(element) < 1 || len(element) > 63 {
 			return false
 		}
 	}
