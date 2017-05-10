@@ -3,6 +3,7 @@ package network
 import (
 	"net"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -86,6 +87,7 @@ func (a Address) NetworkAddress() string {
 		return ""
 	}
 
+	sort.Strings(ipAddress)
 	// it returns the first found ip address
 	return net.JoinHostPort(ipAddress[0], port)
 }
@@ -104,14 +106,20 @@ func (a Address) NetworkAddress() string {
 //	- https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_host_names
 //	- https://en.wikipedia.org/wiki/List_of_Internet_top-level_domains#IDN_Test_TLDs
 //	- RFC 1035, RFC 1123
-//	To justify the fact that a TLD with a hyphen (-) is accepted:
-// 		-> no RFC says the opposite
+//	Theoretically, it seems that a TLD with a hyphen (-) is accepted:
+// 		-> no RFC says the opposite, explicitly
 //		-> The second source shows some examples of TLD with hyphens (the ones used for punycode)
+//	But: https://tools.ietf.org/html/rfc1123#page-13 has the following lines
+//		-> "However, a valid host name can never
+//		have the dotted-decimal form #.#.#.#, since at least the
+//		highest-level component label will be alphabetic."
+//
+
+//	I guess it depends on whether we want to handle IDNs too (whose representation was
+// 	introduced in a second moment, in RFC 3492).
+//	At moment, they are NOT handled. A minor change would be enough to handle them.
 // This method assumes that only the host part is passed as parameter
-// To be defined: how to include it with the rest of the code?
-//	- Valid() method: it is called if the examined IP address is not valid
-//	- Public(): maybe a request to the DNS should be done?
-// This function can be easily inserted/removed in/from the current implementation
+// This function is integrated in the Valid() function
 func validHostname(s string) bool {
 	s = strings.ToLower(s)
 
@@ -163,11 +171,9 @@ func (a Address) Valid() bool {
 		return false
 	}
 
-	if ip == "localhost" {
-		// localhost is not recognized by net.ParseIP ?
-		return true
-	} else if net.ParseIP(ip) == nil {
+	if net.ParseIP(ip) == nil {
 		// if the Host is NOT in the form of *.*.*.* , check whether it has a valid DNS name
+		// This includes "localhost", which is NOT recognized by net.ParseIP
 		return validHostname(ip)
 	}
 	return true

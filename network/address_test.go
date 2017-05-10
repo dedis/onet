@@ -5,6 +5,8 @@ import (
 
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/assert"
+	"net"
+	"sort"
 )
 
 func TestConnType(t *testing.T) {
@@ -27,6 +29,12 @@ func TestConnType(t *testing.T) {
 }
 
 func TestAddress(t *testing.T) {
+	localhostNetworkAddresses, _ := net.LookupHost("localhost")
+	sort.Strings(localhostNetworkAddresses)
+	facebookNetworkAddresses, _ := net.LookupHost("facebook.com")
+	sort.Strings(facebookNetworkAddresses)
+	googleNetworkAddresses, _ := net.LookupHost("google.com")
+	sort.Strings(googleNetworkAddresses)
 	var tests = []struct {
 		Value   string
 		Valid   bool
@@ -51,14 +59,14 @@ func TestAddress(t *testing.T) {
 		{"tlxblurdie", false, InvalidConnType, "", "", "", false},
 		{"tls://blublublu", false, InvalidConnType, "", "", "", false},
 
-		// to make these two tests work, I need to put the IP address of the hosts
-		// in the "Address" and "Host" parts. Need to handle the fact that the exact
+		// In order to make these three tests work, I need to put the IP address of the hosts
+		// in the "Address" and "Host" parts. The fact that the exact
 		// IP address that is returned for each hostname is not deterministic (not always
-		// the same IP address is returned) --> this could be forced by ordering
-		// the IP addresses returned by LookupHost
-		//{"tls://google.com:80", true, TLS, "google.com:80", "google.com", "80", true},
-		//{"tcp://google.ch:80", true, PlainTCP, "google.ch:80", "google.ch", "80", true},
-		{"tcp://localhost:80", true, PlainTCP, "127.0.0.1:80", "127.0.0.1", "80", false},
+		// the same IP address is returned) is handled by ordering the IP addresses
+		// returned by LookupHost and by taking the first one
+		{"tcp://localhost:80", true, PlainTCP, net.JoinHostPort(localhostNetworkAddresses[0], "80"), localhostNetworkAddresses[0], "80", false},
+		{"tcp://facebook.com:8080", true, PlainTCP, net.JoinHostPort(facebookNetworkAddresses[0], "8080"), facebookNetworkAddresses[0], "8080", true},
+		{"tls://google.com:80", true, TLS, net.JoinHostPort(googleNetworkAddresses[0], "80"), googleNetworkAddresses[0], "80", true},
 	}
 
 	for i, str := range tests {
