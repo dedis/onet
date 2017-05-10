@@ -39,8 +39,8 @@ type Tree struct {
 // TreeID uniquely identifies a Tree struct in the onet framework.
 type TreeID uuid.UUID
 
-// Equal returns true if and only if tID2 equals this TreeID.
-func (tId TreeID) Equal(tID2 TreeID) bool {
+// Equals returns true if and only if tID2 equals this TreeID.
+func (tId TreeID) Equals(tID2 TreeID) bool {
 	return uuid.Equal(uuid.UUID(tId), uuid.UUID(tID2))
 }
 
@@ -51,7 +51,7 @@ func (tId TreeID) String() string {
 
 // IsNil returns true iff the TreeID is Nil
 func (tId TreeID) IsNil() bool {
-	return tId.Equal(TreeID(uuid.Nil))
+	return tId.Equals(TreeID(uuid.Nil))
 }
 
 // NewTree creates a new tree using the entityList and the root-node. It
@@ -147,7 +147,7 @@ func (t *Tree) BinaryUnmarshaler(b []byte) error {
 
 // Equal verifies if the given tree is equal
 func (t *Tree) Equal(t2 *Tree) bool {
-	if !t.ID.Equal(t2.ID) || !t.Roster.ID.Equal(t2.Roster.ID) {
+	if !t.ID.Equals(t2.ID) || !t.Roster.ID.Equal(t2.Roster.ID) {
 		log.Lvl4("Ids of trees don't match")
 		return false
 	}

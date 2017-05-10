@@ -73,7 +73,7 @@ func TestSimulationLoadSave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !sc2[0].Tree.ID.Equal(sc.Tree.ID) {
+	if !sc2[0].Tree.ID.Equals(sc.Tree.ID) {
 		t.Fatal("Tree-id is not correct")
 	}
 	closeAll(sc2)
