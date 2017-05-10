@@ -195,7 +195,7 @@ func (o *Overlay) checkPendingMessages(t *Tree) {
 		o.pendingMsgLock.Lock()
 		var newPending []pendingMsg
 		for _, pending := range o.pendingMsg {
-			if t.ID.Equals(pending.ProtocolMsg.To.TreeID) {
+			if t.ID.Equal(pending.ProtocolMsg.To.TreeID) {
 				// if this message references t, instantiate it and go
 				err := o.TransmitMsg(pending.ProtocolMsg, pending.MessageProxy)
 				if err != nil {
