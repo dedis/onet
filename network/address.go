@@ -61,37 +61,66 @@ func (a Address) ConnType() ConnType {
 	return connType(vals[0])
 }
 
+// IsHostname returns true if the address is defined by a VALID DNS name
+func (a Address) IsHostname() bool {
+	host := a.Host()
+
+	// validHostname(host) would be enough with the current implementation.
+	// However, if we will include IDNs as valid hostnames, an IP address in the form
+	// *.*.*.* would be a valid hostname too. This is why ParseIP is used as well.
+	return validHostname(host) && net.ParseIP(host) == nil
+}
+
 // NetworkAddress returns the network address part of the address, which is
-// the IP address and the port joined by a colon.
-// If the address is defined with a hostname, a lookup is performed and (one of)
-// the related IP address is returned
-// It returns an empty string if the a.Valid() returns false.
+// the host and the port joined by a colon.
+// It returns an empty string the address is not valid
 func (a Address) NetworkAddress() string {
 	if !a.Valid() {
 		return ""
 	}
 	vals := strings.Split(string(a), typeAddressSep)
-	validNetworkAddress := vals[1]
+	return vals[1]
+}
 
-	host, port, err := net.SplitHostPort(validNetworkAddress)
-	if err != nil {
+// NetworkAddressResolved returns the network address of the address, but resolved.
+// That is: the hostname resolved and the port joined by a colon.
+// It returns an empty string if the address is not valid.
+func (a Address) NetworkAddressResolved() string {
+	if !a.Valid() {
+		return ""
+	}
+	ipAddress := a.Resolve()
+	port := a.Port()
+	return net.JoinHostPort(ipAddress, port)
+}
+
+// Resolve returns the IP address associated to the hostname that represents the address a.
+// If a is defined by an IP address (*.*.*.*) or if the hostname is not valid, the empty string
+// is returned
+func (a Address) Resolve() string {
+	if !a.Valid() {
+		return ""
+	}
+	host := a.Host()
+	// Ipv6 not handled properly yet
+	if host == "[::]" {
+		return "::"
+	}
+	// If the address is defined by an IP address, return it
+	if net.ParseIP(host) != nil {
+		return host
+	}
+
+	if !a.IsHostname() {
 		return ""
 	}
 
-	// checking the validity of the IP address (both IPv4 or IPv6)
-	if net.ParseIP(host) != nil {
-		return validNetworkAddress
-	}
-
-	// if host is not a valid IP address (i.e. ParseIP returns nil),
-	// it must be a hostname (since at the beginning we check whether the address is valid
 	ipAddress, err := lookupHost(host)
 	if err != nil {
 		return ""
 	}
 
-	// it returns the first found ip address
-	return net.JoinHostPort(ipAddress[0], port)
+	return ipAddress[0]
 }
 
 // validHostname returns true if the hostname is well formed or false otherwise.
@@ -215,7 +244,7 @@ func (a Address) Public() bool {
 	private, err := regexp.MatchString("(^127\\.)|(^10\\.)|"+
 		"(^172\\.1[6-9]\\.)|(^172\\.2[0-9]\\.)|"+
 		"(^172\\.3[0-1]\\.)|(^192\\.168\\.)|(^169\\.254)|"+
-		"(^\\[::\\])", a.NetworkAddress())
+		"(^\\[::\\])", a.NetworkAddressResolved())
 	if err != nil {
 		return false
 	}
