@@ -5,8 +5,6 @@ import (
 
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/assert"
-	"net"
-	"sort"
 )
 
 func TestConnType(t *testing.T) {
@@ -28,13 +26,18 @@ func TestConnType(t *testing.T) {
 	}
 }
 
+var staticHostIPMapping = make(map[string]string)
+
+func dummyResolver(s string) ([]string, error) {
+	return []string{staticHostIPMapping[s]}, nil
+}
+
 func TestAddress(t *testing.T) {
-	localhostNetworkAddresses, _ := net.LookupHost("localhost")
-	sort.Strings(localhostNetworkAddresses)
-	facebookNetworkAddresses, _ := net.LookupHost("facebook.com")
-	sort.Strings(facebookNetworkAddresses)
-	googleNetworkAddresses, _ := net.LookupHost("google.com")
-	sort.Strings(googleNetworkAddresses)
+	lookupHost = dummyResolver
+	staticHostIPMapping["google.com"] = "8.8.8.8"
+	staticHostIPMapping["facebook.com"] = "20.20.20.20"
+	staticHostIPMapping["epfl.ch"] = "100.100.100.100"
+	staticHostIPMapping["localhost"] = "127.0.0.1"
 	var tests = []struct {
 		Value   string
 		Valid   bool
@@ -59,14 +62,12 @@ func TestAddress(t *testing.T) {
 		{"tlxblurdie", false, InvalidConnType, "", "", "", false},
 		{"tls://blublublu", false, InvalidConnType, "", "", "", false},
 
-		// In order to make these three tests work, I need to put the IP address of the hosts
-		// in the "Address" and "Host" parts. The fact that the exact
-		// IP address that is returned for each hostname is not deterministic (not always
-		// the same IP address is returned) is handled by ordering the IP addresses
-		// returned by LookupHost and by taking the first one
-		{"tcp://localhost:80", true, PlainTCP, net.JoinHostPort(localhostNetworkAddresses[0], "80"), localhostNetworkAddresses[0], "80", false},
-		{"tcp://facebook.com:8080", true, PlainTCP, net.JoinHostPort(facebookNetworkAddresses[0], "8080"), facebookNetworkAddresses[0], "8080", true},
-		{"tls://google.com:80", true, TLS, net.JoinHostPort(googleNetworkAddresses[0], "80"), googleNetworkAddresses[0], "80", true},
+		// dummy values for the IP addresses, defined by dummyResolver
+		{"tcp://localhost:80", true, PlainTCP, "127.0.0.1:80", "127.0.0.1", "80", false},
+		{"tcp://facebook.com:8080", true, PlainTCP, "20.20.20.20:8080", "20.20.20.20", "8080", true},
+		{"tls://google.com:80", true, TLS, "8.8.8.8:80", "8.8.8.8", "80", true},
+		{"tcp://epfl.ch:8080", true, PlainTCP, "100.100.100.100:8080", "100.100.100.100", "8080", true},
+
 	}
 
 	for i, str := range tests {
@@ -81,21 +82,21 @@ func TestAddress(t *testing.T) {
 	}
 }
 
-// just a temporary test case
+// Isolated test case for validHostname
 func TestDNSNames(t *testing.T) {
-	assert.True(t, validHostname("myhost.secondlabel.org"), "valid")
-	assert.True(t, validHostname("www.asd.lol.xd"), "valid")
-	assert.True(t, validHostname("a.a"), "valid")
-	assert.True(t, validHostname("localhost"), "valid")
-	assert.True(t, validHostname("www.asd.lol.xd"), "valid")
-	assert.True(t, validHostname("randomtext"), "valid")
+	assert.True(t, validHostname("myhost.secondlabel.org"))
+	assert.True(t, validHostname("www.asd.lol.xd"))
+	assert.True(t, validHostname("a.a"))
+	assert.True(t, validHostname("localhost"))
+	assert.True(t, validHostname("www.asd.lol.xd"))
+	assert.True(t, validHostname("randomtext"))
 
-	assert.False(t, validHostname("www.asd.lol.x-d"), "not valid")
-	assert.False(t, validHostname("192.168.1.1"), "not valid")
-	assert.False(t, validHostname("..a"), "not valid")
-	assert.False(t, validHostname("a..a"), "not valid")
-	assert.False(t, validHostname("123213.213"), "not valid") // look into this again
-	assert.False(t, validHostname("-23.dwe"), "not valid")
-	assert.False(t, validHostname("..."), "not valid")
-	assert.False(t, validHostname("www.asd.lol.xd-"), "not valid")
+	assert.False(t, validHostname("www.asd.lol.x-d"))
+	assert.False(t, validHostname("192.168.1.1"))
+	assert.False(t, validHostname("..a"))
+	assert.False(t, validHostname("a..a"))
+	assert.False(t, validHostname("123213.213")) // look into this again
+	assert.False(t, validHostname("-23.dwe"))
+	assert.False(t, validHostname("..."))
+	assert.False(t, validHostname("www.asd.lol.xd-"))
 }

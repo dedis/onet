@@ -3,7 +3,6 @@ package network
 import (
 	"net"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -18,6 +17,8 @@ type ConnType string
 // by a colon.
 // It doesn't support IPv6 yet.
 type Address string
+
+var lookupHost func(string) ([]string, error) = net.LookupHost
 
 const (
 	// PlainTCP is an unencrypted TCP connection.
@@ -62,6 +63,8 @@ func (a Address) ConnType() ConnType {
 
 // NetworkAddress returns the network address part of the address, which is
 // the IP address and the port joined by a colon.
+// If the address is defined with a hostname, a lookup is performed and (one of)
+// the related IP address is returned
 // It returns an empty string if the a.Valid() returns false.
 func (a Address) NetworkAddress() string {
 	if !a.Valid() {
@@ -82,12 +85,11 @@ func (a Address) NetworkAddress() string {
 
 	// if host is not a valid IP address (i.e. ParseIP returns nil),
 	// it must be a hostname (since at the beginning we check whether the address is valid
-	ipAddress, err := net.LookupHost(host)
+	ipAddress, err := lookupHost(host)
 	if err != nil {
 		return ""
 	}
 
-	sort.Strings(ipAddress)
 	// it returns the first found ip address
 	return net.JoinHostPort(ipAddress[0], port)
 }
@@ -102,22 +104,8 @@ func (a Address) NetworkAddress() string {
 //	- labels cannot start with a hyphen
 //	- labels cannot end with a hyphen
 //	- the last label is alphabetic
-// sources about the syntax of hostnames:
-//	- https://en.wikipedia.org/wiki/Hostname#Restrictions_on_valid_host_names
-//	- https://en.wikipedia.org/wiki/List_of_Internet_top-level_domains#IDN_Test_TLDs
-//	- RFC 1035, RFC 1123
-//	Theoretically, it seems that a TLD with a hyphen (-) is accepted:
-// 		-> no RFC says the opposite, explicitly
-//		-> The second source shows some examples of TLD with hyphens (the ones used for punycode)
-//	But: https://tools.ietf.org/html/rfc1123#page-13 has the following lines
-//		-> "However, a valid host name can never
-//		have the dotted-decimal form #.#.#.#, since at least the
-//		highest-level component label will be alphabetic."
-//
-
-//	I guess it depends on whether we want to handle IDNs too (whose representation was
-// 	introduced in a second moment, in RFC 3492).
-//	At moment, they are NOT handled. A minor change would be enough to handle them.
+//	More information about the definition of the TLD (the last label of a hostname) on:
+//		https://github.com/dedis/cothority/issues/620
 // This method assumes that only the host part is passed as parameter
 // This function is integrated in the Valid() function
 func validHostname(s string) bool {
