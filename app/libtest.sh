@@ -276,7 +276,7 @@ if ! which pcregrep > /dev/null; then
 	echo "*** WARNING ***"
 	echo "Most probably you're missing pcregrep which might be used here..."
 	echo "On mac you can install it with"
-	echo "brew install pcre"
+	echo -e "\n  brew install pcre\n"
 	echo "Not aborting because it might work anyway."
 	echo
 fi
@@ -285,7 +285,7 @@ if ! which realpath > /dev/null; then
 	echo "*** WARNING ***"
 	echo "Most probably you're missing realpath which might be used here..."
 	echo "On mac you can install it with"
-	echo "brew install coreutils"
+	echo -e "\n  brew install coreutils\n"
 	echo "Not aborting because it might work anyway."
 	echo
 	realpath() {
