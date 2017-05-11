@@ -18,7 +18,7 @@ type ConnType string
 // It doesn't support IPv6 yet.
 type Address string
 
-var lookupHost func(string) ([]string, error) = net.LookupHost
+var lookupHost = net.LookupHost
 
 const (
 	// PlainTCP is an unencrypted TCP connection.

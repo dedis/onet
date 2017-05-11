@@ -61,13 +61,11 @@ func TestAddress(t *testing.T) {
 		{"tlsx10.0.0.4x2000", false, InvalidConnType, "", "", "", false},
 		{"tlxblurdie", false, InvalidConnType, "", "", "", false},
 		{"tls://blublublu", false, InvalidConnType, "", "", "", false},
-
 		// dummy values for the IP addresses, defined by dummyResolver
 		{"tcp://localhost:80", true, PlainTCP, "127.0.0.1:80", "127.0.0.1", "80", false},
 		{"tcp://facebook.com:8080", true, PlainTCP, "20.20.20.20:8080", "20.20.20.20", "8080", true},
 		{"tls://google.com:80", true, TLS, "8.8.8.8:80", "8.8.8.8", "80", true},
 		{"tcp://epfl.ch:8080", true, PlainTCP, "100.100.100.100:8080", "100.100.100.100", "8080", true},
-
 	}
 
 	for i, str := range tests {
