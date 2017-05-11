@@ -281,6 +281,18 @@ if ! which pcregrep > /dev/null; then
 	echo
 fi
 
+if ! which realpath > /dev/null; then
+	echo "*** WARNING ***"
+	echo "Most probably you're missing realpath which might be used here..."
+	echo "On mac you can install it with"
+	echo "brew install coreutils"
+	echo "Not aborting because it might work anyway."
+	echo
+	realpath() {
+    	[[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+	}
+fi
+
 for i in "$@"; do
 case $i in
     -b|--build)
