@@ -69,7 +69,7 @@ func ConnectSink(addr string) error {
 	global.Lock()
 	defer global.Unlock()
 	if global.connection != nil {
-		return errors.New("Already connected")
+		return errors.New("Already connected to an endpoint")
 	}
 	log.Lvl3("Connecting to:", addr)
 	conn, err := net.Dial("tcp", addr)
