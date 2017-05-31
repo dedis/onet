@@ -79,7 +79,9 @@ func RegisterMessage(msg Message) MessageTypeID {
 }
 
 // RegisterMessages is a convenience function to register multiple messages
-// together.
+// together. It returns the MessageTypeIDs of the registered messages. If you
+// give the same message more than once, it will register it only once, but return
+// it's id as many times as it appears in the arguments.
 func RegisterMessages(msg ...Message) []MessageTypeID {
 	var ret []MessageTypeID
 	for _, m := range msg {
