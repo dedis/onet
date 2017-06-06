@@ -65,7 +65,7 @@ var NilServiceID = ServiceID(uuid.Nil)
 
 // NewServiceFunc is the type of a function that is used to instantiate a given Service
 // A service is initialized with a Server (to send messages to someone).
-type NewServiceFunc func(c *Context) Service
+type NewServiceFunc func(c *Context, suite interface{}) Service
 
 // GenericConfig is a config that can withhold any type of specific configs for
 // protocols. It is passed down to the service NewProtocol function.
@@ -183,12 +183,12 @@ func (s *serviceFactory) Name(id ServiceID) string {
 }
 
 // start launches a new service
-func (s *serviceFactory) start(name string, con *Context) (Service, error) {
+func (s *serviceFactory) start(name string, con *Context, suite interface{}) (Service, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, c := range s.constructors {
 		if name == c.name {
-			return c.constructor(con), nil
+			return c.constructor(con, suite), nil
 		}
 	}
 	return nil, errors.New("Didn't find service " + name)
@@ -208,7 +208,9 @@ type serviceManager struct {
 const configFolder = "config"
 
 // newServiceStore will create a serviceStore out of all the registered Service
-func newServiceManager(c *Server, o *Overlay) *serviceManager {
+// XXX How to do different suites for different services ? By using some kind of
+// constructor map[service name(string)]suite impplementation(interface{}) ? ...
+func newServiceManager(c *Server, o *Overlay, suite interface{}) *serviceManager {
 	services := make(map[ServiceID]Service)
 	s := &serviceManager{services, c, network.NewRoutineDispatcher()}
 	ids := ServiceFactory.registeredServiceIDs()
@@ -216,9 +218,9 @@ func newServiceManager(c *Server, o *Overlay) *serviceManager {
 		name := ServiceFactory.Name(id)
 		log.Lvl3("Starting service", name)
 		cont := newContext(c, o, id, s)
-		s, err := ServiceFactory.start(name, cont)
+		s, err := ServiceFactory.start(name, cont, suite)
 		if err != nil {
-			log.Error("Trying to instantiate service:", err)
+			log.Panic("Trying to instantiate service", name, ":", err)
 		}
 		log.Lvl3("Started Service", name)
 		services[id] = s

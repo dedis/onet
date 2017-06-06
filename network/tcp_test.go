@@ -13,7 +13,7 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/dedis/crypto.v0/config"
+	"gopkg.in/dedis/kyber.v1/util/key"
 )
 
 func init() {
@@ -477,7 +477,7 @@ func NewTestTCPHost(port int) (*TCPHost, error) {
 
 // Returns a ServerIdentity out of the address
 func NewTestServerIdentity(address Address) *ServerIdentity {
-	kp := config.NewKeyPair(Suite)
+	kp := key.NewKeyPair(S)
 	e := NewServerIdentity(kp.Public, address)
 	return e
 }
