@@ -357,7 +357,6 @@ func MainTest(m *testing.M, ls ...int) {
 //   DEBUG_TIME - whether to show the timestamp - default is false
 //   DEBUG_COLOR - whether to color the output - default is false
 func ParseEnv() {
-	var err error
 	dv := os.Getenv("DEBUG_LVL")
 	if dv != "" {
 		dvInt, err := strconv.Atoi(dv)
@@ -369,16 +368,18 @@ func ParseEnv() {
 	}
 	dt := os.Getenv("DEBUG_TIME")
 	if dt != "" {
-		showTime, err = strconv.ParseBool(dt)
-		Lvl3("Setting showTime to", dt, showTime, err)
+		dtInt, err := strconv.ParseBool(dt)
+		Lvl3("Setting showTime to", dt, dtInt, err)
+		SetShowTime(dtInt)
 		if err != nil {
 			Error("Couldn't convert", dt, "to boolean")
 		}
 	}
 	dc := os.Getenv("DEBUG_COLOR")
 	if dc != "" {
-		useColors, err = strconv.ParseBool(dc)
-		Lvl3("Setting useColor to", dc, showTime, err)
+		ucInt, err := strconv.ParseBool(dc)
+		Lvl3("Setting useColor to", dc, ucInt, err)
+		SetUseColors(ucInt)
 		if err != nil {
 			Error("Couldn't convert", dc, "to boolean")
 		}
