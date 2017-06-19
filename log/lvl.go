@@ -172,7 +172,7 @@ func fg(c ct.Color, bright bool) {
 // or
 // Lvl1 -> lvld -> lvl
 func lvlf(l int, f string, args ...interface{}) {
-	if l > debugVisible {
+	if l > DebugVisible() {
 		return
 	}
 	lvl(l, 3, fmt.Sprintf(f, args...))
@@ -360,8 +360,9 @@ func ParseEnv() {
 	var err error
 	dv := os.Getenv("DEBUG_LVL")
 	if dv != "" {
-		debugVisible, err = strconv.Atoi(dv)
-		Lvl3("Setting level to", dv, debugVisible, err)
+		dvInt, err := strconv.Atoi(dv)
+		Lvl3("Setting level to", dv, dvInt, err)
+		SetDebugVisible(dvInt)
 		if err != nil {
 			Error("Couldn't convert", dv, "to debug-level")
 		}
