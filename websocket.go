@@ -289,7 +289,8 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, Clie
 	return msgs, NewClientError(err)
 }
 
-// CloseAll sends a close-command to all connections.
+// CloseAll sends a close-command to all connections and returns nil if no errors
+// occurred or all errors encountered concatenated together as a string.
 func (c *Client) CloseAll() error {
 	var errstrs []string
 	for _, conn := range c.connections {
