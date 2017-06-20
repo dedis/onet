@@ -227,7 +227,9 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 	}
 	defer func() {
 		if !c.keep {
-			c.Close(dest)
+			if err := c.Close(dest); err != nil {
+				log.Errorf("error while closing the connection to %v : %v\n", dest, err)
+			}
 		}
 	}()
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
@@ -287,13 +289,29 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, Clie
 	return msgs, NewClientError(err)
 }
 
+// CloseAll sends a close-command to all connections.
+func (c *Client) CloseAll() error {
+	var errstrs []string
+	for _, conn := range c.connections {
+		conn.WriteMessage(websocket.CloseMessage, nil)
+		if err := conn.Close(); err != nil {
+			errstrs = append(errstrs, err.Error())
+		}
+	}
+	c.connections = make(map[destination]*websocket.Conn)
+	var err error
+	if len(errstrs) > 0 {
+		err = errors.New(strings.Join(errstrs, "\n"))
+	}
+	return err
+}
+
 // Close sends a close-command to the connection.
 func (c *Client) Close(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
 		delete(c.connections, dst)
-		conn.WriteMessage(websocket.CloseMessage,
-			nil)
+		conn.WriteMessage(websocket.CloseMessage, nil)
 		return conn.Close()
 	}
 	return nil
