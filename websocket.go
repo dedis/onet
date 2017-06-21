@@ -227,7 +227,7 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 	}
 	defer func() {
 		if !c.keep {
-			if err := c.Close(dest); err != nil {
+			if err := c.Close(); err != nil {
 				log.Errorf("error while closing the connection to %v : %v\n", dest, err)
 			}
 		}
@@ -289,17 +289,15 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, Clie
 	return msgs, NewClientError(err)
 }
 
-// CloseAll sends a close-command to all connections and returns nil if no errors
-// occurred or all errors encountered concatenated together as a string.
-func (c *Client) CloseAll() error {
+// Close sends a close-command to all open connections and returns nil if no
+// errors occurred or all errors encountered concatenated together as a string.
+func (c *Client) Close() error {
 	var errstrs []string
-	for _, conn := range c.connections {
-		conn.WriteMessage(websocket.CloseMessage, nil)
-		if err := conn.Close(); err != nil {
+	for dest := range c.connections {
+		if err := c.closeConn(dest); err != nil {
 			errstrs = append(errstrs, err.Error())
 		}
 	}
-	c.connections = make(map[destination]*websocket.Conn)
 	var err error
 	if len(errstrs) > 0 {
 		err = errors.New(strings.Join(errstrs, "\n"))
@@ -307,8 +305,8 @@ func (c *Client) CloseAll() error {
 	return err
 }
 
-// Close sends a close-command to the connection.
-func (c *Client) Close(dst destination) error {
+// closeConn sends a close-command to the connection.
+func (c *Client) closeConn(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
 		delete(c.connections, dst)
