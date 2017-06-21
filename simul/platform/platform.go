@@ -64,7 +64,7 @@ func NewPlatform(t string) Platform {
 		p = &MiniNet{}
 		path := os.Getenv("GOPATH") + "/src/github.com/dedis/onet/simul/platform/mininet/"
 		var command string
-		if app.InputYN(false, "Do you want to run mininet on ICCluster?") {
+		if app.InputYN(true, "Do you want to run mininet on ICCluster?") {
 			command = path + "setup_iccluster.sh"
 		} else {
 			command = path + "setup_servers.sh"
@@ -72,15 +72,11 @@ func NewPlatform(t string) Platform {
 		names := app.Input("server1 server2 server3", "Please enter the space separated names of the servers")
 		split := strings.Split(names, " ")
 		cmd := exec.Command(command, split...)
-		var out bytes.Buffer
-		var stderr bytes.Buffer
-		cmd.Stdout = &out
-		cmd.Stderr = &stderr
-		err := cmd.Run()
+		out, err := cmd.CombinedOutput()
 		if err != nil {
-			log.Error(fmt.Sprint(err) + ": " + stderr.String())
+			log.Error(err)
 		}
-		log.Lvl1("Result: " + out.String())
+		log.Lvl1(string(out))
 	}
 	return p
 }
