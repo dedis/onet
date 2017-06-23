@@ -227,7 +227,7 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 	}
 	defer func() {
 		if !c.keep {
-			if err := c.Close(); err != nil {
+			if err := c.closeConn(dest); err != nil {
 				log.Errorf("error while closing the connection to %v : %v\n", dest, err)
 			}
 		}
@@ -292,6 +292,8 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, Clie
 // Close sends a close-command to all open connections and returns nil if no
 // errors occurred or all errors encountered concatenated together as a string.
 func (c *Client) Close() error {
+	c.Lock()
+	defer c.Unlock()
 	var errstrs []string
 	for dest := range c.connections {
 		if err := c.closeConn(dest); err != nil {
