@@ -25,6 +25,5 @@ _testmain.go
 *.iml
 *.cov
 
-config/
 build/
 test_data/
