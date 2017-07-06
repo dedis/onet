@@ -101,6 +101,9 @@ func (c *CliSource) value(key string) (string, bool) {
 	return str, ok
 }
 
+var GenericFlagName = "generic"
+var GenericCliFlag = cli.GenericFlag{Name: GenericFlagName, Value: &genericFlag{}}
+
 // genericFlags holds all value of the form "key=value"
 type genericFlag struct {
 	pairs []*pair
@@ -115,7 +118,7 @@ type pair struct {
 func (g *genericFlag) Set(value string) error {
 	strs := strings.Split(value, "=")
 	if len(strs) != 2 {
-		return errors.New("don't support too many formats")
+		return errors.New("only format supported is `key=value`")
 	}
 	p := &pair{strs[0], strs[1]}
 	g.pairs = append(g.pairs, p)
