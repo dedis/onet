@@ -82,11 +82,19 @@ func TestTypedSource(t *testing.T) {
 	s := newMapSource()
 	ts := NewTypedSource(s)
 
+	// test sub
+	s.Add("bob.alice", "10")
+	tss := ts.Sub("bob")
+	require.Equal(t, 10, tss.Int("alice"))
+	require.Equal(t, 0, tss.Int("unknown"))
+
+	// test int
 	s.Add("int", "1")
 	require.Equal(t, 1, ts.Int("int"))
 	s.Add("wrongInt", "hello")
 	require.Equal(t, 0, ts.Int("wrongInt"))
 
+	// test duration
 	s.Add("time", "10s")
 	require.Equal(t, 10*time.Second, ts.Duration("time"))
 	s.Add("wrongTime", "10s67minuteswhatever")

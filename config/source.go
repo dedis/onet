@@ -102,7 +102,7 @@ func NewTypedSource(s Source) *TypedSource {
 }
 
 // Duration returns the value under the key as a time.Duration.
-func (t TypedSource) Duration(key string) time.Duration {
+func (t *TypedSource) Duration(key string) time.Duration {
 	s := t.String(key)
 	d, err := time.ParseDuration(s)
 	if err != nil {
@@ -112,7 +112,11 @@ func (t TypedSource) Duration(key string) time.Duration {
 }
 
 // Int returns the value under the key as a integer.
-func (t TypedSource) Int(key string) int {
+func (t *TypedSource) Int(key string) int {
 	i, _ := strconv.Atoi(t.String(key))
 	return i
+}
+
+func (t *TypedSource) Sub(key string) *TypedSource {
+	return &TypedSource{t.Source.Sub(key)}
 }
