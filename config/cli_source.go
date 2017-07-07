@@ -100,7 +100,11 @@ func (c *CliSource) value(key string) (string, bool) {
 	return str, ok
 }
 
+// GenericFlagName is the name given to the flag of the command line option
 var GenericFlagName = "generic"
+
+// GenericCliFlag is a wrapper around a cli.GenericFlag that provides the
+// generic tag capability
 var GenericCliFlag = cli.GenericFlag{Name: GenericFlagName, Value: &genericFlag{}}
 
 // genericFlags holds all value of the form "key=value"
@@ -113,6 +117,7 @@ type pair struct {
 	value string
 }
 
+// ErrGenericFlagFormat is triggered when a flag don't have the right format.
 var ErrGenericFlagFormat = errors.New("generic flag format: `key=value`")
 
 // Set implements the generic flag interface from urfave/cli
@@ -128,7 +133,7 @@ func (g *genericFlag) Set(value string) error {
 
 // String implements the generic flag interface from urfave/cli
 func (g *genericFlag) String() string {
-	return "generic flag setting: --generic \"<key>=<value>\""
+	return "generic flag setting: --" + GenericFlagName + " \"<key>=<value>\""
 }
 
 // Get returns the value stored under the given key if a generic flag has been
