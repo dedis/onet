@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Source represents any object that can retrieve any configuration string from
-// a given key.  Configuration strings are represented using a simple dot
+// Source represents any object that can retrieve a configuration string from
+// a given key. Configuration strings are represented using a simple dot
 // notation. For example, given a TOML configuration file such as:
 //
 //   [server]
@@ -16,7 +16,7 @@ import (
 //   rate = "20s"
 //
 // One can retrieve the ip of the server using "server.ip" as the key.
-// Any source should be able to say of the given key is defined or not.
+// Any source should be able to indicate if the given key is defined or not.
 // Finally, any source should be able to restrict its scope by calling "Sub"
 // with a given key, effectively reducing the number of prefixes of a key by one.
 // Using the example above, with a general Source s for this TOML file, one can
@@ -43,8 +43,8 @@ type MultiSource struct {
 	sources []Source
 }
 
-// NewMultiSource returns a Source that is searching through all given Source
-// for a key. The ORDER in which the sources are given is very important as it
+// NewMultiSource returns a Source that is searching through all given Sources
+// for a key. The order in which the sources are given is very important as it
 // determines the priority amongst them. In short, the caller must put the
 // higher priority Sources first. If the first Source has the key
 // defined, MultiSource will use this key. If not, then MultiSource checks the
@@ -66,8 +66,8 @@ func (c *MultiSource) Sub(key string) Source {
 }
 
 // String searches in linear order for the first Source that has this key
-// defined.  If it finds one, it returns the value under that key, otherwise it
-// returns the empty string.
+// defined. If it finds one, it returns the value under that key, otherwise it
+// returns an empty string.
 func (c *MultiSource) String(key string) string {
 	for _, s := range c.sources {
 		if s.Defined(key) {
@@ -89,7 +89,7 @@ func (c *MultiSource) Defined(key string) bool {
 }
 
 // TypedSource adds two additional functionalities to a Source. Namely, it provides
-// wrapper function to cast any value to a certain type such as int,
+// wrapper functions to cast any value to a certain type such as int,
 // time.Duration, etc. If the key is not found, or an error happened during the
 // conversion, then the default value of the type is returned.
 // TypedSource also provides the ability to give a default value to return in
