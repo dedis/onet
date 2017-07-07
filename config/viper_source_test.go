@@ -17,20 +17,20 @@ func TestViperSource(t *testing.T) {
 ip = "0.0.0.0"
 
 [cosi]
-rate = "10s"
+period = "10s"
 
 `)
 
 	viper.ReadConfig(bytes.NewBuffer(tomlExample))
-	require.Equal(t, cosiRate, viper.Get("cosi.rate"))
+	require.Equal(t, cosiRate, viper.Get("cosi.period"))
 
 	s := NewViperSource()
-	require.True(t, s.Defined("cosi.rate"))
-	require.Equal(t, cosiRate, s.String("cosi.rate"))
+	require.True(t, s.Defined("cosi.period"))
+	require.Equal(t, cosiRate, s.String("cosi.period"))
 
 	cosi := s.Sub("cosi")
-	require.True(t, cosi.Defined("rate"))
-	require.Equal(t, cosiRate, cosi.String("rate"))
+	require.True(t, cosi.Defined("period"))
+	require.Equal(t, cosiRate, cosi.String("period"))
 
 	require.False(t, cosi.Defined("server.ip"))
 	require.Empty(t, cosi.String("server.ip"))
