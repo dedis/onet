@@ -93,11 +93,16 @@ func TestTypedSource(t *testing.T) {
 	require.Equal(t, 1, ts.Int("int"))
 	s.Add("wrongInt", "hello")
 	require.Equal(t, 0, ts.Int("wrongInt"))
+	require.Equal(t, 10, ts.IntOrDefault("wrongInt", 10))
 
 	// test duration
 	s.Add("time", "10s")
 	require.Equal(t, 10*time.Second, ts.Duration("time"))
 	s.Add("wrongTime", "10s67minuteswhatever")
 	require.Equal(t, 0*time.Second, ts.Duration("wrongTime"))
+	require.Equal(t, 10*time.Second, ts.DurationOrDefault("wrongTime", 10*time.Second))
+
+	// test default string
+	require.Equal(t, "default", ts.StringOrDefault("string", "default"))
 
 }

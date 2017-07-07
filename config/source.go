@@ -88,10 +88,16 @@ func (c *MultiSource) Defined(key string) bool {
 	return false
 }
 
-// TypedSource adds additional functionality to a Source. Namely, it provides
+// TypedSource adds two additional functionalities to a Source. Namely, it provides
 // wrapper function to cast any value to a certain type such as int,
 // time.Duration, etc. If the key is not found, or an error happened during the
 // conversion, then the default value of the type is returned.
+// TypedSource also provides the ability to give a default value to return in
+// case the key is not defined in the Source. This is useful to provide a quick
+// way of retrieving a value if we already know the default value:
+//
+//   source.StringOrDefault("ip","0.0.0.0")
+//
 type TypedSource struct {
 	Source
 }
@@ -103,12 +109,26 @@ func NewTypedSource(s Source) *TypedSource {
 
 // Duration returns the value under the key as a time.Duration.
 func (t *TypedSource) Duration(key string) time.Duration {
-	s := t.String(key)
-	d, err := time.ParseDuration(s)
+	d, err := t.duration(key)
 	if err != nil {
 		return 0 * time.Second
 	}
 	return d
+}
+
+// DurationOrDefault returns the value under the key as a time.Duration or the
+// default value returned if the key is not defined in the Source.
+func (t *TypedSource) DurationOrDefault(key string, def time.Duration) time.Duration {
+	d, err := t.duration(key)
+	if err != nil {
+		return def
+	}
+	return d
+}
+
+func (t *TypedSource) duration(key string) (time.Duration, error) {
+	s := t.String(key)
+	return time.ParseDuration(s)
 }
 
 // Int returns the value under the key as a integer.
@@ -117,6 +137,26 @@ func (t *TypedSource) Int(key string) int {
 	return i
 }
 
+// IntOrDefault returns the value under the key as an integer, or the default
+// value given if the key is not defined in the source.
+func (t *TypedSource) IntOrDefault(key string, def int) int {
+	i, err := strconv.Atoi(t.String(key))
+	if err != nil {
+		return def
+	}
+	return i
+}
+
+// StringOrDefault returns the value under the given key if defined, otherwise
+// it returns the default string
+func (t *TypedSource) StringOrDefault(key, def string) string {
+	if !t.Defined(key) {
+		return def
+	}
+	return t.String(key)
+}
+
+// Sub returns a TypedSource with a tighter-scoped Source
 func (t *TypedSource) Sub(key string) *TypedSource {
 	return &TypedSource{t.Source.Sub(key)}
 }
