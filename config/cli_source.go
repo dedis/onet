@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"errors"
 	"strings"
 
@@ -114,11 +113,13 @@ type pair struct {
 	value string
 }
 
+var ErrGenericFlagFormat = errors.New("generic flag format: `key=value`")
+
 // Set implements the generic flag interface from urfave/cli
 func (g *genericFlag) Set(value string) error {
 	strs := strings.Split(value, "=")
 	if len(strs) != 2 {
-		return errors.New("only format supported is `key=value`")
+		return ErrGenericFlagFormat
 	}
 	p := &pair{strs[0], strs[1]}
 	g.pairs = append(g.pairs, p)
@@ -127,11 +128,7 @@ func (g *genericFlag) Set(value string) error {
 
 // String implements the generic flag interface from urfave/cli
 func (g *genericFlag) String() string {
-	var b bytes.Buffer
-	for _, p := range g.pairs {
-		b.WriteString(p.root + " => " + p.value + ", ")
-	}
-	return b.String()
+	return "generic flag setting: --generic \"<key>=<value>\""
 }
 
 // Get returns the value stored under the given key if a generic flag has been
