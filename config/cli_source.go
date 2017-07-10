@@ -10,7 +10,7 @@ import (
 // CliSource is an implementation of a Source that reads the key / value pairs
 // from the command line arguments using urfave/cli framework.
 //
-// In urface/cli, there is two ways to define a flag: either define global flags
+// In urfave/cli, there is two ways to define a flag: either define global flags
 // on the `app` or define flags on commands. Flags are then retrieved using the
 // `cli.Context` structure. In the former approach, one can retrieve the flag
 // using `context.GlobalString(key)`. In the latter approach, one can retrieve
@@ -27,8 +27,8 @@ import (
 //
 //   ./MyApp --generic "globalKey=value" <command> --generic "key=value"
 //
-// The CliSource first check the global flags, then the local flags, then the
-// generic flags in that order.
+// The CliSource first checks the global flags, then the local flags, then the
+// generic flags, in that order.
 //
 // WARNING: If you set a default value to any flag, then this default value will
 // always be returned first. For example, suppose a default value has been set on a
@@ -48,14 +48,14 @@ func NewCliSource(c *cli.Context) Source {
 	return &CliSource{"", c}
 }
 
-// Defined checks first is the key is defined in the global flags, then in the
+// Defined checks first if the key is defined in the global flags, then in the
 // "local" flags, and finally checks if a generic flag has been used.
 func (c *CliSource) Defined(key string) bool {
 	_, ok := c.value(key)
 	return ok
 }
 
-/// String checks first is the key is defined in the global flags, then in the
+// String checks first if the key is defined in the global flags, then in the
 // "local" flags, and finally checks if a generic flag has been used.
 func (c *CliSource) String(key string) string {
 	s, _ := c.value(key)
