@@ -13,7 +13,7 @@ import (
 //   ip = "192.168.0.1"
 //
 //   [cosi]
-//   rate = "20s"
+//   period = "20s"
 //
 // One can retrieve the ip of the server using "server.ip" as the key.
 // Any source should be able to indicate if the given key is defined or not.
@@ -23,7 +23,7 @@ import (
 // restrict the keys searchable for cosi by doing:
 //
 //   cosi := s.Sub("cosi")
-//   rate := cosi.String("rate")
+//   period := cosi.String("period")
 //   cosi.Defined("server.ip") // returns false
 //
 type Source interface {

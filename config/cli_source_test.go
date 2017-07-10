@@ -105,7 +105,7 @@ func TestGenericFlag(t *testing.T) {
 
 		require.True(t, ok)
 		require.Equal(t, test.ToGet, value)
-		good += 1
+		good++
 	}
 
 	require.Len(t, gf.pairs, good)
