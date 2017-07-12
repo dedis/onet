@@ -60,7 +60,31 @@ func TestCLISource(t *testing.T) {
 			return nil
 		},
 	}
-	app.Commands = []cli.Command{local, noGeneric}
+
+	withDefault := cli.Command{
+		Name:  cmdName + "default",
+		Flags: []cli.Flag{cli.StringFlag{Name: "def", Value: "default"}},
+		Action: func(c *cli.Context) error {
+			s := NewCliSource(c)
+			require.False(t, s.Defined("def"))
+			require.Equal(t, "default", c.String("def"))
+			require.Equal(t, "default", s.String("def"))
+			return nil
+		},
+	}
+
+	overrideDefaultValue := "newdefault"
+	overrideDefault := cli.Command{
+		Name:  cmdName + "override",
+		Flags: []cli.Flag{cli.StringFlag{Name: "def", Value: "default"}},
+		Action: func(c *cli.Context) error {
+			s := NewCliSource(c)
+			require.True(t, s.Defined("def"))
+			require.Equal(t, overrideDefaultValue, s.String("def"))
+			return nil
+		},
+	}
+	app.Commands = []cli.Command{local, noGeneric, withDefault, overrideDefault}
 
 	// try global arguments
 	args := []string{"app", f(gTest), gTest, f(GenericFlagName), gTestKey + "=" + gTestVal}
@@ -73,9 +97,17 @@ func TestCLISource(t *testing.T) {
 	}
 	app.Run(args)
 
+	// no generic
 	args = []string{"app", cmdName + "no"}
 	app.Run(args)
 
+	// default value
+	args = []string{"app", cmdName + "default"}
+	app.Run(args)
+
+	// override default
+	args = []string{"app", cmdName + "override", f("def"), overrideDefaultValue}
+	app.Run(args)
 }
 
 func TestGenericFlag(t *testing.T) {

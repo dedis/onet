@@ -29,13 +29,6 @@ import (
 //
 // The CliSource first check the global flags, then the local flags, then the
 // generic flags in that order.
-//
-// WARNING: If you set a default value to any flag, then this default value will
-// always be returned first. For example, suppose a default value has been set on a
-// global flag. Even if a user sets a generic flag with the same key, CliSource
-// always returns the global default value set. This is because the urfave/cli
-// treats a default value as a defined value. An issue has been reported at
-// https://github.com/urfave/cli/issues/642.
 type CliSource struct {
 	namespace string
 	c         *cli.Context
@@ -90,7 +83,8 @@ func (c *CliSource) value(key string) (string, bool) {
 	} else if c.c.IsSet("generic") {
 		i = c.c.Generic("generic")
 	} else {
-		return "", false
+		// return default value
+		return c.c.String(key), false
 	}
 
 	g := i.(*genericFlag)
