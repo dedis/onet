@@ -51,7 +51,7 @@ func (m *mapSource) fullKey(k string) string {
 	return k
 }
 
-func TestMultiSource(t *testing.T) {
+func TestSourceHubAggregation(t *testing.T) {
 	s1 := newMapSource()
 	s2 := newMapSource()
 
@@ -59,11 +59,11 @@ func TestMultiSource(t *testing.T) {
 	s1.Add("bob", "alice")
 	s2.Add("bob", "eve")
 	// one way
-	ms := NewMultiSource(s1, s2)
+	ms := NewSourceHub(s1, s2)
 	require.True(t, ms.Defined("bob"))
 	require.Equal(t, "alice", ms.String("bob"))
 	// the other way around
-	ms = NewMultiSource(s2, s1)
+	ms = NewSourceHub(s2, s1)
 	require.Equal(t, "eve", ms.String("bob"))
 
 	// test not defined / empty string
@@ -77,14 +77,13 @@ func TestMultiSource(t *testing.T) {
 	mss := ms.Sub("one")
 	require.Equal(t, "three", mss.String("two"))
 }
-
-func TestTypedSource(t *testing.T) {
+func TestSourceHubTypedItem(t *testing.T) {
 	s := newMapSource()
-	ts := NewTypedSource(s)
+	ts := NewSourceHub(s)
 
 	// test sub
 	s.Add("bob.alice", "10")
-	tss := ts.Sub("bob")
+	tss := ts.SubSourceHub("bob")
 	require.Equal(t, 10, tss.Int("alice"))
 	require.Equal(t, 0, tss.Int("unknown"))
 
