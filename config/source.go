@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Source represents any object that can retrieve any configuration string from
-// a given key.  Configuration strings are represented using a simple dot
+// Source represents any object that can retrieve a configuration string from
+// a given key. Configuration strings are represented using a simple dot
 // notation. For example, given a TOML configuration file such as:
 //
 //   [server]
@@ -16,7 +16,7 @@ import (
 //   period = "20s"
 //
 // One can retrieve the ip of the server using "server.ip" as the key.
-// Any source should be able to say of the given key is defined or not.
+// Any source should be able to indicate if the given key is defined or not.
 // Finally, any source should be able to restrict its scope by calling "Sub"
 // with a given key, effectively reducing the number of prefixes of a key by one.
 // Using the example above, with a general Source s for this TOML file, one can
