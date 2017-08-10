@@ -173,6 +173,8 @@ type messageProxyStore struct {
 	defaultIO MessageProxy
 }
 
+// RegisterMessageProxy saves directly the given MessageProxy. It's useful if
+// one wants different message proxy per server/overlay.
 func (p *messageProxyStore) RegisterMessageProxy(mp MessageProxy) {
 	if p.getByName(mp.Name()) == p.defaultIO {
 		return
