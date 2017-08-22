@@ -334,17 +334,17 @@ func tryConnect(ip, binding network.Address) error {
 	// can't get the public ip then ask the user for a reachable one
 	if err != nil {
 		return errors.New("Could not get your public IP address")
-	} else {
-		buff, err := ioutil.ReadAll(resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			return err
-		} else {
-			res := string(buff)
-			if strings.Compare("Open", res) != 0 {
-				return fmt.Errorf("Portscan returned: %s", res)
-			}
-		}
+	}
+
+	buff, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return err
+	}
+
+	res := string(buff)
+	if strings.Compare("Open", res) != 0 {
+		return fmt.Errorf("Portscan returned: %s", res)
 	}
 	return nil
 }
