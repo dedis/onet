@@ -20,9 +20,6 @@ import (
 
 	"github.com/shirou/gopsutil/mem"
 
-	// CoSi-protocol is not part of the cothority.
-
-	// For the moment, the server only serves CoSi requests
 	"fmt"
 
 	"gopkg.in/dedis/crypto.v0/abstract"
