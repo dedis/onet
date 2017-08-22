@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/crypto"
@@ -42,7 +43,7 @@ const DefaultPort = 6879
 const DefaultAddress = "127.0.0.1"
 
 // Service used to get the public IP-address.
-const portscan = "http://dedis.ch/"
+const portscan = "https://dedis.ch/portscan.php"
 
 // InteractiveConfig uses stdin to get the [address:]PORT of the server.
 // If no address is given, portscan is used to find the public IP. In case
@@ -117,9 +118,9 @@ func InteractiveConfig(binaryName string) {
 		publicAddress = askReachableAddress(portStr)
 	} else {
 		if publicAddress.Public() {
-			// try  to connect to ipfound:portgiven
+			// trying to connect to ipfound:portgiven
 			tryIP := publicAddress
-			log.Info("Check if the address", tryIP, "is reachable from Internet...")
+			log.Info("Check if the address", tryIP, "is reachable from Internet by binding to", serverBinding, ".")
 			if err := tryConnect(tryIP, serverBinding); err != nil {
 				log.Error("Could not connect to your public IP")
 				publicAddress = askReachableAddress(portStr)
@@ -304,12 +305,20 @@ func tryConnect(ip, binding network.Address) error {
 			return
 		}
 		listening <- true
-		con, _ := ln.Accept()
+		con, err := ln.Accept()
+		if err != nil {
+			log.Error("Error while accepting connections: ", err.Error())
+			return
+		}
 		<-stopCh
 		con.Close()
 	}()
 	defer func() { stopCh <- true }()
-	<-listening
+	select {
+	case <-listening:
+	case <-time.After(2 * time.Second):
+		return errors.New("timeout while listening on " + binding.NetworkAddress())
+	}
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
 	log.ErrFatal(err, "Could not connect itself to public address. This is most"+
 		" probably an error in your system-setup. Please make sure this conode "+
@@ -329,7 +338,7 @@ func tryConnect(ip, binding network.Address) error {
 	}
 
 	// ask the check
-	url := fmt.Sprintf("%s/portscan.php?port=%d", portscan, port)
+	url := fmt.Sprintf("%s?port=%d", portscan, port)
 	resp, err := http.Get(url)
 	// can't get the public ip then ask the user for a reachable one
 	if err != nil {
