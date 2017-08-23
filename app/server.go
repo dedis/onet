@@ -317,11 +317,11 @@ func tryConnect(ip, binding network.Address) error {
 		return errors.New("timeout while listening on " + binding.NetworkAddress())
 	}
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
-	log.ErrFatal(err, "Could not connect itself to public address. This is most"+
-		" probably an error in your system-setup. Please make sure this conode "+
-		"can connect to", ip.NetworkAddress())
+	log.ErrFatal(err, "Could not connect itself to public address.\n"+
+		"This is most probably an error in your system-setup.\n"+
+		"Please make sure this conode can connect to ", ip.NetworkAddress())
 
-	log.Info("Succesfully connected istelf to port")
+	log.Info("Successfully connected to our own port")
 	conn.Close()
 
 	_, portStr, err := net.SplitHostPort(ip.NetworkAddress())
