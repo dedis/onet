@@ -349,7 +349,7 @@ func tryConnect(ip, binding network.Address) error {
 	}
 
 	res := string(buff)
-	if strings.Compare("Open", res) != 0 {
+	if res != "Open" {
 		return fmt.Errorf("Portscan returned: %s", res)
 	}
 	return nil
