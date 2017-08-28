@@ -92,7 +92,7 @@ type Deterlab struct {
 	Debug int
 	// RunWait for long simulations
 	RunWait int
-	//
+	// PreScript defines a script that is run before the simulation
 	PreScript string
 }
 
@@ -235,6 +235,8 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 	if err := os.Mkdir(d.deployDir, 0777); err != nil {
 		return err
 	}
+
+	// Check for PreScript and copy it to the deploy-dir
 	d.PreScript = rc.Get("PreScript")
 	if d.PreScript != "" {
 		_, err := os.Stat(d.PreScript)
@@ -244,7 +246,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 			}
 		}
 	}
-	// copy in deployDir if exists, with just basename
+
 	// deploy will get rsync to /remote on the NFS
 
 	log.Lvl2("Localhost: Deploying and writing config-files")
