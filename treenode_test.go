@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/dedis/onet.v1/network"
 )
 
 func init() {

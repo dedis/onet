@@ -62,7 +62,7 @@ func NewPlatform(t string) Platform {
 		p = &Localhost{}
 	case mininet:
 		p = &MiniNet{}
-		path := os.Getenv("GOPATH") + "/src/github.com/dedis/onet/simul/platform/mininet/"
+		path := os.Getenv("GOPATH") + "/src/gopkg.in/dedis/onet.v1/simul/platform/mininet/"
 		var command string
 		if app.InputYN(true, "Do you want to run mininet on ICCluster?") {
 			command = path + "setup_iccluster.sh"
