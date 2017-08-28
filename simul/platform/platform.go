@@ -62,14 +62,14 @@ func NewPlatform(t string) Platform {
 		p = &Localhost{}
 	case mininet:
 		p = &MiniNet{}
-		path := os.Getenv("GOPATH") + "/src/github.com/dedis/onet/simul/platform/mininet/"
+		path := os.Getenv("GOPATH") + "/src/gopkg.in/dedis/onet.v1/simul/platform/mininet/"
 		var command string
 		if app.InputYN(true, "Do you want to run mininet on ICCluster?") {
 			command = path + "setup_iccluster.sh"
 		} else {
 			command = path + "setup_servers.sh"
 		}
-		names := app.Input("server1 server2 server3", "Please enter the space separated names of the servers")
+		names := app.Input("server1 server2 server3", "Please enter the space separated numbers of the servers")
 		split := strings.Split(names, " ")
 		cmd := exec.Command(command, split...)
 		out, err := cmd.CombinedOutput()

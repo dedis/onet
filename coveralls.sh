@@ -5,12 +5,7 @@
 DIR_EXCLUDE="$@"
 DIR_SOURCE="$(find . -maxdepth 10 -type f -not -path '*/vendor*' -name '*.go' | xargs -I {} dirname {} | sort | uniq)"
 
-cd $GOPATH/src/gopkg.in/dedis
-rm -rf onet.v1
-ln -s $GOPATH/src/github.com/dedis/onet onet.v1
-cd onet.v1
-
-# Run test coverage on each subdirectories and merge the coverage profile.
+# Run test coverage on each subdirectory and merge the coverage profile.
 all_tests_passed=true
 
 echo "mode: atomic" > profile.cov
