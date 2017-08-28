@@ -9,8 +9,8 @@ import (
 
 	"strings"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/dedis/onet/log"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSimulation(t *testing.T) {
