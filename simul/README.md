@@ -56,7 +56,8 @@ Two timeout variables are available:
 If you need to run a script before the simulation is started (like installing
 a missing library), you can define
 
-- PreScript - a shell-script that is run _before_ the simulation is started.
+- PreScript - a shell-script that is run _before_ the simulation is started
+  on each machine.
   It receives a single argument: the platform this simulation runs:
   [localhost,mininet,deterlab]
 
