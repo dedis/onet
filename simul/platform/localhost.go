@@ -163,10 +163,12 @@ func (d *Localhost) Start(args ...string) error {
 
 	// If PreScript is defined, run the appropriate script _before_ the simulation.
 	if d.PreScript != "" {
-		out, err := exec.Command("sudo ./" + d.PreScript + " localhost").CombinedOutput()
+		out, err := exec.Command("sh", "-c", "sudo ./"+d.PreScript+" localhost").CombinedOutput()
+		outStr := strings.TrimRight(string(out), "\n")
 		if err != nil {
-			log.Fatal("error deploying PreScript: ", err, string(out))
+			log.Fatal("error deploying PreScript: ", err, outStr)
 		}
+		log.Lvl1(outStr)
 	}
 
 	log.ErrFatal(monitor.ConnectSink("localhost:" + strconv.Itoa(d.monitorPort)))
