@@ -12,8 +12,21 @@ debootstrap lxc rinse
 echo GatewayPorts yes >> /etc/ssh/sshd_config
 /etc/init.d/ssh restart
 
-# Mininet installation
-git clone git://github.com/mininet/mininet
-cd mininet
-git checkout 2.2.1
-./util/install.sh -a
+case "$( cat /etc/issue )" in
+*14.04*)
+    echo "Installing for Ubuntu 1404"
+    # Mininet installation
+    git clone git://github.com/mininet/mininet
+    cd mininet
+    git checkout 2.2.1
+    ./util/install.sh -a
+    ;;
+*16.04*)
+    echo "Installing for Ubuntu 1604"
+    apt-get install mininet openvswitch-testcontroller
+    cp /usr/bin/ovs-testcontroller /usr/bin/ovs-controller
+    ;;
+*)
+    echo "Unknown system - only know Ubuntu 1404 and 1604!"
+    ;;
+esac
