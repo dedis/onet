@@ -6,7 +6,7 @@ echo 'export LC_ALL="en_US.UTF-8"' >> /etc/environment
 apt-get update
 apt-get install -y screen rsync software-properties-common git vim cifs-utils pv htop mtr \
 golang-1.6 aufs-tools ca-certificates xz-utils btrfs-tools \
-debootstrap lxc rinse
+debootstrap lxc rinse psmisc
 
 # Configure ssh-port-forwarding
 echo GatewayPorts yes >> /etc/ssh/sshd_config
@@ -23,7 +23,7 @@ case "$( cat /etc/issue )" in
     ;;
 *16.04*)
     echo "Installing for Ubuntu 1604"
-    apt-get install mininet openvswitch-testcontroller
+    apt-get install -y mininet openvswitch-testcontroller
     cp /usr/bin/ovs-testcontroller /usr/bin/ovs-controller
     ;;
 *)
