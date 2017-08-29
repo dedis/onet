@@ -37,7 +37,9 @@ for s in $SERVERS; do
 	fi
 	scp $mininet/install_mininet.sh $login: > /dev/null
 	if ! ssh $login which mn; then
-		ssh -f $login "./install_mininet.sh &> /dev/null"
+		ssh -f $login "apt-get update"
+		ssh -f $login "apt-get install -y psmisc"
+		ssh -f $login "./install_mininet.sh > /dev/null" &
 	else
 		echo "Mininet already installed on $login"
 	fi
