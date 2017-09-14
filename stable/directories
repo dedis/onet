@@ -13,7 +13,4 @@ simul/monitor
 simul/platform
 simul/platform/deterlab_users
 simul/platform/mininet
-simul/test
-simul/test/build
-simul/test/deploy
-simul/test/test_data
+simul/test_simul
