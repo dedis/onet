@@ -1,3 +1,7 @@
+PKG_TEST = gopkg.in/dedis/onet.test
+PKG_STABLE = gopkg.in/dedis/onet.v1
+CREATE_STABLE = $$GOPATH/src/github.com/dedis/Coding/bin/create_stable.sh -o stable
+
 all: test
 
 test_fmt:
@@ -26,7 +30,7 @@ test_lint:
 		fi \
 	}
 
-# You can use `test_playground` to run any test or part of cothority
+# You can use `test_playground` to run any test or part of onet
 # for more than once in Travis. Change `make test` in .travis.yml
 # to `make test_playground`.
 test_playground:
@@ -38,8 +42,18 @@ test_playground:
 test_verbose:
 	go test -p=1 -v -race -short ./...
 
-test_go:
-	./coveralls.sh
+test_goveralls:
+	${GOPATH}/bin/goveralls -service=travis-ci -race -show
 
-test: test_fmt test_lint test_go
+test_stable_build:
+	$(CREATE_STABLE) $(PKG_TEST)
+	cd $$GOPATH/src/$(PKG_TEST); go build ./...
 
+test_stable:
+	$(CREATE_STABLE) $(PKG_TEST)
+	cd $$GOPATH/src/$(PKG_TEST); make test
+
+test: test_fmt test_lint test_goveralls test_stable_build
+
+create_stable:
+	$(CREATE_STABLE) $(PKG_STABLE)
