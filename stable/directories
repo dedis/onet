@@ -6,9 +6,6 @@ network
 simul
 simul/manage
 simul/manage/simulation
-simul/manage/simulation/build
-simul/manage/simulation/deploy
-simul/manage/simulation/test_data
 simul/monitor
 simul/platform
 simul/platform/deterlab_users
