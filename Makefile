@@ -44,7 +44,7 @@ test_verbose:
 
 test_goveralls:
 	./coveralls.sh
-	$GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
+	$$GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
 
 test_stable_build:
 	$(CREATE_STABLE) $(PKG_TEST)
