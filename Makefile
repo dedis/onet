@@ -43,7 +43,8 @@ test_verbose:
 	go test -p=1 -v -race -short ./...
 
 test_goveralls:
-	${GOPATH}/bin/goveralls -service=travis-ci -race -show
+	./coveralls.sh
+	$GOPATH/bin/goveralls -coverprofile=profile.cov -service=travis-ci
 
 test_stable_build:
 	$(CREATE_STABLE) $(PKG_TEST)
