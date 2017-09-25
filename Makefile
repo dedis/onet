@@ -1,5 +1,5 @@
 PKG_TEST = gopkg.in/dedis/onet.test
-PKG_STABLE = gopkg.in/dedis/onet.v1
+PKG_STABLE = gopkg.in/dedis/onet.v1.2
 CREATE_STABLE = $$GOPATH/src/github.com/dedis/Coding/bin/create_stable.sh -o stable
 
 all: test
