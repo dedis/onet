@@ -14,5 +14,3 @@ script:
 
 notifications:
   email: false
-
-sudo: required
