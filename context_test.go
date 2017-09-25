@@ -79,7 +79,7 @@ func testLoadSave(t *testing.T, first bool, c *Context) {
 		log.Fatal("this should not exist")
 	}
 	cdInt, err := c.Load(file)
-	log.ErrFatal(err, log.Stack())
+	log.ErrFatal(err)
 	cd2, ok := cdInt.(*ContextData)
 	if !ok {
 		log.Fatal("contextData should exist")
