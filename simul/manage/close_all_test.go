@@ -9,10 +9,13 @@ import (
 	"gopkg.in/dedis/onet.v1/log"
 )
 
+func TestMain(m *testing.M) {
+	log.MainTest(m)
+}
+
 // Tests a 2-node system
 func TestCloseAll(t *testing.T) {
 	local := onet.NewLocalTest()
-	defer log.AfterTest(t)
 	nbrNodes := 2
 	_, _, tree := local.GenTree(nbrNodes, true)
 	defer local.CloseAll()

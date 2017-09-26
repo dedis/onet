@@ -10,20 +10,33 @@ import (
 	"strings"
 
 	"gopkg.in/dedis/crypto.v0/abstract"
+	"gopkg.in/dedis/onet.v1/log"
 )
 
-// Read64Pub reads a public point from a base64 representation
-func Read64Pub(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
-	public := suite.Point()
+// Read64Point reads a point from a base64 representation
+func Read64Point(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
+	point := suite.Point()
 	dec := base64.NewDecoder(base64.StdEncoding, r)
-	err := suite.Read(dec, &public)
-	return public, err
+	err := suite.Read(dec, &point)
+	return point, err
 }
 
-// Write64Pub writes a public point to a base64 representation
-func Write64Pub(suite abstract.Suite, w io.Writer, point abstract.Point) error {
+// Read64Pub is deprecated - please use Read64Point
+func Read64Pub(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
+	log.Warn("Deprecated - please use Read64Point")
+	return Read64Point(suite, r)
+}
+
+// Write64Point writes a point to a base64 representation
+func Write64Point(suite abstract.Suite, w io.Writer, point abstract.Point) error {
 	enc := base64.NewEncoder(base64.StdEncoding, w)
 	return write64(suite, enc, point)
+}
+
+// Write64Pub is deprecated - please use Write64Point
+func Write64Pub(suite abstract.Suite, w io.Writer, point abstract.Point) error {
+	log.Warn("Deprecated - please use Write64Point")
+	return Write64Point(suite, w, point)
 }
 
 // Read64Scalar takes a Base64-encoded scalar and returns that scalar,
@@ -41,19 +54,25 @@ func Write64Scalar(suite abstract.Suite, w io.Writer, scalar abstract.Scalar) er
 	return write64(suite, enc, scalar)
 }
 
-// ReadHexPub reads a public point from a hex representation
-func ReadHexPub(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
-	public := suite.Point()
-	buf, err := getHex(r, public.MarshalSize())
+// ReadHexPoint reads a point from a hex representation
+func ReadHexPoint(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
+	point := suite.Point()
+	buf, err := getHex(r, point.MarshalSize())
 	if err != nil {
 		return nil, err
 	}
-	public.UnmarshalBinary(buf)
-	return public, err
+	point.UnmarshalBinary(buf)
+	return point, err
 }
 
-// WriteHexPub writes a public point to a hex representation
-func WriteHexPub(suite abstract.Suite, w io.Writer, point abstract.Point) error {
+// ReadHexPub is deprecated - please use ReadHexPoint
+func ReadHexPub(suite abstract.Suite, r io.Reader) (abstract.Point, error) {
+	log.Warn("Deprecated - please use ReadHexPoint")
+	return ReadHexPoint(suite, r)
+}
+
+// WriteHexPoint writes a point to a hex representation
+func WriteHexPoint(suite abstract.Suite, w io.Writer, point abstract.Point) error {
 	buf, err := point.MarshalBinary()
 	if err != nil {
 		return err
@@ -61,6 +80,12 @@ func WriteHexPub(suite abstract.Suite, w io.Writer, point abstract.Point) error 
 	out := hex.EncodeToString(buf)
 	_, err = w.Write([]byte(out))
 	return err
+}
+
+// WriteHexPub is deprecated - please use WriteHexPoint
+func WriteHexPub(suite abstract.Suite, w io.Writer, point abstract.Point) error {
+	log.Warn("Deprecated - please use WriteHexPoint")
+	return WriteHexPoint(suite, w, point)
 }
 
 // ReadHexScalar takes a hex-encoded scalar and returns that scalar,
@@ -86,28 +111,52 @@ func WriteHexScalar(suite abstract.Suite, w io.Writer, scalar abstract.Scalar) e
 	return err
 }
 
-// PubToStringHex converts a Public point to a hexadecimal representation
-func PubToStringHex(suite abstract.Suite, point abstract.Point) (string, error) {
+// PointToStringHex converts a point to a hexadecimal representation
+func PointToStringHex(suite abstract.Suite, point abstract.Point) (string, error) {
 	pbuf, err := point.MarshalBinary()
 	return hex.EncodeToString(pbuf), err
 }
 
-// StringHexToPub reads a hexadecimal representation of a public point and convert it to the
-// right struct
-func StringHexToPub(suite abstract.Suite, s string) (abstract.Point, error) {
-	return ReadHexPub(suite, strings.NewReader(s))
+// PubToStringHex is deprecated - please use PointToStringHex
+func PubToStringHex(suite abstract.Suite, point abstract.Point) (string, error) {
+	log.Warn("Deprecated - please use WriteHexPoint")
+	return PointToStringHex(suite, point)
 }
 
-// PubToString64 converts a Public point to a base64 representation
-func PubToString64(suite abstract.Suite, point abstract.Point) (string, error) {
+// StringHexToPoint reads a hexadecimal representation of a point and convert it to the
+// right struct
+func StringHexToPoint(suite abstract.Suite, s string) (abstract.Point, error) {
+	return ReadHexPoint(suite, strings.NewReader(s))
+}
+
+// StringHexToPub is deprecated - please use StringHexToPoint
+func StringHexToPub(suite abstract.Suite, s string) (abstract.Point, error) {
+	log.Warn("Deprecated - please use WriteHexPoint")
+	return StringHexToPoint(suite, s)
+}
+
+// PointToString64 converts a point to a base64 representation
+func PointToString64(suite abstract.Suite, point abstract.Point) (string, error) {
 	pbuf, err := point.MarshalBinary()
 	return base64.StdEncoding.EncodeToString(pbuf), err
 }
 
-// String64ToPub reads a base64 representation of a public point and converts it
+// PubToString64 is deprecated - please use PointToStringHex
+func PubToString64(suite abstract.Suite, point abstract.Point) (string, error) {
+	log.Warn("Deprecated - please use WriteHexPoint")
+	return PointToStringHex(suite, point)
+}
+
+// String64ToPoint reads a base64 representation of a point and converts it
 // back to a point.
+func String64ToPoint(suite abstract.Suite, s string) (abstract.Point, error) {
+	return Read64Point(suite, strings.NewReader(s))
+}
+
+// String64ToPub is deprecated - please use String64ToPoint
 func String64ToPub(suite abstract.Suite, s string) (abstract.Point, error) {
-	return Read64Pub(suite, strings.NewReader(s))
+	log.Warn("Deprecated - please use Write64Point")
+	return String64ToPoint(suite, s)
 }
 
 // ScalarToStringHex encodes a scalar to hexadecimal

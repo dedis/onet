@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -10,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"errors"
 
 	"github.com/montanaflynn/stats"
 	"gopkg.in/dedis/onet.v1/log"

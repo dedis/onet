@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Source: https://github.com/h12w/gosweep/blob/master/gosweep.sh
-# Adjusted to work for onet.v1-gopkg
 
 DIR_EXCLUDE="$@"
 DIR_SOURCE="$(find . -maxdepth 10 -type f -not -path '*/vendor*' -name '*.go' | xargs -I {} dirname {} | sort | uniq)"
 
-# Run test coverage on each subdirectory and merge the coverage profile.
+if [ "$TRAVIS_BUILD_DIR" ]; then
+  cd $TRAVIS_BUILD_DIR
+fi
+
+# Run test coverage on each subdirectories and merge the coverage profile.
 all_tests_passed=true
 
 echo "mode: atomic" > profile.cov

@@ -131,7 +131,7 @@ func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
 // Toml converts an ServerIdentity to a Toml-structure
 func (si *ServerIdentity) Toml(suite abstract.Suite) *ServerIdentityToml {
 	var buf bytes.Buffer
-	if err := crypto.Write64Pub(suite, &buf, si.Public); err != nil {
+	if err := crypto.Write64Point(suite, &buf, si.Public); err != nil {
 		log.Error("Error while writing public key:", err)
 	}
 	return &ServerIdentityToml{
@@ -142,7 +142,7 @@ func (si *ServerIdentity) Toml(suite abstract.Suite) *ServerIdentityToml {
 
 // ServerIdentity converts an ServerIdentityToml structure back to an ServerIdentity
 func (si *ServerIdentityToml) ServerIdentity(suite abstract.Suite) *ServerIdentity {
-	pub, err := crypto.Read64Pub(suite, strings.NewReader(si.Public))
+	pub, err := crypto.Read64Point(suite, strings.NewReader(si.Public))
 	if err != nil {
 		log.Error("Error while reading public key:", err)
 	}
@@ -157,7 +157,7 @@ func (si *ServerIdentityToml) ServerIdentity(suite abstract.Suite) *ServerIdenti
 func GlobalBind(address string) (string, error) {
 	addr := strings.Split(address, ":")
 	if len(addr) != 2 {
-		return "", errors.New("Not a host:port address")
+		return "", errors.New("not a host:port address")
 	}
 	return "0.0.0.0:" + addr[1], nil
 }

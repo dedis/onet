@@ -167,7 +167,7 @@ func InteractiveConfig(binaryName string) {
 		}
 	}
 
-	public, err := crypto.StringHexToPub(network.Suite, pubStr)
+	public, err := crypto.StringHexToPoint(network.Suite, pubStr)
 	if err != nil {
 		log.Fatal("Impossible to parse public key:", err)
 	}
@@ -211,7 +211,7 @@ func createKeyPair() (string, string) {
 	// use the transformation for EdDSA signatures
 	//point = cosi.Ed25519Public(network.Suite, kp.Secret)
 	point = kp.Public
-	pubStr, err := crypto.PubToStringHex(network.Suite, point)
+	pubStr, err := crypto.PointToStringHex(network.Suite, point)
 	if err != nil {
 		log.Fatal("Could not parse public key. Abort.")
 	}

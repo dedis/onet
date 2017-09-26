@@ -3,9 +3,10 @@ package platform
 import (
 	"sync"
 
-	"github.com/BurntSushi/toml"
 	"gopkg.in/dedis/onet.v1"
 	"gopkg.in/dedis/onet.v1/log"
+
+	"github.com/BurntSushi/toml"
 	"gopkg.in/dedis/onet.v1/network"
 	"gopkg.in/dedis/onet.v1/simul/manage"
 	"gopkg.in/dedis/onet.v1/simul/monitor"
