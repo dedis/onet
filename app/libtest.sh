@@ -213,7 +213,7 @@ buildConode(){
     cat - > $cotdir/main.go << EOF
 package main
 
-import "gopkg.in/dedis/onet.v1/app"
+import "github.com/dedis/onet/app"
 
 func main(){
 	app.Server()
