@@ -144,7 +144,7 @@ func PointToString64(suite abstract.Suite, point abstract.Point) (string, error)
 // PubToString64 is deprecated - please use PointToStringHex
 func PubToString64(suite abstract.Suite, point abstract.Point) (string, error) {
 	log.Warn("Deprecated - please use PointToString64")
-	return PointToStringHex(suite, point)
+	return PointToString64(suite, point)
 }
 
 // String64ToPoint reads a base64 representation of a point and converts it
