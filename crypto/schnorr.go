@@ -64,14 +64,13 @@ func VerifySchnorr(suite abstract.Suite, public abstract.Point, msg []byte, sig 
 }
 
 func hash(suite abstract.Suite, r abstract.Point, msg []byte) (abstract.Scalar, error) {
-	rBuf, err := r.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	cipher := suite.Cipher(rBuf)
-	cipher.Message(nil, nil, msg)
+	// Calculate H(r || msg)
+	h := suite.Hash()
+	r.MarshalTo(h)
+	h.Write(msg)
+
 	// (re)compute challenge (e)
-	e := suite.Scalar().Pick(cipher)
+	e := suite.Scalar().SetBytes(h.Sum(nil))
 
 	return e, nil
 }
