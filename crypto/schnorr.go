@@ -1,76 +1,45 @@
 package crypto
 
 import (
-	"errors"
-
 	"gopkg.in/dedis/crypto.v0/abstract"
-	"gopkg.in/dedis/crypto.v0/random"
+	"gopkg.in/dedis/crypto.v0/sign"
 )
 
 // SchnorrSig is a signature created using the Schnorr Signature scheme.
 type SchnorrSig struct {
-	Challenge abstract.Scalar
+	Challenge abstract.Point
 	Response  abstract.Scalar
-}
-
-// MarshalBinary is used for example in hashing
-func (ss *SchnorrSig) MarshalBinary() ([]byte, error) {
-	cbuf, err := ss.Challenge.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	rbuf, err := ss.Response.MarshalBinary()
-	return append(cbuf, rbuf...), err
 }
 
 // SignSchnorr creates a Schnorr signature from a msg and a private key
 func SignSchnorr(suite abstract.Suite, private abstract.Scalar, msg []byte) (SchnorrSig, error) {
-	// using notation from https://en.wikipedia.org/wiki/Schnorr_signature
-	// create random secret k and public point commitment r
-	k := suite.Scalar().Pick(random.Stream)
-	r := suite.Point().Mul(nil, k)
-
-	// create challenge e based on message and r
-	e, err := hash(suite, r, msg)
-	if err != nil {
-		return SchnorrSig{}, err
+	ss := SchnorrSig{
+		Challenge: suite.Point(),
+		Response:  suite.Scalar(),
 	}
-
-	// compute response s = k - x*e
-	xe := suite.Scalar().Mul(private, e)
-	s := suite.Scalar().Sub(k, xe)
-
-	return SchnorrSig{Challenge: e, Response: s}, nil
+	buf, err := sign.Schnorr(suite, private, msg)
+	if err != nil {
+		return ss, err
+	}
+	scalarLen := suite.ScalarLen()
+	if err := ss.Challenge.UnmarshalBinary(buf[0:scalarLen]); err != nil {
+		return ss, err
+	}
+	if err := ss.Response.UnmarshalBinary(buf[scalarLen:]); err != nil {
+		return ss, err
+	}
+	return ss, nil
 }
 
 // VerifySchnorr verifies a given Schnorr signature. It returns nil iff the given signature is valid.
 func VerifySchnorr(suite abstract.Suite, public abstract.Point, msg []byte, sig SchnorrSig) error {
-	// compute rv = g^s * y^e (where y = g^x)
-	gs := suite.Point().Mul(nil, sig.Response)
-	ye := suite.Point().Mul(public, sig.Challenge)
-	rv := suite.Point().Add(gs, ye)
-
-	// recompute challenge (e) from rv
-	e, err := hash(suite, rv, msg)
+	ch, err := sig.Challenge.MarshalBinary()
 	if err != nil {
 		return err
 	}
-
-	if !e.Equal(sig.Challenge) {
-		return errors.New("Signature not valid: Reconstructed challenge isn't equal to challenge in signature")
+	re, err := sig.Response.MarshalBinary()
+	if err != nil {
+		return err
 	}
-
-	return nil
-}
-
-func hash(suite abstract.Suite, r abstract.Point, msg []byte) (abstract.Scalar, error) {
-	// Calculate H(r || msg)
-	h := suite.Hash()
-	r.MarshalTo(h)
-	h.Write(msg)
-
-	// (re)compute challenge (e)
-	e := suite.Scalar().SetBytes(h.Sum(nil))
-
-	return e, nil
+	return sign.VerifySchnorr(suite, public, msg, append(ch, re...))
 }
