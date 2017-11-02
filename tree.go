@@ -28,7 +28,7 @@ func init() {
 	network.RegisterMessage(tbmStruct{})
 }
 
-// Tree is a topology to be used by any network layer/host layer
+// Tree is a topology to be used by any network layer/host layer.
 // It contains the peer list we use, and the tree we use
 type Tree struct {
 	ID     TreeID
@@ -60,18 +60,18 @@ func (tId TreeID) IsNil() bool {
 	return tId.Equal(TreeID(uuid.Nil))
 }
 
-// NewTree creates a new tree using the entityList and the root-node. It
+// NewTree creates a new tree using the given entityList and root. It
 // also generates the id.
-func NewTree(el *Roster, r *TreeNode) *Tree {
-	url := network.NamespaceURL + "tree/" + el.ID.String() + r.ID.String()
+func NewTree(entityList *Roster, root *TreeNode) *Tree {
+	url := network.NamespaceURL + "tree/" + entityList.ID.String() + root.ID.String()
 	t := &Tree{
-		Roster: el,
-		Root:   r,
+		Roster: entityList,
+		Root:   root,
 		ID:     TreeID(uuid.NewV5(uuid.NamespaceURL, url)),
 	}
 	// network.Suite used for the moment => explicit mark that something is
 	// wrong and that needs to be changed !
-	t.computeSubtreeAggregate(network.Suite, r)
+	t.computeSubtreeAggregate(network.Suite, root)
 	return t
 }
 
