@@ -198,13 +198,21 @@ buildDir(){
 
 buildConode(){
     local incl="$@"
-    local pkg=$( realpath $BUILDDIR | sed -e "s:$GOPATH/src/::" )
+    if [ -z "$incl" ]; then
+	echo "buildConode: No import paths provided. Searching."
+	for i in service ../service
+        do
+	    if [ -d $APPDIR/$i ]; then
+		local pkg=$( realpath $APPDIR/$i | sed -e "s:$GOPATH/src/::" )
+		incl="$incl $pkg"
+	    fi
+	done
+	echo "Found: $incl"
+    fi
+    
     local cotdir=$( mktemp -d )/conode
     mkdir -p $cotdir
-    if [ ! "$incl" ]; then
-    	incl=${APPDIR#$GOPATH/src/}/service
-    fi
-
+    
     ( echo -e "package main\nimport ("
     for i in $incl; do
     	echo -e "\t_ \"$i\""
@@ -213,7 +221,7 @@ buildConode(){
     cat - > $cotdir/main.go << EOF
 package main
 
-import "github.com/dedis/onet/app"
+import "gopkg.in/dedis/onet.v1/app"
 
 func main(){
 	app.Server()
