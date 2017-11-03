@@ -17,10 +17,12 @@ import (
 // someone, a server over the internet, mainly tied by its public key.
 // The tree contains the peerId which is the ID given to a an ServerIdentity / server
 // during one protocol instance. A server can have many peerId in one tree.
+//
 // ProtocolInstance needs to know:
-// - which Roster we are using ( a selection of proper servers )
-// - which Tree we are using.
-// - The overlay network: a mapping from PeerId
+//   - which Roster we are using ( a selection of proper servers )
+//   - which Tree we are using
+//   - The overlay network: a mapping from PeerId
+//
 // It contains the PeerId of the parent and the sub tree of the children.
 
 func init() {
@@ -60,12 +62,12 @@ func (tId TreeID) IsNil() bool {
 	return tId.Equal(TreeID(uuid.Nil))
 }
 
-// NewTree creates a new tree using the given entityList and root. It
+// NewTree creates a new tree using the given roster and root. It
 // also generates the id.
-func NewTree(entityList *Roster, root *TreeNode) *Tree {
-	url := network.NamespaceURL + "tree/" + entityList.ID.String() + root.ID.String()
+func NewTree(roster *Roster, root *TreeNode) *Tree {
+	url := network.NamespaceURL + "tree/" + roster.ID.String() + root.ID.String()
 	t := &Tree{
-		Roster: entityList,
+		Roster: roster,
 		Root:   root,
 		ID:     TreeID(uuid.NewV5(uuid.NamespaceURL, url)),
 	}
@@ -91,7 +93,7 @@ func NewTreeFromMarshal(buf []byte, el *Roster) (*Tree, error) {
 }
 
 // MakeTreeMarshal creates a replacement-tree that is safe to send: no
-// parent (creates loops), only sends ids (not send the entityList again)
+// parent (creates loops), only sends ids (not send the roster again)
 func (t *Tree) MakeTreeMarshal() *TreeMarshal {
 	if t.Roster == nil {
 		return &TreeMarshal{}
@@ -701,7 +703,7 @@ type RosterToml struct {
 	List []*network.ServerIdentityToml
 }
 
-// Toml returns the toml-writable version of this entityList
+// Toml returns the toml-writable version of this roster.
 func (el *Roster) Toml(suite abstract.Suite) *RosterToml {
 	ids := make([]*network.ServerIdentityToml, len(el.List))
 	for i := range el.List {
