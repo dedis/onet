@@ -3,7 +3,6 @@ package onet
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -16,6 +15,7 @@ type ProtocolOverlay struct {
 	*TreeNodeInstance
 	done         bool
 	failDispatch bool
+	failChan     chan bool
 }
 
 func (po *ProtocolOverlay) Start() error {
@@ -25,6 +25,9 @@ func (po *ProtocolOverlay) Start() error {
 
 func (po *ProtocolOverlay) Dispatch() error {
 	if po.failDispatch {
+		go func() {
+			po.failChan <- true
+		}()
 		return errors.New("Dispatch failed")
 	}
 	return nil
@@ -38,10 +41,12 @@ func (po *ProtocolOverlay) Release() {
 func TestOverlayDispatchFailure(t *testing.T) {
 	log.OutputToBuf()
 	// setup
+	failChan := make(chan bool, 1)
 	fn := func(n *TreeNodeInstance) (ProtocolInstance, error) {
 		ps := ProtocolOverlay{
 			TreeNodeInstance: n,
 			failDispatch:     true,
+			failChan:         failChan,
 		}
 		return &ps, nil
 	}
@@ -56,7 +61,7 @@ func TestOverlayDispatchFailure(t *testing.T) {
 	}
 
 	// wait for the dispatch goroutine in CreateProtocol to start
-	time.Sleep(time.Millisecond * 100)
+	<-failChan
 	assert.Contains(t, log.GetStdErr(), "Dispatch failed")
 
 	log.OutputToOs()
