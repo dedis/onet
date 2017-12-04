@@ -26,6 +26,7 @@ func (po *ProtocolOverlay) Start() error {
 func (po *ProtocolOverlay) Dispatch() error {
 	if po.failDispatch {
 		go func() {
+			// hopefully we write to channel after `Dispatch` returns
 			po.failChan <- true
 		}()
 		return errors.New("Dispatch failed")
@@ -62,7 +63,10 @@ func TestOverlayDispatchFailure(t *testing.T) {
 
 	// wait for the dispatch goroutine in CreateProtocol to start
 	<-failChan
-	assert.Contains(t, log.GetStdErr(), "Dispatch failed")
+
+	// when using `go test -v`, the error string goes into the stderr buffer
+	// but with `go test`, it goes into the stdout buffer, so we check both
+	assert.Contains(t, log.GetStdOut()+log.GetStdErr(), "Dispatch failed")
 
 	log.OutputToOs()
 }
