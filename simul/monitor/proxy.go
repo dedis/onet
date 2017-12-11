@@ -5,6 +5,8 @@ import (
 	"net"
 )
 
+// NewProxy returns a new TCP proxy listening on addr:listenPort, which forwards
+// connections to localhost:toPort.
 func NewProxy(toPort uint16, addr string, listenPort uint16) (*TCPProxy, error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf("%v:%v", addr, listenPort))
 	if err != nil {

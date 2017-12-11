@@ -56,6 +56,8 @@ func (r *remote) isActive() bool {
 	return !r.inactive
 }
 
+// A TCPProxy proxies connections arriving at the Listener to one of
+// the Endpoints.
 type TCPProxy struct {
 	Listener        net.Listener
 	Endpoints       []*net.SRV
@@ -68,6 +70,7 @@ type TCPProxy struct {
 	pickCount int // for round robin
 }
 
+// Run starts servicing clients. It will not return until Stop is called.
 func (tp *TCPProxy) Run() error {
 	tp.donec = make(chan struct{})
 	if tp.MonitorInterval == 0 {
@@ -214,6 +217,7 @@ func (tp *TCPProxy) runMonitor() {
 	}
 }
 
+// Stop stops a running TCPProxy. After calling Stop, Run will return.
 func (tp *TCPProxy) Stop() {
 	// graceful shutdown?
 	// shutdown current connections?
