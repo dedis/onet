@@ -327,14 +327,14 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	return tn, nil
 }
 
-// Rx() implements the CounterIO interface
-func (c *Overlay) Rx() uint64 {
-	return c.server.Rx()
+// Rx implements the CounterIO interface
+func (o *Overlay) Rx() uint64 {
+	return o.server.Rx()
 }
 
-// Tx() implements the CounterIO interface
-func (c *Overlay) Tx() uint64 {
-	return c.server.Tx()
+// Tx implements the CounterIO interface
+func (o *Overlay) Tx() uint64 {
+	return o.server.Tx()
 }
 
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {

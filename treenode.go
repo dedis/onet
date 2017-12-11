@@ -707,14 +707,14 @@ func (n *TreeNodeInstance) SetConfig(c *GenericConfig) error {
 	return nil
 }
 
-// Rx() implements the CounterIO interface
-func (c *TreeNodeInstance) Rx() uint64 {
-	return c.overlay.Rx()
+// Rx implements the CounterIO interface
+func (n *TreeNodeInstance) Rx() uint64 {
+	return n.overlay.Rx()
 }
 
-// Tx() implements the CounterIO interface
-func (c *TreeNodeInstance) Tx() uint64 {
-	return c.overlay.Tx()
+// Tx implements the CounterIO interface
+func (n *TreeNodeInstance) Tx() uint64 {
+	return n.overlay.Tx()
 }
 
 func (n *TreeNodeInstance) isBound() bool {

@@ -132,12 +132,12 @@ func (c *Context) String() string {
 	return c.server.ServerIdentity.String()
 }
 
-// Rx() implements the CounterIO interface
+// Rx implements the CounterIO interface
 func (c *Context) Rx() uint64 {
 	return c.server.Rx()
 }
 
-// Tx() implements the CounterIO interface
+// Tx implements the CounterIO interface
 func (c *Context) Tx() uint64 {
 	return c.server.Tx()
 }
