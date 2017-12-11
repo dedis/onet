@@ -327,6 +327,16 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	return tn, nil
 }
 
+// Rx() implements the CounterIO interface
+func (c *Overlay) Rx() uint64 {
+	return c.server.Rx()
+}
+
+// Tx() implements the CounterIO interface
+func (c *Overlay) Tx() uint64 {
+	return c.server.Tx()
+}
+
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
 	tid := req.TreeID
 	tree := o.Tree(tid)
