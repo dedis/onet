@@ -3,9 +3,9 @@ package onet
 import (
 	"testing"
 
-	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"gopkg.in/dedis/kyber.v1/suites"
 )
 
 var tSuite = suites.MustFind("Ed25519")

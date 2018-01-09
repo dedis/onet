@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/kyber"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"gopkg.in/dedis/kyber.v1"
 )
 
 // Server connects the Router, the Overlay, and the Services together. It sets

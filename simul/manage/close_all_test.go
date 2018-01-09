@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
+	"gopkg.in/dedis/kyber.v1/suites"
 )
 
 var tSuite = suites.MustFind("Ed25519")
