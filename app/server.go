@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/encoding"
-	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"gopkg.in/dedis/kyber.v1"
+	"gopkg.in/dedis/kyber.v1/suites"
+	"gopkg.in/dedis/kyber.v1/util/encoding"
+	"gopkg.in/dedis/kyber.v1/util/key"
 
 	"github.com/shirou/gopsutil/mem"
 	// CoSi-protocol is not part of the cothority.

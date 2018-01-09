@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/kyber.v1/util/key"
 )
 
 type ContextData struct {
