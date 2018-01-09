@@ -687,7 +687,7 @@ func waitOrFatal(ch chan bool, t *testing.T) {
 	select {
 	case _ = <-ch:
 		return
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(1500 * time.Millisecond):
 		t.Fatal("Waited too long")
 	}
 }
