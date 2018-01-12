@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/dedis/protobuf"
-	"github.com/satori/go.uuid"
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/crypto.v0/ed25519"
 	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 /// Encoding part ///

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 var testProto = "test"
