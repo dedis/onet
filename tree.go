@@ -6,10 +6,10 @@ import (
 
 	"math/rand"
 
-	"github.com/satori/go.uuid"
 	"gopkg.in/dedis/crypto.v0/abstract"
 	"gopkg.in/dedis/onet.v1/log"
 	"gopkg.in/dedis/onet.v1/network"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 // In this file we define the main structures used for a running protocol

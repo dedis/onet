@@ -3,9 +3,9 @@ package onet
 import (
 	"testing"
 
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/onet.v1/log"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 func TestServer_ProtocolRegisterName(t *testing.T) {
