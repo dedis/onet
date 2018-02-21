@@ -115,12 +115,15 @@ type ServerIdentityToml struct {
 // of IP-addresses where to find that entity. The Id is based on a
 // version5-UUID which can include a URL that is based on it's public key.
 func NewServerIdentity(public kyber.Point, address Address) *ServerIdentity {
-	url := NamespaceURL + "id/" + public.String()
-	return &ServerIdentity{
+	si := &ServerIdentity{
 		Public:  public,
 		Address: address,
-		ID:      ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url)),
 	}
+	if public != nil {
+		url := NamespaceURL + "id/" + public.String()
+		si.ID = ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url))
+	}
+	return si
 }
 
 // Equal tests on same public key
@@ -173,29 +176,31 @@ type counterSafe struct {
 }
 
 // Rx returns the rx counter
-func (c *counterSafe) Rx() uint64 {
+func (c *counterSafe) Rx() (out uint64) {
 	c.Lock()
-	defer c.Unlock()
-	return c.rx
+	out = c.rx
+	c.Unlock()
+	return
 }
 
 // Tx returns the tx counter
-func (c *counterSafe) Tx() uint64 {
+func (c *counterSafe) Tx() (out uint64) {
 	c.Lock()
-	defer c.Unlock()
-	return c.tx
+	out = c.tx
+	c.Unlock()
+	return
 }
 
 // updateRx adds delta to the rx counter
 func (c *counterSafe) updateRx(delta uint64) {
 	c.Lock()
-	defer c.Unlock()
 	c.rx += delta
+	c.Unlock()
 }
 
 // updateTx adds delta to the tx counter
 func (c *counterSafe) updateTx(delta uint64) {
 	c.Lock()
-	defer c.Unlock()
 	c.tx += delta
+	c.Unlock()
 }

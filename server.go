@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
-	"path"
 	"runtime"
 	"sort"
 	"strconv"
@@ -14,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dedis/kyber"
+	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 )
@@ -45,18 +44,7 @@ type Server struct {
 func dbPathFromEnv() string {
 	p := os.Getenv("CONODE_SERVICE_PATH")
 	if p == "" {
-		u, err := user.Current()
-		if err != nil {
-			log.Fatal("Couldn't get current user's environment:", err)
-		}
-		switch runtime.GOOS {
-		case "darwin":
-			p = path.Join(u.HomeDir, "Library", "Conode", "Services")
-		case "windows":
-			p = path.Join(u.HomeDir, "AppData", "Local", "Conode")
-		default:
-			p = path.Join(u.HomeDir, ".local", "share", "conode")
-		}
+		p = cfgpath.GetDataPath("conode")
 	}
 	return p
 }
@@ -84,7 +72,7 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 	c.overlay = NewOverlay(c)
 	c.websocket = NewWebSocket(r.ServerIdentity)
 	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
-	c.statusReporterStruct.RegisterStatusReporter("Status", c)
+	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
 	for name, inst := range protocols.instantiators {
 		log.Lvl4("Registering global protocol", name)
 		c.ProtocolRegister(name, inst)
@@ -94,16 +82,6 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 
 // NewServerTCP returns a new Server out of a private-key and its related public
 // key within the ServerIdentity. The server will use a default TcpRouter as Router.
-//
-// The path to the file is chosen as follows:
-//   Mac: ~/Library/Conode/Services
-//   Other Unix: ~/.local/share/conode
-//   Windows: $HOME$\AppData\Local\Conode
-//
-// If the directory doesn't exist, it will be created using rwxr-x---
-// permissions (0750).
-//
-// The path can be overridden with the environmental variable "CONODE_SERVICE_PATH".
 func NewServerTCP(e *network.ServerIdentity, pkey kyber.Scalar, suite network.Suite) *Server {
 	r, err := network.NewTCPRouter(e, suite)
 	log.ErrFatal(err)
@@ -118,10 +96,10 @@ func (c *Server) Suite() network.Suite {
 }
 
 // GetStatus is a function that returns the status report of the server.
-func (c *Server) GetStatus() *Status {
+func (c *Server) GetStatus() Status {
 	a := c.serviceManager.availableServices()
 	sort.Strings(a)
-	return &Status{map[string]string{
+	return Status(map[string]string{
 		"Available_Services": strings.Join(a, ","),
 		"TX_bytes":           strconv.FormatUint(c.Router.Tx(), 10),
 		"RX_bytes":           strconv.FormatUint(c.Router.Rx(), 10),
@@ -133,7 +111,7 @@ func (c *Server) GetStatus() *Status {
 		"Port":        c.ServerIdentity.Address.Port(),
 		"Description": c.ServerIdentity.Description,
 		"ConnType":    string(c.ServerIdentity.Address.ConnType()),
-	}}
+	})
 }
 
 // Close closes the overlay and the Router
