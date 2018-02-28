@@ -264,7 +264,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 		return err
 	}
 
-	err = o.server.Send(si, msg)
+	_, err = o.server.Send(si, msg)
 	return err
 }
 
@@ -332,6 +332,16 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	return tn, nil
 }
 
+// Rx implements the CounterIO interface, should be the same as the server
+func (o *Overlay) Rx() uint64 {
+	return o.server.Rx()
+}
+
+// Tx implements the CounterIO interface, should be the same as the server
+func (o *Overlay) Tx() uint64 {
+	return o.server.Tx()
+}
+
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
 	tid := req.TreeID
 	tree := o.Tree(tid)
@@ -355,7 +365,7 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 		return
 	}
 
-	err = o.server.Send(si, msg)
+	_, err = o.server.Send(si, msg)
 	if err != nil {
 		log.Error("Couldn't send tree:", err)
 	}
@@ -375,7 +385,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io
 		if err != nil {
 			log.Error("could not wrap RequestRoster:", err)
 		}
-		if err := o.server.Send(si, msg); err != nil {
+		if _, err := o.server.Send(si, msg); err != nil {
 			log.Error("Requesting Roster in SendTree failed", err)
 		}
 		// put the tree marshal into pending queue so when we receive the
@@ -413,7 +423,7 @@ func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRo
 		return
 	}
 
-	err = o.server.Send(si, msg)
+	_, err = o.server.Send(si, msg)
 	if err != nil {
 		log.Error("Couldn't send empty entity list from host:",
 			o.server.ServerIdentity.String(),
@@ -466,14 +476,17 @@ func (o *Overlay) getConfig(id TokenID) *GenericConfig {
 // c is the generic config that should be sent beforehand in order to get passed
 // in the `NewProtocol` method if a Service has created the protocol and set the
 // config with `SetConfig`. It can be nil.
-func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message, io MessageProxy, c *GenericConfig) error {
+func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message, io MessageProxy, c *GenericConfig) (uint64, error) {
 	tokenTo := from.ChangeTreeNodeID(to.ID)
+	var totSentLen uint64
 
 	// first send the config if present
 	if c != nil {
-		if err := o.server.Send(to.ServerIdentity, &ConfigMsg{*c, tokenTo.ID()}); err != nil {
+		sentLen, err := o.server.Send(to.ServerIdentity, &ConfigMsg{*c, tokenTo.ID()})
+		totSentLen += sentLen
+		if err != nil {
 			log.Error("sending config failed:", err)
-			return err
+			return totSentLen, err
 		}
 	}
 	// then send the message
@@ -486,9 +499,12 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	}
 	final, err := io.Wrap(msg, info)
 	if err != nil {
-		return err
+		return totSentLen, err
 	}
-	return o.server.Send(to.ServerIdentity, final)
+
+	sentLen, err := o.server.Send(to.ServerIdentity, final)
+	totSentLen += sentLen
+	return totSentLen, err
 }
 
 // nodeDone is called by node to signify that its work is finished and its

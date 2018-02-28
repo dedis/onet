@@ -148,7 +148,7 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 	// make the listener send and receive a struct that only they can know (this
 	// listener + conn
 	handshake := func(c Conn, sending, receiving Address) error {
-		err := c.Send(&AddressTest{sending, secret})
+		_, err := c.Send(&AddressTest{sending, secret})
 		if err != nil {
 			return err
 		}
@@ -243,8 +243,9 @@ func testLocalConn(t *testing.T, a1, a2 Address) {
 			assert.Equal(t, 3, nm.Msg.(*SimpleMessage).I)
 			// acknoledge the message
 			incomingConn <- true
-			err = c.Send(&SimpleMessage{3})
+			sentLen, err := c.Send(&SimpleMessage{3})
 			assert.Nil(t, err)
+			assert.NotZero(t, sentLen)
 			//wait ack
 			<-outgoingConn
 			assert.Equal(t, 2, listener.manager.count())
@@ -265,7 +266,9 @@ func testLocalConn(t *testing.T, a1, a2 Address) {
 	// check if connection is opened on the listener
 	<-incomingConn
 	// send stg and wait for ack
-	assert.Nil(t, outgoing.Send(&SimpleMessage{3}))
+	sentLen, err := outgoing.Send(&SimpleMessage{3})
+	assert.Nil(t, err)
+	assert.NotZero(t, sentLen)
 	<-incomingConn
 
 	// receive stg and send ack
@@ -298,8 +301,9 @@ func TestLocalManyConn(t *testing.T) {
 		listener.Listen(func(c Conn) {
 			_, err := c.Receive()
 			assert.Nil(t, err)
-
-			assert.Nil(t, c.Send(&SimpleMessage{3}))
+			sentLen, err := c.Send(&SimpleMessage{3})
+			assert.Nil(t, err)
+			assert.NotZero(t, sentLen)
 		})
 	}()
 
@@ -314,7 +318,9 @@ func TestLocalManyConn(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			assert.Nil(t, c.Send(&SimpleMessage{3}))
+			sentLen, err := c.Send(&SimpleMessage{3})
+			assert.Nil(t, err)
+			assert.NotZero(t, sentLen)
 			nm, err := c.Receive()
 			assert.Nil(t, err)
 			assert.Equal(t, 3, nm.Msg.(*SimpleMessage).I)
