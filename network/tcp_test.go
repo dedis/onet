@@ -566,10 +566,14 @@ func sendrcvProc(from, to *Router) error {
 	sp := newSimpleProcessor()
 	// new processing
 	to.RegisterProcessor(sp, statusMsgID)
-	if _, err := from.Send(to.ServerIdentity, &statusMessage{true, 10}); err != nil {
+	sentLen, err := from.Send(to.ServerIdentity, &statusMessage{true, 10})
+	if err != nil {
 		return err
 	}
-	var err error
+	if sentLen == 0 {
+		return errors.New("sentLen is zero")
+	}
+
 	select {
 	case <-sp.relay:
 		err = nil

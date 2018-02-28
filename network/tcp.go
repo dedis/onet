@@ -139,7 +139,7 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 
 // Send converts the NetworkMessage into an ApplicationMessage
 // and sends it using send().
-// It returns an error if anything was wrong.
+// It returns the number of bytes sent and an error if anything was wrong.
 func (c *TCPConn) Send(msg Message) (uint64, error) {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
@@ -153,7 +153,7 @@ func (c *TCPConn) Send(msg Message) (uint64, error) {
 
 // sendRaw writes the number of bytes of the message to the network then the
 // whole message b in slices of size maxChunkSize.
-// In case of an error it aborts and returns error.
+// In case of an error it aborts.
 func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
 	// First write the size
 	packetSize := Size(len(b))

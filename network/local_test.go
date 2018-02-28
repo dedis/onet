@@ -148,10 +148,14 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 	// make the listener send and receive a struct that only they can know (this
 	// listener + conn
 	handshake := func(c Conn, sending, receiving Address) error {
-		_, err := c.Send(&AddressTest{sending, secret})
+		sentLen, err := c.Send(&AddressTest{sending, secret})
 		if err != nil {
 			return err
 		}
+		if sentLen == 0 {
+			return fmt.Errorf("sentLen is zero")
+		}
+
 		p, err := c.Receive()
 		if err != nil {
 			return err

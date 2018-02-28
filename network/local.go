@@ -273,7 +273,7 @@ func (lc *LocalConn) start(wg *sync.WaitGroup) {
 func (lc *LocalConn) Send(msg Message) (uint64, error) {
 	buff, err := Marshal(msg)
 	if err != nil {
-		return uint64(len(buff)), err
+		return 0, err
 	}
 	sentLen := uint64(len(buff))
 	lc.updateTx(sentLen)

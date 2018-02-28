@@ -264,6 +264,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 		return err
 	}
 
+	// no need to record sentLen because Overlay uses Server's CounterIO
 	_, err = o.server.Send(si, msg)
 	return err
 }
