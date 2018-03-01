@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -50,15 +51,18 @@ type configProcessor struct {
 	configCount int
 	expected    int
 	done        chan<- bool
+	sync.Mutex
 }
 
 func (p *configProcessor) Process(env *network.Envelope) {
+	p.Lock()
 	if env.MsgType == ConfigMsgID {
 		p.configCount++
 		if p.configCount == p.expected {
 			p.done <- true
 		}
 	}
+	p.Unlock()
 }
 
 func TestConfigPropagation(t *testing.T) {
