@@ -76,12 +76,20 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 
 	buf, err = protobuf.Encode(&testMsg{42})
 	log.ErrFatal(err)
-	rep, err = p.ProcessClientRequest(nil, "testMsg", buf)
+	_, err = p.ProcessClientRequest(nil, "testMsg", buf)
 	assert.NotNil(t, err)
 
 	buf, err = protobuf.Encode(&testMsg2{42})
 	log.ErrFatal(err)
-	rep, err = p.ProcessClientRequest(nil, "testMsg2", buf)
+	_, err = p.ProcessClientRequest(nil, "testMsg2", buf)
+	assert.NotNil(t, err)
+
+	// Test non-existing endpoint
+	buf, err = protobuf.Encode(&testMsg2{42})
+	log.ErrFatal(err)
+	log.OutputToBuf()
+	_, err = p.ProcessClientRequest(nil, "testMsgNotAvailable", buf)
+	log.OutputToOs()
 	assert.NotNil(t, err)
 }
 

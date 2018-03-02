@@ -165,7 +165,9 @@ func TestWebSocket_Error(t *testing.T) {
 	server := hs[0]
 	defer local.CloseAll()
 
+	log.OutputToBuf()
 	_, err := client.Send(server.ServerIdentity, "test", nil)
+	log.OutputToOs()
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
 }
 
