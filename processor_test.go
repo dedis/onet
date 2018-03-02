@@ -91,6 +91,7 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 	_, err = p.ProcessClientRequest(nil, "testMsgNotAvailable", buf)
 	log.OutputToOs()
 	assert.NotNil(t, err)
+	assert.NotEqual(t, "", log.GetStdOut())
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {
