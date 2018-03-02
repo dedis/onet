@@ -47,6 +47,33 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		ok := []byte("ok\n")
 		w.Write(ok)
 	})
+
+	// Add a catch-all handler (longest paths take precedence, so "/" takes
+	// all non-registered paths) and correctly upgrade to a websocket and
+	// throw an error.
+	w.mux.HandleFunc("/", func(wr http.ResponseWriter, re *http.Request) {
+		log.Error("Got a request for an invalid path:", re.URL.Path)
+
+		u := websocket.Upgrader{
+			EnableCompression: true,
+			// As the website will not be served from ourselves, we
+			// need to accept _all_ origins. Cross-site scripting is
+			// required.
+			CheckOrigin: func(*http.Request) bool {
+				return true
+			},
+		}
+		ws, err := u.Upgrade(wr, re, http.Header{})
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		ws.WriteControl(websocket.CloseMessage,
+			websocket.FormatCloseMessage(4001, "This service doesn't exist"),
+			time.Now().Add(time.Millisecond*500))
+		ws.Close()
+	})
 	w.server = &graceful.Server{
 		Timeout: 100 * time.Millisecond,
 		Server: &http.Server{

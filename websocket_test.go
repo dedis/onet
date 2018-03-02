@@ -148,14 +148,25 @@ func TestMultiplePath(t *testing.T) {
 	defer local.CloseAll()
 	client := NewClientKeep(tSuite, dummyService3Name)
 	msg, err := protobuf.Encode(&DummyMsg{})
-	require.Equal(t, nil, err)
+	require.Nil(t, err)
 	path1, path2 := "path1", "path2"
 	resp, err := client.Send(server.ServerIdentity, path1, msg)
-	require.Equal(t, nil, err)
+	require.Nil(t, err)
 	require.Equal(t, path1, string(resp))
 	resp, err = client.Send(server.ServerIdentity, path2, msg)
-	require.Equal(t, nil, err)
+	require.Nil(t, err)
 	require.Equal(t, path2, string(resp))
+}
+
+func TestWebSocket_Error(t *testing.T) {
+	client := NewClientKeep(tSuite, dummyService3Name)
+	local := NewTCPTest(tSuite)
+	hs := local.GenServers(2)
+	server := hs[0]
+	defer local.CloseAll()
+
+	_, err := client.Send(server.ServerIdentity, "test", nil)
+	require.NotEqual(t, "websocket: bad handshake", err.Error())
 }
 
 const serviceWebSocket = "WebSocket"
