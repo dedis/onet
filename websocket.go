@@ -43,7 +43,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	log.ErrFatal(err)
 	w.mux = http.NewServeMux()
 	w.mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
-		log.Lvl2("ok?", r.RemoteAddr)
+		log.Lvl4("ok?", r.RemoteAddr)
 		ok := []byte("ok\n")
 		w.Write(ok)
 	})
@@ -114,7 +114,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ok := false
 
 	defer func() {
-		log.Lvl2("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
+		log.Lvl4("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
 	}()
 
 	u := websocket.Upgrader{
@@ -148,7 +148,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s := t.service
 		var reply []byte
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
-		log.Lvl2("ws request", r.RemoteAddr, t.serviceName, path)
+		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
 		reply, err = s.ProcessClientRequest(r, path, buf)
 		if err == nil {
 			tx += len(reply)
