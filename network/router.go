@@ -262,7 +262,7 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 		r.traffic.updateTx(tx)
 		r.wg.Done()
 		r.removeConnection(remote, c)
-		log.Lvl2("onet close", c.Remote(), "rx", rx, "tx", tx)
+		log.Lvl4("onet close", c.Remote(), "rx", rx, "tx", tx)
 	}()
 	address := c.Remote()
 	log.Lvl3(r.address, "Handling new connection from", remote.Address)
