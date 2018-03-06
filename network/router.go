@@ -64,6 +64,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
+	log.Lvl1("New router with address %s and public key %x", r.address, r.ServerIdentity.Public)
 	return r
 }
 
