@@ -90,7 +90,7 @@ func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
 	w.Unlock()
-	log.Lvl3("Starting to listen on", w.server.Server.Addr)
+	log.Lvl2("Starting to listen on", w.server.Server.Addr)
 	go func() {
 		w.server.ListenAndServe()
 	}()

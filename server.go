@@ -165,4 +165,6 @@ func (c *Server) Start() {
 	c.started = time.Now()
 	go c.Router.Start()
 	c.websocket.start()
+	log.Lvl1("Started server at %s on address %s with public key %s",
+		c.started, c.ServerIdentity.Address, c.ServerIdentity.Public)
 }
