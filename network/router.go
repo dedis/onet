@@ -97,7 +97,8 @@ func (r *Router) Start() {
 	err := r.host.Listen(func(c Conn) {
 		dst, err := r.receiveServerIdentity(c)
 		if err != nil {
-			log.Error("receive server identity failed:", err)
+			log.Errorf("receiving server identity from %s failed: %s",
+				c.Remote().NetworkAddress(), err)
 			if err := c.Close(); err != nil {
 				log.Error("Couldn't close secure connection:",
 					err)
