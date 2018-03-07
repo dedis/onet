@@ -51,7 +51,7 @@ func TestTCPHugeConnections(t *testing.T) {
 	for i := 0; i < nbrHosts; i++ {
 		addr := NewTCPAddress("localhost:" + strconv.Itoa(2000+i))
 		ids[i] = NewTestServerIdentity(addr)
-		hosts[i], err = NewTCPListener(addr, tSuite)
+		hosts[i], err = NewTCPListener(addr, tSuite, "")
 		if err != nil {
 			t.Fatal("Error setting up host:", err)
 		}

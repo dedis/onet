@@ -35,8 +35,8 @@ func NewTCPAddress(addr string) Address {
 }
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
-func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
-	h, err := NewTCPHost(sid, suite)
+func NewTCPRouter(sid *ServerIdentity, suite Suite, listenAddr Address) (*Router, error) {
+	h, err := NewTCPHost(sid, suite, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +280,7 @@ type TCPListener struct {
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
-func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
+func NewTCPListener(addr Address, s Suite, listenAddr Address) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
 		return nil, errors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
@@ -290,13 +290,14 @@ func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 		quitListener: make(chan bool),
 		suite:        s,
 	}
-	global, err := GlobalBind(addr.NetworkAddress())
-	if err != nil {
-		return nil, err
+	var listenOn string
+	if listenAddr.String() == "" {
+		listenOn, _ = GlobalBind(addr.NetworkAddress())
+	} else {
+		listenOn = listenAddr.NetworkAddress()
 	}
-
 	for i := 0; i < MaxRetryConnect; i++ {
-		ln, err := net.Listen("tcp", global)
+		ln, err := net.Listen("tcp", listenOn)
 		if err == nil {
 			t.listener = ln
 			break
@@ -406,16 +407,16 @@ type TCPHost struct {
 }
 
 // NewTCPHost returns a new Host using TCP connection based type.
-func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
+func NewTCPHost(sid *ServerIdentity, s Suite, listenAddr Address) (*TCPHost, error) {
 	h := &TCPHost{
 		suite: s,
 		sid:   sid,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListener(sid, s)
+		h.TCPListener, err = NewTLSListener(sid, s, listenAddr)
 	} else {
-		h.TCPListener, err = NewTCPListener(sid.Address, s)
+		h.TCPListener, err = NewTCPListener(sid.Address, s, listenAddr)
 	}
 	return h, err
 }

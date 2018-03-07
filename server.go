@@ -83,8 +83,8 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 
 // NewServerTCP returns a new Server out of a private-key and its related public
 // key within the ServerIdentity. The server will use a default TcpRouter as Router.
-func NewServerTCP(e *network.ServerIdentity, suite network.Suite) *Server {
-	r, err := network.NewTCPRouter(e, suite)
+func NewServerTCP(e *network.ServerIdentity, suite network.Suite, listenAddr network.Address) *Server {
+	r, err := network.NewTCPRouter(e, suite, listenAddr)
 	log.ErrFatal(err)
 	return newServer(suite, "", r, e.GetPrivate())
 }

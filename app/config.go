@@ -18,11 +18,12 @@ import (
 
 // CothorityConfig is the configuration structure of the cothority daemon.
 type CothorityConfig struct {
-	Suite       string
-	Public      string
-	Private     string
-	Address     network.Address
-	Description string
+	Suite         string
+	Public        string
+	Private       string
+	Address       network.Address
+	ListenAddress network.Address
+	Description   string
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -73,7 +74,7 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
-	server := onet.NewServerTCP(si, suite)
+	server := onet.NewServerTCP(si, suite, hc.ListenAddress)
 	return hc, server, nil
 }
 
