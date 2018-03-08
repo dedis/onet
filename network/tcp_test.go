@@ -376,8 +376,8 @@ func TestTCPConnWithListener(t *testing.T) {
 // will create a TCPListener with a specific address to listen on &
 // open a golang net.TCPConn to it
 func TestTCPListenerWithListenAddr(t *testing.T) {
-	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	listenAddr := "127.0.0.1:5670"
+	addr := NewAddress(PlainTCP, "1.2.3.4:0")
+	listenAddr := "127.0.0.1"
 	ln, err := NewTCPListener(addr, tSuite, listenAddr)
 	require.Nil(t, err, "Error setup listener")
 	ready := make(chan bool)
