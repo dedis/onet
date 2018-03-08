@@ -17,12 +17,18 @@ import (
 )
 
 // CothorityConfig is the configuration structure of the cothority daemon.
+// - Suite: The cryptographic suite
+// - Public: The public key
+// - Private: The Private key
+// - Address: The external address of the conode, used by others to connect to this one
+// - ListenAddress: The address this conode is listening on
+// - Description: The description
 type CothorityConfig struct {
 	Suite         string
 	Public        string
 	Private       string
 	Address       network.Address
-	ListenAddress network.Address
+	ListenAddress string
 	Description   string
 }
 
