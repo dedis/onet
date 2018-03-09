@@ -489,26 +489,28 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 // ressources can be released
 func (o *Overlay) nodeDone(tok *Token) {
 	o.instancesLock.Lock()
-	defer o.instancesLock.Unlock()
 	o.nodeDelete(tok)
+	o.instancesLock.Unlock()
 }
 
 // nodeDelete needs to be separated from nodeDone, as it is also called from
 // Close, but due to locking-issues here we don't lock.
-func (o *Overlay) nodeDelete(tok *Token) {
-	tni, ok := o.instances[tok.ID()]
+func (o *Overlay) nodeDelete(token *Token) {
+	tok := token.ID()
+	tni, ok := o.instances[tok]
 	if !ok {
-		log.Lvlf2("Node %s already gone", tok.ID())
+		log.Lvlf2("Node %s already gone", tok)
 		return
 	}
-	log.Lvl4("Closing node", tok.ID())
+	log.Lvl4("Closing node", tok)
 	err := tni.closeDispatch()
 	if err != nil {
 		log.Error("Error while closing node:", err)
 	}
-	delete(o.instances, tok.ID())
+	delete(o.protocolInstances, tok)
+	delete(o.instances, tok)
 	// mark it done !
-	o.instancesInfo[tok.ID()] = true
+	o.instancesInfo[tok] = true
 }
 
 func (o *Overlay) suite() network.Suite {
