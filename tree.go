@@ -1,6 +1,8 @@
 package onet
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -65,7 +67,24 @@ func (tId TreeID) IsNil() bool {
 // NewTree creates a new tree using the given roster and root. It
 // also generates the id.
 func NewTree(roster *Roster, root *TreeNode) *Tree {
-	url := network.NamespaceURL + "tree/" + roster.ID.String() + root.ID.String()
+	// walk the tree with DFS to build a unique hash
+	h := sha256.New()
+	root.Visit(0, func(d int, tn *TreeNode) {
+		_, err := tn.ServerIdentity.Public.MarshalTo(h)
+		if err != nil {
+			log.Error(err)
+		}
+		if tn.IsLeaf() {
+			// to prevent generating the same hash for tree with
+			// the same nodes but with a different structure
+			_, err = h.Write([]byte{1})
+			if err != nil {
+				log.Error(err)
+			}
+		}
+	})
+
+	url := network.NamespaceURL + "tree/" + roster.ID.String() + hex.EncodeToString(h.Sum(nil))
 	t := &Tree{
 		Roster: roster,
 		Root:   root,
@@ -382,9 +401,18 @@ func NewRoster(ids []*network.ServerIdentity) *Roster {
 		return nil
 	}
 
-	r := &Roster{
-		ID: RosterID(uuid.NewV4()),
+	h := sha256.New()
+	for _, id := range ids {
+		_, err := id.Public.MarshalTo(h)
+		if err != nil {
+			log.Error(err)
+		}
 	}
+
+	r := &Roster{
+		ID: RosterID(uuid.NewV5(uuid.NamespaceURL, hex.EncodeToString(h.Sum(nil)))),
+	}
+
 	// Take a copy of ids, in case the caller tries to change it later.
 	r.List = append(r.List, ids...)
 
@@ -689,7 +717,7 @@ func NewTreeNode(entityIdx int, ni *network.ServerIdentity) *TreeNode {
 		RosterIndex:    entityIdx,
 		Parent:         nil,
 		Children:       make([]*TreeNode, 0),
-		ID:             TreeNodeID(uuid.NewV4()),
+		ID:             TreeNodeID(uuid.NewV5(uuid.NamespaceURL, ni.Public.String())),
 	}
 	return tn
 }
