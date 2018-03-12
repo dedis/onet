@@ -543,13 +543,12 @@ func (ro *Roster) GenerateBigNaryTree(N, nodes int) *Tree {
 func (ro *Roster) NewRosterWithRoot(root *network.ServerIdentity) *Roster {
 	list := make([]*network.ServerIdentity, len(ro.List))
 	copy(list, ro.List)
-	roster := NewRoster(list)
-	rootIndex, _ := roster.Search(root.ID)
+	rootIndex, _ := ro.Search(root.ID)
 	if rootIndex < 0 {
 		return nil
 	}
-	roster.List[0], roster.List[rootIndex] = roster.List[rootIndex], roster.List[0]
-	return roster
+	list[0], list[rootIndex] = list[rootIndex], list[0]
+	return NewRoster(list)
 }
 
 // GenerateNaryTreeWithRoot creates a tree where each node has N children.
