@@ -547,14 +547,14 @@ func (ro *Roster) GenerateBigNaryTree(N, nodes int) *Tree {
 func (ro *Roster) GenerateNaryTreeWithRoot(N int, root *network.ServerIdentity) *Tree {
 	list := make([]*network.ServerIdentity, len(ro.List))
 	copy(list, ro.List)
-	roster := NewRoster(list)
 	if root != nil {
-		rootIndex, _ := roster.Search(root.ID)
+		rootIndex, _ := ro.Search(root.ID)
 		if rootIndex < 0 {
 			return nil
 		}
-		roster.List[0], roster.List[rootIndex] = roster.List[rootIndex], roster.List[0]
+		list[0], list[rootIndex] = list[rootIndex], list[0]
 	}
+	roster := NewRoster(list)
 	return roster.GenerateNaryTreeWithRootOnCurrent(N, root)
 }
 
