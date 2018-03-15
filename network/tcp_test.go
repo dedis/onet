@@ -377,9 +377,10 @@ func TestTCPConnWithListener(t *testing.T) {
 // open a golang net.TCPConn to it
 func TestTCPListenerWithListenAddr(t *testing.T) {
 	addr := NewAddress(PlainTCP, "1.2.3.4:0")
-	listenAddr := "127.0.0.1"
+	listenAddr := "127.0.0.1:0"
 	ln, err := NewTCPListener(addr, tSuite, listenAddr)
 	require.Nil(t, err, "Error setup listener")
+	fmt.Println(ln.Address().NetworkAddress())
 	ready := make(chan bool)
 	stop := make(chan bool)
 	connReceived := make(chan bool)
@@ -396,7 +397,7 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 	}()
 
 	<-ready
-	_, err = net.Dial("tcp", listenAddr)
+	_, err = net.Dial("tcp", ln.Address().NetworkAddress())
 	require.Nil(t, err, "Could not open connection")
 	<-connReceived
 	require.Nil(t, ln.Stop(), "Error stopping listener")
