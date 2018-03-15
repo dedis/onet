@@ -380,7 +380,6 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 	listenAddr := "127.0.0.1:0"
 	ln, err := NewTCPListener(addr, tSuite, listenAddr)
 	require.Nil(t, err, "Error setup listener")
-	fmt.Println(ln.Address().NetworkAddress())
 	ready := make(chan bool)
 	stop := make(chan bool)
 	connReceived := make(chan bool)
