@@ -55,10 +55,16 @@ var protocols = newProtocolStorage()
 
 // protocolStorage holds all protocols either globally or per-Server.
 type protocolStorage struct {
+	// Lock used because of the 'serverStarted' flag: it can be changed from a
+	// call to 'Server.Start' and is checked when calling
+	// 'GlobalProtocolRegister'.
+	sync.Mutex
 	// Instantiators maps the name of the protocols to the `NewProtocol`-
 	// methods.
 	instantiators map[string]NewProtocol
-	sync.Mutex
+	// Flag indicating if a server has already started; here to avoid calls
+	// to 'GlobalProtocolRegister' when a server has already started.
+	serverStarted bool
 }
 
 // newProtocolStorage returns an initialized ProtocolStorage-struct.
@@ -117,7 +123,26 @@ func ProtocolNameToID(name string) ProtocolID {
 // All registered protocols will be copied to every instantiated Server. If a
 // protocol is tied to a service, use `Server.ProtocolRegisterName`
 func GlobalProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
+	protocols.Lock()
+	defer protocols.Unlock()
+	if protocols.serverStarted {
+		log.Lvl4("Cannot call 'GlobalProtocolRegister' when a server has already started.")
+	}
 	return protocols.Register(name, protocol)
+}
+
+// The function allows to set the 'serverStarted' flag to true.
+func InformServerStarted() {
+	protocols.Lock()
+	defer protocols.Unlock()
+	protocols.serverStarted = true
+}
+
+// The function allows to set the 'serverStarted' flag to false.
+func InformAllServersStopped() {
+	protocols.Lock()
+	defer protocols.Unlock()
+	protocols.serverStarted = false
 }
 
 // MessageProxy is an interface that allows one protocol to completely define its

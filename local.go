@@ -176,6 +176,7 @@ func (l *LocalTest) panicClosed() {
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
+	InformAllServersStopped()
 	// If the debug-level is 0, we copy all errors to a buffer that
 	// will be discarded at the end.
 	if log.DebugVisible() == 0 {
