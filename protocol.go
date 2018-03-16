@@ -131,14 +131,14 @@ func GlobalProtocolRegister(name string, protocol NewProtocol) (ProtocolID, erro
 	return protocols.Register(name, protocol)
 }
 
-// The function allows to set the 'serverStarted' flag to true.
+// InformServerStarted allows to set the 'serverStarted' flag to true.
 func InformServerStarted() {
 	protocols.Lock()
 	defer protocols.Unlock()
 	protocols.serverStarted = true
 }
 
-// The function allows to set the 'serverStarted' flag to false.
+// InformAllServersStopped allows to set the 'serverStarted' flag to false.
 func InformAllServersStopped() {
 	protocols.Lock()
 	defer protocols.Unlock()
