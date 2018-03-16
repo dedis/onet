@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/dedis/kyber/util/encoding"
@@ -101,7 +102,11 @@ func (r *Router) Start() {
 	err := r.host.Listen(func(c Conn) {
 		dst, err := r.receiveServerIdentity(c)
 		if err != nil {
-			log.Error("receive server identity failed:", err)
+			if !strings.Contains(err.Error(), "EOF") {
+				// Avoid printing error message if it's just a stray connection.
+				log.Errorf("receiving server identity from %s failed: %s",
+					c.Remote().NetworkAddress(), err)
+			}
 			if err := c.Close(); err != nil {
 				log.Error("Couldn't close secure connection:",
 					err)
