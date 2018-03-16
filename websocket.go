@@ -157,6 +157,8 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Error(err)
 				return
 			}
+		} else {
+			log.Lvlf3("Got an error while executing %s/%s: %s", t.serviceName, path, err.Error())
 		}
 	}
 
