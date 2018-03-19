@@ -3,6 +3,7 @@ package network
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/dedis/onet/log"
@@ -97,8 +98,11 @@ func (r *Router) Start() {
 	err := r.host.Listen(func(c Conn) {
 		dst, err := r.receiveServerIdentity(c)
 		if err != nil {
-			log.Errorf("receiving server identity from %s failed: %s",
-				c.Remote().NetworkAddress(), err)
+			if !strings.Contains(err.Error(), "EOF") {
+				// Avoid printing error message if it's just a stray connection.
+				log.Errorf("receiving server identity from %s failed: %s",
+					c.Remote().NetworkAddress(), err)
+			}
 			if err := c.Close(); err != nil {
 				log.Error("Couldn't close secure connection:",
 					err)

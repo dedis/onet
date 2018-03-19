@@ -100,16 +100,15 @@ func lvl(lvl, skip int, args ...interface{}) {
 
 	fmtstr := ""
 	if useColors {
+		// Only adjust the name and line padding if we also have color.
 		if len(name) > NamePadding && NamePadding > 0 {
 			NamePadding = len(name)
 		}
 		if len(lineStr) > LinePadding && LinePadding > 0 {
 			LinePadding = len(name)
 		}
-		fmtstr = fmt.Sprintf("%%%ds: %%%dd", NamePadding, LinePadding)
-	} else {
-		fmtstr = fmt.Sprintf("%%s: %%d")
 	}
+	fmtstr = fmt.Sprintf("%%%ds: %%%dd", NamePadding, LinePadding)
 	caller := fmt.Sprintf(fmtstr, name, line)
 	if StaticMsg != "" {
 		caller += "@" + StaticMsg
