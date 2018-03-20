@@ -1,13 +1,16 @@
 package log
 
 import (
+	"flag"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"errors"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -92,6 +95,35 @@ func TestOutputFuncs(t *testing.T) {
 	ErrFatal(checkOutput(func() {
 		Error("Testing errout")
 	}, false, true))
+}
+
+func TestMainTestWait(t *testing.T) {
+	toOld := flag.Lookup("test.timeout").Value.String()
+	lvlOld := DebugVisible()
+	defer func() {
+		setFlag(toOld)
+		SetDebugVisible(lvlOld)
+	}()
+	SetDebugVisible(1)
+	setFlag("0s")
+	require.Equal(t, time.Duration(10*time.Minute), interpretWait())
+	setFlag("10s")
+	require.Equal(t, time.Duration(10*time.Second), interpretWait())
+	require.Equal(t, "", GetStdOut())
+
+	MainTestWait = 20 * time.Second
+	setFlag("0s")
+	require.Equal(t, time.Duration(20*time.Second), interpretWait())
+	require.NotEqual(t, "", GetStdErr())
+	setFlag("10s")
+	require.Equal(t, time.Duration(10*time.Second), interpretWait())
+	require.NotEqual(t, "", GetStdErr())
+}
+
+func setFlag(t string) {
+	timeoutFlagMutex.Lock()
+	flag.Lookup("test.timeout").Value.Set(t)
+	timeoutFlagMutex.Unlock()
 }
 
 func checkOutput(f func(), wantsStd, wantsErr bool) error {
