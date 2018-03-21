@@ -143,7 +143,7 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	out, err := Build("./"+srcRel, m.buildDir+"/conode",
 		processor, system, arg...)
 	if err != nil {
-		return fmt.Errorf(err.Error()+" "+out)
+		return fmt.Errorf(err.Error() + " " + out)
 	}
 
 	log.Lvl1("Build is finished after", time.Since(start))
