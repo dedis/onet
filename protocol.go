@@ -126,7 +126,7 @@ func GlobalProtocolRegister(name string, protocol NewProtocol) (ProtocolID, erro
 	protocols.Lock()
 	defer protocols.Unlock()
 	if protocols.serverStarted {
-		log.Lvl4("Cannot call 'GlobalProtocolRegister' when a server has already started.")
+		panic("Cannot call 'GlobalProtocolRegister' when a server has already started.")
 	}
 	return protocols.Register(name, protocol)
 }
