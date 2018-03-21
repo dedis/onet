@@ -260,11 +260,11 @@ func (l *LocalTest) NewTreeNodeInstance(tn *TreeNode, protName string) (*TreeNod
 	return node, nil
 }
 
-// getNodes returns all Nodes that belong to a treeNode
-func (l *LocalTest) getNodes(tn *TreeNode) []*TreeNodeInstance {
+// GetTreeNodeInstances returns all TreeNodeInstances that belong to a server
+func (l *LocalTest) GetTreeNodeInstances(id network.ServerIdentityID) []*TreeNodeInstance {
 	l.panicClosed()
 	var nodes []*TreeNodeInstance
-	for _, n := range l.Overlays[tn.ServerIdentity.ID].instances {
+	for _, n := range l.Overlays[id].instances {
 		nodes = append(nodes, n)
 	}
 	return nodes
