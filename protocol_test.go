@@ -245,9 +245,9 @@ func TestGlobalProtocolRegisterTooLate(t *testing.T) {
 	local := NewLocalTest(tSuite)
 	defer local.CloseAll()
 	local.GenTree(2, true)
-    fnShouldPanic := func() {
-        GlobalProtocolRegister(simpleProto, fn)
-    }
+	fnShouldPanic := func() {
+		GlobalProtocolRegister(simpleProto, fn)
+	}
 	assert.Panics(t, fnShouldPanic)
 }
 
