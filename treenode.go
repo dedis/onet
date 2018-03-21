@@ -558,7 +558,6 @@ func (n *TreeNodeInstance) Done() {
 		}
 	}
 	log.Lvl3(n.Info(), "has finished. Deleting its resources")
-	n.closeDispatch()
 	n.overlay.nodeDone(n.token)
 }
 
