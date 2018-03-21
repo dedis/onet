@@ -279,8 +279,8 @@ func TestTCPConnTimeout(t *testing.T) {
 		readTimeoutLock.Unlock()
 	}()
 
-	addr := NewTCPAddress("127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite, "")
+	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
+	ln, err := NewTCPListener(addr, tSuite)
 	if err != nil {
 		t.Fatal("error setup listener", err)
 	}
@@ -328,7 +328,7 @@ func TestTCPConnTimeout(t *testing.T) {
 
 func TestTCPConnWithListener(t *testing.T) {
 	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite, "")
+	ln, err := NewTCPListener(addr, tSuite)
 	if err != nil {
 		t.Fatal("error setup listener", err)
 	}
@@ -378,7 +378,7 @@ func TestTCPConnWithListener(t *testing.T) {
 func TestTCPListenerWithListenAddr(t *testing.T) {
 	addr := NewAddress(PlainTCP, "1.2.3.4:0")
 	listenAddr := "127.0.0.1:0"
-	ln, err := NewTCPListener(addr, tSuite, listenAddr)
+	ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
 	require.Nil(t, err, "Error setup listener")
 	ready := make(chan bool)
 	stop := make(chan bool)
@@ -412,7 +412,7 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 // will create a TCPListener globally binding & open a golang net.TCPConn to it
 func TestTCPListener(t *testing.T) {
 	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite, "")
+	ln, err := NewTCPListener(addr, tSuite)
 	require.Nil(t, err, "Error setup listener")
 	ready := make(chan bool)
 	stop := make(chan bool)
@@ -445,18 +445,18 @@ func TestTCPListener(t *testing.T) {
 
 func TestTCPRouter(t *testing.T) {
 	wrongAddr := &ServerIdentity{Address: NewLocalAddress("127.0.0.1:2000")}
-	_, err := NewTCPRouter(wrongAddr, tSuite, "")
+	_, err := NewTCPRouter(wrongAddr, tSuite)
 	if err == nil {
 		t.Fatal("Should not setup Router with local address")
 	}
 
 	addr := &ServerIdentity{Address: NewAddress(PlainTCP, "127.0.0.1:2000")}
-	h1, err := NewTCPRouter(addr, tSuite, "")
+	h1, err := NewTCPRouter(addr, tSuite)
 	if err != nil {
 		t.Fatal("Could not setup host")
 	}
 	defer h1.Stop()
-	_, err = NewTCPRouter(addr, tSuite, "")
+	_, err = NewTCPRouter(addr, tSuite)
 	if err == nil {
 		t.Fatal("Should not succeed with same port")
 	}
@@ -544,7 +544,7 @@ func NewTestTCPHost(port int) (*TCPHost, error) {
 	kp := key.NewKeyPair(tSuite)
 	e := NewServerIdentity(kp.Public, addr)
 	e.SetPrivate(kp.Private)
-	return NewTCPHost(e, tSuite, "")
+	return NewTCPHost(e, tSuite)
 }
 
 // Returns a ServerIdentity out of the address

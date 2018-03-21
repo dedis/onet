@@ -35,8 +35,16 @@ func NewTCPAddress(addr string) Address {
 }
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
-func NewTCPRouter(sid *ServerIdentity, suite Suite, listenAddr string) (*Router, error) {
-	h, err := NewTCPHost(sid, suite, listenAddr)
+func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
+	return NewTCPRouterWithListenAddr(sid, suite, "")
+}
+
+// NewTCPRouterWithListenAddr returns a new Router using TCPHost as the
+// underlying Host, listening on the given address.
+func NewTCPRouterWithListenAddr(sid *ServerIdentity,
+	suite Suite, listenAddr string) (*Router, error) {
+
+	h, err := NewTCPHostWithListenAddr(sid, suite, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +255,8 @@ func handleError(err error) error {
 	return ErrUnknown
 }
 
-// TCPListener implements the Host-interface using Tcp as a communication channel.
+// TCPListener implements the Host-interface using Tcp as a communication
+// channel.
 type TCPListener struct {
 	// the underlying golang/net listener.
 	listener net.Listener
@@ -274,14 +283,25 @@ type TCPListener struct {
 	suite Suite
 }
 
-// NewTCPListener returns a TCPListener. This function binds to the given
-// 'listenAddr'. If it is empty, the function binds globally using
-// the port of 'address'.
+// NewTCPListener returns a TCPListener. This function binds globally using
+// the port of 'addr'.
 // It returns the listener and an error if one occurred during
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
-func NewTCPListener(addr Address, s Suite, listenAddr string) (*TCPListener, error) {
+func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
+	return NewTCPListenerWithListenAddr(addr, s, "")
+}
+
+// NewTCPListenerWithListenAddr returns a TCPListener. This function binds to the
+// given 'listenAddr'. If it is empty, the function binds globally using
+// the port of 'addr'.
+// It returns the listener and an error if one occurred during
+// the binding.
+// A subsequent call to Address() gives the actual listening
+// address which is different if you gave it a ":0"-address.
+func NewTCPListenerWithListenAddr(addr Address,
+	s Suite, listenAddr string) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
 		return nil, errors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
@@ -408,16 +428,23 @@ type TCPHost struct {
 }
 
 // NewTCPHost returns a new Host using TCP connection based type.
-func NewTCPHost(sid *ServerIdentity, s Suite, listenAddr string) (*TCPHost, error) {
+func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
+	return NewTCPHostWithListenAddr(sid, s, "")
+}
+
+// NewTCPHostWithListenAddr returns a new Host using TCP connection based type,
+// listening on the given address.
+func NewTCPHostWithListenAddr(sid *ServerIdentity,
+	s Suite, listenAddr string) (*TCPHost, error) {
 	h := &TCPHost{
 		suite: s,
 		sid:   sid,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListener(sid, s, listenAddr)
+		h.TCPListener, err = NewTLSListenerWithListenAddr(sid, s, listenAddr)
 	} else {
-		h.TCPListener, err = NewTCPListener(sid.Address, s, listenAddr)
+		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, s, listenAddr)
 	}
 	return h, err
 }

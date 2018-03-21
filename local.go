@@ -348,7 +348,7 @@ func newTCPServer(s network.Suite, port int, path string) *Server {
 	// available. Else redo the search.
 	for {
 		var err error
-		tcpHost, err = network.NewTCPHost(id2, s, "")
+		tcpHost, err = network.NewTCPHost(id2, s)
 		if err != nil {
 			panic(err)
 		}

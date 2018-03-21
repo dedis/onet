@@ -14,7 +14,7 @@ func NewTestTLSHost(port int) (*TCPHost, error) {
 	kp := key.NewKeyPair(tSuite)
 	e := NewServerIdentity(kp.Public, addr)
 	e.SetPrivate(kp.Private)
-	return NewTCPHost(e, tSuite, "")
+	return NewTCPHost(e, tSuite)
 }
 
 func NewTestRouterTLS(port int) (*Router, error) {
