@@ -495,7 +495,7 @@ func TestHandleError(t *testing.T) {
 }
 
 func NewTestTCPHost(port int) (*TCPHost, error) {
-	addr := NewTCPAddress("127.0.0.1:"+strconv.Itoa(port))
+	addr := NewTCPAddress("127.0.0.1:" + strconv.Itoa(port))
 	kp := key.NewKeyPair(tSuite)
 	e := NewServerIdentity(kp.Public, addr)
 	e.SetPrivate(kp.Private)

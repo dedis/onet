@@ -74,7 +74,7 @@ type SimulationConfigFile struct {
 	TreeMarshal *TreeMarshal
 	Roster      *Roster
 	PrivateKeys map[network.Address]kyber.Scalar
-	TLS 		bool
+	TLS         bool
 	Config      string
 }
 
@@ -102,7 +102,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 	sc := &SimulationConfig{
 		Roster:      scf.Roster,
 		PrivateKeys: scf.PrivateKeys,
-		TLS:		 scf.TLS,
+		TLS:         scf.TLS,
 		Config:      scf.Config,
 	}
 	sc.Tree, err = scf.TreeMarshal.MakeTree(sc.Roster)
@@ -140,9 +140,9 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 			_, port, _ := net.SplitHostPort(sc.Roster.List[i].Address.NetworkAddress())
 			// put 127.0.0.1 because 127.0.0.X is not reachable on Mac OS X
 			if sc.TLS {
-				sc.Roster.List[i].Address = network.NewTLSAddress("127.0.0.1:"+port)
+				sc.Roster.List[i].Address = network.NewTLSAddress("127.0.0.1:" + port)
 			} else {
-				sc.Roster.List[i].Address = network.NewTCPAddress("127.0.0.1:"+port)
+				sc.Roster.List[i].Address = network.NewTCPAddress("127.0.0.1:" + port)
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func (sc *SimulationConfig) Save(dir string) error {
 		TreeMarshal: sc.Tree.MakeTreeMarshal(),
 		Roster:      sc.Roster,
 		PrivateKeys: sc.PrivateKeys,
-		TLS:		 sc.TLS,
+		TLS:         sc.TLS,
 		Config:      sc.Config,
 	}
 	buf, err := network.Marshal(scf)
@@ -215,7 +215,7 @@ type SimulationBFTree struct {
 	Depth      int
 	Suite      string
 	PreScript  string // executable script to run before the simulation on each machine
-	TLS        bool // tells if using TLS or PlainTCP addresses
+	TLS        bool   // tells if using TLS or PlainTCP addresses
 }
 
 // CreateRoster creates an Roster with the host-names in 'addresses'.
