@@ -13,7 +13,7 @@ import (
 )
 
 func TestSimulationBF(t *testing.T) {
-	sc, _, err := createBFTree(7, 2, []string{"test1", "test2"})
+	sc, _, err := createBFTree(7, 2, false, []string{"test1", "test2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +36,7 @@ func TestSimulationBF(t *testing.T) {
 		t.Fatal("Created tree is not binary")
 	}
 
-	sc, _, err = createBFTree(13, 3, []string{"test1", "test2"})
+	sc, _, err = createBFTree(13, 3, false, []string{"test1", "test2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestSimulationBigTree(t *testing.T) {
 		t.Skip()
 	}
 	for i := uint(4); i < 8; i++ {
-		_, _, err := createBFTree(1<<i-1, 2, []string{"test1", "test2"})
+		_, _, err := createBFTree(1<<i-1, 2, false, []string{"test1", "test2"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func TestSimulationBigTree(t *testing.T) {
 }
 
 func TestSimulationLoadSave(t *testing.T) {
-	sc, _, err := createBFTree(7, 2, []string{"127.0.0.1", "127.0.0.2"})
+	sc, _, err := createBFTree(7, 2, false, []string{"127.0.0.1", "127.0.0.2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestSimulationLoadSave(t *testing.T) {
 }
 
 func TestSimulationMultipleInstances(t *testing.T) {
-	sc, _, err := createBFTree(7, 2, []string{"127.0.0.1", "127.0.0.2"})
+	sc, _, err := createBFTree(7, 2, false, []string{"127.0.0.1", "127.0.0.2"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,12 +114,13 @@ func closeAll(scs []*SimulationConfig) {
 	}
 }
 
-func createBFTree(hosts, bf int, addresses []string) (*SimulationConfig, *SimulationBFTree, error) {
+func createBFTree(hosts, bf int, tls bool, addresses []string) (*SimulationConfig, *SimulationBFTree, error) {
 	sc := &SimulationConfig{}
 	sb := &SimulationBFTree{
 		Hosts: hosts,
 		BF:    bf,
 		Suite: "Ed25519",
+		TLS:   tls,
 	}
 	sb.CreateRoster(sc, addresses, 2000)
 	if len(sc.Roster.List) != hosts {

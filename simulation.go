@@ -62,6 +62,8 @@ type SimulationConfig struct {
 	Overlay *Overlay
 	// If non-nil, points to our host
 	Server *Server
+	// Tells if the simulation should use TLS addresses; if not, use PlainTCP
+	TLS bool
 	// Additional configuration used to run
 	Config string
 }
@@ -72,6 +74,7 @@ type SimulationConfigFile struct {
 	TreeMarshal *TreeMarshal
 	Roster      *Roster
 	PrivateKeys map[network.Address]kyber.Scalar
+	TLS 		bool
 	Config      string
 }
 
@@ -99,6 +102,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 	sc := &SimulationConfig{
 		Roster:      scf.Roster,
 		PrivateKeys: scf.PrivateKeys,
+		TLS:		 scf.TLS,
 		Config:      scf.Config,
 	}
 	sc.Tree, err = scf.TreeMarshal.MakeTree(sc.Roster)
@@ -135,7 +139,11 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 		for i := range sc.Roster.List {
 			_, port, _ := net.SplitHostPort(sc.Roster.List[i].Address.NetworkAddress())
 			// put 127.0.0.1 because 127.0.0.X is not reachable on Mac OS X
-			sc.Roster.List[i].Address = network.NewAddress(network.TLS, "127.0.0.1:"+port)
+			if sc.TLS {
+				sc.Roster.List[i].Address = network.NewTLSAddress("127.0.0.1:"+port)
+			} else {
+				sc.Roster.List[i].Address = network.NewTCPAddress("127.0.0.1:"+port)
+			}
 		}
 	}
 	return ret, nil
@@ -149,6 +157,7 @@ func (sc *SimulationConfig) Save(dir string) error {
 		TreeMarshal: sc.Tree.MakeTreeMarshal(),
 		Roster:      sc.Roster,
 		PrivateKeys: sc.PrivateKeys,
+		TLS:		 sc.TLS,
 		Config:      sc.Config,
 	}
 	buf, err := network.Marshal(scf)
@@ -206,13 +215,16 @@ type SimulationBFTree struct {
 	Depth      int
 	Suite      string
 	PreScript  string // executable script to run before the simulation on each machine
+	TLS        bool // tells if using TLS or PlainTCP addresses
 }
 
 // CreateRoster creates an Roster with the host-names in 'addresses'.
 // It creates 's.Hosts' entries, starting from 'port' for each round through
-// 'addresses'. The network.Address(es) created are of type TLS.
+// 'addresses'. The network.Address(es) created are of type TLS or PlainTCP,
+// depending on the value 'TLS' in 'sc'.
 func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string, port int) {
 	start := time.Now()
+	sc.TLS = s.TLS
 	suite, err := suites.Find(s.Suite)
 	if err != nil {
 		log.Fatalf("Could not look up suite \"%v\": %v", s.Suite, err.Error())
@@ -263,11 +275,19 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 				}
 			}
 			address += strconv.Itoa(port)
-			add = network.NewTLSAddress(address)
+			if sc.TLS {
+				add = network.NewTLSAddress(address)
+			} else {
+				add = network.NewTCPAddress(address)
+			}
 			log.Lvl4("Found free port", address)
 		} else {
 			address += strconv.Itoa(port + (c/nbrAddr)*2)
-			add = network.NewTLSAddress(address)
+			if sc.TLS {
+				add = network.NewTLSAddress(address)
+			} else {
+				add = network.NewTCPAddress(address)
+			}
 		}
 		entities[c] = network.NewServerIdentity(key.Public.Clone(), add)
 		entities[c].SetPrivate(key.Private)
