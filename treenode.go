@@ -408,6 +408,7 @@ func (n *TreeNodeInstance) ProcessProtocolMsg(msg *ProtocolMsg) {
 }
 
 func (n *TreeNodeInstance) dispatchMsgReader() {
+	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
 		if n.closing == true {
@@ -561,7 +562,11 @@ func (n *TreeNodeInstance) Name() string {
 // (IP address and TokenID).
 func (n *TreeNodeInstance) Info() string {
 	tid := n.TokenID()
-	return fmt.Sprintf("%s (%s)", n.ServerIdentity().Address, tid.String())
+	name := protocols.ProtocolIDToName(n.token.ProtoID)
+	if name == "" {
+		name = n.overlay.server.protocols.ProtocolIDToName(n.token.ProtoID)
+	}
+	return fmt.Sprintf("%s (%s): %s", n.ServerIdentity().Address, tid.String(), name)
 }
 
 // TokenID returns the TokenID of the given node (to uniquely identify it)
