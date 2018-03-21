@@ -100,13 +100,17 @@ func (d *Localhost) Cleanup() error {
 func (d *Localhost) Deploy(rc *RunConfig) error {
 	if runtime.GOOS == "darwin" {
 		files, err := exec.Command("ulimit", "-n").Output()
-		log.ErrFatal(err)
+		if err != nil {
+			return err
+		}
 		filesNbr, err := strconv.Atoi(strings.TrimSpace(string(files)))
-		log.ErrFatal(err)
+		if err != nil {
+			return err
+		}
 		hosts, _ := strconv.Atoi(rc.Get("hosts"))
 		if filesNbr < hosts*2 {
 			maxfiles := 10000 + hosts*2
-			log.Fatalf("Maximum open files is too small. Please run the following command:\n"+
+			return fmt.Errorf("Maximum open files is too small. Please run the following command:\n"+
 				"sudo sysctl -w kern.maxfiles=%d\n"+
 				"sudo sysctl -w kern.maxfilesperproc=%d\n"+
 				"ulimit -n %d\n"+
@@ -168,12 +172,15 @@ func (d *Localhost) Start(args ...string) error {
 		out, err := exec.Command("sh", "-c", "./"+d.PreScript+" localhost").CombinedOutput()
 		outStr := strings.TrimRight(string(out), "\n")
 		if err != nil {
-			log.Fatal("error deploying PreScript: ", err, outStr)
+			return fmt.Errorf("error deploying PreScript: ", err, outStr)
 		}
 		log.Lvl1(outStr)
 	}
 
-	log.ErrFatal(monitor.ConnectSink("localhost:" + strconv.Itoa(d.monitorPort)))
+	err := monitor.ConnectSink("localhost:" + strconv.Itoa(d.monitorPort))
+	if err != nil {
+		return err
+	}
 
 	for index := 0; index < d.servers; index++ {
 		log.Lvl3("Starting", index)
