@@ -172,7 +172,7 @@ func (d *Localhost) Start(args ...string) error {
 		out, err := exec.Command("sh", "-c", "./"+d.PreScript+" localhost").CombinedOutput()
 		outStr := strings.TrimRight(string(out), "\n")
 		if err != nil {
-			return fmt.Errorf("error deploying PreScript: ", err, outStr)
+			return fmt.Errorf("error deploying PreScript: " + err.Error() + " " + outStr)
 		}
 		log.Lvl1(outStr)
 	}
