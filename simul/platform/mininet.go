@@ -135,12 +135,16 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	processor := "amd64"
 	system := "linux"
 	srcRel, err := filepath.Rel(m.wd, m.simulDir)
-	log.ErrFatal(err)
+	if err != nil {
+		return err
+	}
 
 	log.Lvl3("Relative-path is", srcRel, ". Will build into", m.buildDir)
 	out, err := Build("./"+srcRel, m.buildDir+"/conode",
 		processor, system, arg...)
-	log.ErrFatal(err, out)
+	if err != nil {
+		return fmt.Errorf(err.Error() + " " + out)
+	}
 
 	log.Lvl1("Build is finished after", time.Since(start))
 	return nil
@@ -156,10 +160,13 @@ func (m *MiniNet) Cleanup() error {
 
 	// SSH to the MiniNet-server and end all running users-processes
 	log.Lvl3("Going to stop everything")
-	log.ErrFatal(m.parseServers())
+	err = m.parseServers()
+	if err != nil {
+		return err
+	}
 	for _, h := range m.HostIPs {
 		log.Lvl3("Cleaning up server", h)
-		_, err = SSHRun(m.Login, m.External, "pkill -9 -f start.py; mn -c; killall sshd")
+		_, err = SSHRun(m.Login, h, "pkill -9 -f start.py; mn -c; killall sshd")
 		if err != nil {
 			log.Lvl2("Error while cleaning up:", err)
 		}
