@@ -405,7 +405,11 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			m := n.reflectCreate(to.Elem(), msg)
 			log.Lvl4(n.Name(), "Dispatching msg type", mt, " to", to, " :", m.Field(1).Interface())
 			if out.Len() < out.Cap() {
-				out.Send(m)
+				n.msgDispatchQueueMutex.Lock()
+				if !n.closing {
+					out.Send(m)
+				}
+				n.msgDispatchQueueMutex.Unlock()
 			} else {
 				return fmt.Errorf("channel too small for msg %s in %s: "+
 					"please use RegisterChannelLength()",
