@@ -387,6 +387,13 @@ func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) refle
 // dispatchChannel takes a message and sends it to a channel
 func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 	mt := msgSlice[0].MsgType
+	defer func() {
+		// In rare occasions we write to a closed channel which throws a panic.
+		// Catch it here so we can find out better why this happens.
+		if r := recover(); r != nil {
+			log.Error("Shouldn't happen, please report an issue:", n.Info(), r, mt)
+		}
+	}()
 	to := reflect.TypeOf(n.channels[mt])
 	if n.hasFlag(mt, AggregateMessages) {
 		log.Lvl4("Received aggregated message of type:", mt)

@@ -116,7 +116,11 @@ func (o *Overlay) Process(env *network.Envelope) {
 			Msg:            inner,
 			MsgType:        typ,
 		}
-		o.TransmitMsg(protoMsg, io)
+		err := o.TransmitMsg(protoMsg, io)
+		if err != nil {
+			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
+				protoMsg.ServerIdentity, err.Error())
+		}
 	}
 }
 
