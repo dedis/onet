@@ -162,6 +162,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 // Start makes the router and the websocket listen on their respective
 // ports.
 func (c *Server) Start() {
+	InformServerStarted()
 	c.started = time.Now()
 	log.Lvlf1("Starting server at %s on address %s with public key %s",
 		c.started.Format("2006-01-02 15:04:05"),
