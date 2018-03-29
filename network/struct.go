@@ -3,6 +3,7 @@ package network
 import (
 	"bytes"
 	"errors"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -168,13 +169,13 @@ func (si *ServerIdentityToml) ServerIdentity(suite Suite) *ServerIdentity {
 }
 
 // GlobalBind returns the global-binding address. Given any IP:PORT combination,
-// it will return 0.0.0.0:PORT.
+// it will return ":PORT".
 func GlobalBind(address string) (string, error) {
-	addr := strings.Split(address, ":")
-	if len(addr) != 2 {
-		return "", errors.New("not a host:port address")
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", err
 	}
-	return "0.0.0.0:" + addr[1], nil
+	return ":" + port, nil
 }
 
 // counterSafe is a struct that enables to update two counters Rx & Tx
