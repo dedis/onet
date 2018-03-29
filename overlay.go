@@ -453,8 +453,8 @@ func (o *Overlay) handleSendRoster(si *network.ServerIdentity, roster *Roster) {
 func (o *Overlay) handleConfigMessage(env *network.Envelope) {
 	config, ok := env.Msg.(*ConfigMsg)
 	if !ok {
-		// This should never happen <=> assert
-		log.Panic(o.server.Address(), "wrong config type")
+		// This should happen only if a bad packet gets through
+		log.Error(o.server.Address(), "Wrong config type, most likely invalid packet got through.")
 		return
 	}
 
