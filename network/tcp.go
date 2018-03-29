@@ -18,6 +18,9 @@ import (
 // sent.
 var readTimeout = 1 * time.Minute
 
+// Global lock for 'readTimeout' (because also used in 'tcp_test.go')
+var readTimeoutLock = sync.Mutex{}
+
 // MaxPacketSize limits the amount of memory that is allocated before a packet
 // is checked and thrown away if it's not legit. If you need more than 10MB
 // packets, increase this value.
@@ -106,7 +109,9 @@ func (c *TCPConn) Receive() (env *Envelope, e error) {
 func (c *TCPConn) receiveRaw() ([]byte, error) {
 	c.receiveMutex.Lock()
 	defer c.receiveMutex.Unlock()
+	readTimeoutLock.Lock()
 	c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+	readTimeoutLock.Unlock()
 	// First read the size
 	var total Size
 	if err := binary.Read(c.conn, globalOrder, &total); err != nil {
@@ -122,7 +127,9 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 	var buffer bytes.Buffer
 	for read < total {
 		// Read the size of the next packet.
+		readTimeoutLock.Lock()
 		c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+		readTimeoutLock.Unlock()
 		n, err := c.conn.Read(b)
 		// Quit if there is an error.
 		if err != nil {
