@@ -50,7 +50,7 @@ type Size uint32
 type Envelope struct {
 	// The ServerIdentity of the remote peer we are talking to.
 	// Basically, this means that when you open a new connection to someone, and
-	// / or listens to incoming connections, the network library will already
+	// or listen to incoming connections, the network library will already
 	// make some exchange between the two communicants so each knows the
 	// ServerIdentity of the others.
 	ServerIdentity *ServerIdentity

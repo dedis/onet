@@ -387,6 +387,13 @@ func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) refle
 // dispatchChannel takes a message and sends it to a channel
 func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 	mt := msgSlice[0].MsgType
+	defer func() {
+		// In rare occasions we write to a closed channel which throws a panic.
+		// Catch it here so we can find out better why this happens.
+		if r := recover(); r != nil {
+			log.Error("Shouldn't happen, please report an issue:", n.Info(), r, mt)
+		}
+	}()
 	to := reflect.TypeOf(n.channels[mt])
 	if n.hasFlag(mt, AggregateMessages) {
 		log.Lvl4("Received aggregated message of type:", mt)
@@ -405,7 +412,11 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			m := n.reflectCreate(to.Elem(), msg)
 			log.Lvl4(n.Name(), "Dispatching msg type", mt, " to", to, " :", m.Field(1).Interface())
 			if out.Len() < out.Cap() {
-				out.Send(m)
+				n.msgDispatchQueueMutex.Lock()
+				if !n.closing {
+					out.Send(m)
+				}
+				n.msgDispatchQueueMutex.Unlock()
 			} else {
 				return fmt.Errorf("channel too small for msg %s in %s: "+
 					"please use RegisterChannelLength()",
@@ -441,6 +452,7 @@ func (n *TreeNodeInstance) notifyDispatch() {
 }
 
 func (n *TreeNodeInstance) dispatchMsgReader() {
+	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
 		if n.closing == true {
@@ -557,7 +569,6 @@ func (n *TreeNodeInstance) Done() {
 		}
 	}
 	log.Lvl3(n.Info(), "has finished. Deleting its resources")
-	n.closeDispatch()
 	n.overlay.nodeDone(n.token)
 }
 
@@ -597,7 +608,11 @@ func (n *TreeNodeInstance) Name() string {
 // (IP address and TokenID).
 func (n *TreeNodeInstance) Info() string {
 	tid := n.TokenID()
-	return fmt.Sprintf("%s (%s)", n.ServerIdentity().Address, tid.String())
+	name := protocols.ProtocolIDToName(n.token.ProtoID)
+	if name == "" {
+		name = n.overlay.server.protocols.ProtocolIDToName(n.token.ProtoID)
+	}
+	return fmt.Sprintf("%s (%s): %s", n.ServerIdentity().Address, tid.String(), name)
 }
 
 // TokenID returns the TokenID of the given node (to uniquely identify it)

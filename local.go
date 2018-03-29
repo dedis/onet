@@ -260,11 +260,11 @@ func (l *LocalTest) NewTreeNodeInstance(tn *TreeNode, protName string) (*TreeNod
 	return node, nil
 }
 
-// getNodes returns all Nodes that belong to a treeNode
-func (l *LocalTest) getNodes(tn *TreeNode) []*TreeNodeInstance {
+// GetTreeNodeInstances returns all TreeNodeInstances that belong to a server
+func (l *LocalTest) GetTreeNodeInstances(id network.ServerIdentityID) []*TreeNodeInstance {
 	l.panicClosed()
 	var nodes []*TreeNodeInstance
-	for _, n := range l.Overlays[tn.ServerIdentity.ID].instances {
+	for _, n := range l.Overlays[id].instances {
 		nodes = append(nodes, n)
 	}
 	return nodes
@@ -339,7 +339,7 @@ func NewPrivIdentity(suite network.Suite, port int) (kyber.Scalar, *network.Serv
 // address.
 func newTCPServer(s network.Suite, port int, path string) *Server {
 	priv, id := NewPrivIdentity(s, port)
-	addr := network.NewAddress(network.PlainTCP, id.Address.NetworkAddress())
+	addr := network.NewTCPAddress(id.Address.NetworkAddress())
 	id2 := network.NewServerIdentity(id.Public, addr)
 	var tcpHost *network.TCPHost
 	// For the websocket we need a port at the address one higher than the
