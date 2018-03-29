@@ -124,10 +124,12 @@ func ProtocolNameToID(name string) ProtocolID {
 // protocol is tied to a service, use `Server.ProtocolRegisterName`
 func GlobalProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
 	protocols.Lock()
-	defer protocols.Unlock()
+	// Cannot defer the "Unlock" because "Register" is using the lock too.
 	if protocols.serverStarted {
+		protocols.Unlock()
 		panic("Cannot call 'GlobalProtocolRegister' when a server has already started.")
 	}
+	protocols.Unlock()
 	return protocols.Register(name, protocol)
 }
 
