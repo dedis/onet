@@ -58,6 +58,7 @@ type protocolStorage struct {
 	// Instantiators maps the name of the protocols to the `NewProtocol`-
 	// methods.
 	instantiators map[string]NewProtocol
+	sync.Mutex
 }
 
 // newProtocolStorage returns an initialized ProtocolStorage-struct.
@@ -69,6 +70,8 @@ func newProtocolStorage() *protocolStorage {
 
 // ProtocolIDToName returns the name to the corresponding protocolID.
 func (ps *protocolStorage) ProtocolIDToName(id ProtocolID) string {
+	ps.Lock()
+	defer ps.Unlock()
 	for n := range ps.instantiators {
 		if id.Equal(ProtocolNameToID(n)) {
 			return n
@@ -80,7 +83,10 @@ func (ps *protocolStorage) ProtocolIDToName(id ProtocolID) string {
 // ProtocolExists returns whether a certain protocol already has been
 // registered.
 func (ps *protocolStorage) ProtocolExists(protoID ProtocolID) bool {
-	_, ok := ps.instantiators[ps.ProtocolIDToName(protoID)]
+	name := ps.ProtocolIDToName(protoID)
+	ps.Lock()
+	_, ok := ps.instantiators[name]
+	ps.Unlock()
 	return ok
 }
 
@@ -88,6 +94,8 @@ func (ps *protocolStorage) ProtocolExists(protoID ProtocolID) bool {
 // If the protocol already exists, a warning is printed and the NewProtocol is
 // *not* stored.
 func (ps *protocolStorage) Register(name string, protocol NewProtocol) (ProtocolID, error) {
+	ps.Lock()
+	defer ps.Unlock()
 	id := ProtocolNameToID(name)
 	if _, exists := ps.instantiators[name]; exists {
 		return ProtocolID(uuid.Nil),

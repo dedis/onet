@@ -12,7 +12,7 @@ import (
 
 func TestLocalRouter(t *testing.T) {
 	addr := &ServerIdentity{Address: NewLocalAddress("127.0.0.1:2000")}
-	wrongAddr1 := &ServerIdentity{Address: NewAddress(PlainTCP, addr.Address.NetworkAddress())}
+	wrongAddr1 := &ServerIdentity{Address: NewTCPAddress(addr.Address.NetworkAddress())}
 	_, err := NewLocalRouter(wrongAddr1, tSuite)
 	if err == nil {
 		t.Error("Should have returned something..")
@@ -26,7 +26,7 @@ func TestLocalRouter(t *testing.T) {
 
 func TestLocalListener(t *testing.T) {
 	addr := NewLocalAddress("127.0.0.1:2000")
-	wrongAddr1 := NewAddress(PlainTCP, addr.NetworkAddress())
+	wrongAddr1 := NewTCPAddress(addr.NetworkAddress())
 	listener, err := NewLocalListener(wrongAddr1, tSuite)
 	if err == nil {
 		t.Error("Create listener with wrong address should fail")

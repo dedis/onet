@@ -38,7 +38,8 @@ const defaultMainTest = 2
 
 // MainTestWait is the maximum time the MainTest-method waits before aborting
 // and printing a stack-trace of all functions.
-var MainTestWait = 3 * time.Minute
+// This is deprecated and should not be used anymore.
+var MainTestWait = 0 * time.Minute
 
 // NamePadding - the padding of functions to make a nice debug-output - this is automatically updated
 // whenever there are longer functions and kept at that new maximum. If you prefer
@@ -349,7 +350,7 @@ func MainTest(m *testing.M, ls ...int) {
 	case code := <-done:
 		AfterTest(nil)
 		os.Exit(code)
-	case <-time.After(MainTestWait):
+	case <-time.After(interpretWait()):
 		Error("Didn't finish in time")
 		pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
 		os.Exit(1)
@@ -397,4 +398,33 @@ func RegisterFlags() {
 	flag.IntVar(&debugVisible, "debug", DebugVisible(), "Change debug level (0-5)")
 	flag.BoolVar(&showTime, "debug-time", ShowTime(), "Shows the time of each message")
 	flag.BoolVar(&useColors, "debug-color", UseColors(), "Colors each message")
+}
+
+var timeoutFlagMutex sync.Mutex
+
+// interpretWait will use the test.timeout flag and MainTestWait to get
+// the time to wait. From highest preference to lowest preference:
+//  1. "-timeout 1m"
+//  2. MainTestWait = 2*time.Minute
+//  3. 10*time.Minute
+// interpretWait will throw a warning if MainTestWait has been set.
+func interpretWait() time.Duration {
+	timeoutFlagMutex.Lock()
+	defer timeoutFlagMutex.Unlock()
+	toFlag := flag.Lookup("test.timeout")
+	if toFlag == nil {
+		Fatal("MainTest should not be called outside of tests")
+	}
+	dur := MainTestWait
+	var err error
+	if dur != 0*time.Second {
+		Warn("Usage of MainTestWait is deprecated!")
+	} else {
+		dur = 10 * time.Minute
+	}
+	if toStr := toFlag.Value.String(); toStr != "0s" {
+		dur, err = time.ParseDuration(toStr)
+		ErrFatal(err, "couldn't parse passed timeout value")
+	}
+	return dur
 }

@@ -23,6 +23,12 @@ var readTimeout = 1 * time.Minute
 // packets, increase this value.
 var MaxPacketSize = Size(10 * 1024 * 1024)
 
+// NewTCPAddress returns a new Address that has type PlainTCP with the given
+// address addr.
+func NewTCPAddress(addr string) Address {
+	return NewAddress(PlainTCP, addr)
+}
+
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
 func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
 	h, err := NewTCPHost(sid, suite)
@@ -187,7 +193,7 @@ func (c *TCPConn) Remote() Address {
 
 // Local returns the local address and port.
 func (c *TCPConn) Local() Address {
-	return NewAddress(PlainTCP, c.conn.LocalAddr().String())
+	return NewTCPAddress(c.conn.LocalAddr().String())
 }
 
 // Type returns PlainTCP.

@@ -186,8 +186,8 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 	<-Incoming
 	<-Incoming
 	log.Lvl3("Both children are up")
-	child1 := local.getNodes(tree.Root.Children[0])[0]
-	child2 := local.getNodes(tree.Root.Children[1])[0]
+	child1 := local.GetTreeNodeInstances(tree.Root.Children[0].ServerIdentity.ID)[0]
+	child2 := local.GetTreeNodeInstances(tree.Root.Children[1].ServerIdentity.ID)[0]
 
 	err = local.sendTreeNode(ProtocolChannelsName, child1, proto.TreeNodeInstance, &NodeTestAggMsg{3})
 	if err != nil {
