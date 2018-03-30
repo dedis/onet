@@ -204,17 +204,10 @@ func cloneTLSClientConfig(cfg *tls.Config) *tls.Config {
 }
 
 // NewTLSListener makes a new TCPListener that is configured for TLS.
-func NewTLSListener(si *ServerIdentity, suite Suite) (*TCPListener, error) {
-	return NewTLSListenerWithListenAddr(si, suite, "")
-}
-
-// NewTLSListenerWithListenAddr makes a new TCPListener that is configured for
-// TLS, listening on the given address.
 // TODO: Why can't we just use NewTCPListener like usual, but detect
 // the ConnType from the ServerIdentity?
-func NewTLSListenerWithListenAddr(si *ServerIdentity,
-	suite Suite, listenAddr string) (*TCPListener, error) {
-	tcp, err := NewTCPListenerWithListenAddr(si.Address, suite, listenAddr)
+func NewTLSListener(si *ServerIdentity, suite Suite) (*TCPListener, error) {
+	tcp, err := NewTCPListener(si.Address, suite)
 	if err != nil {
 		return nil, err
 	}

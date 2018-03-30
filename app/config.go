@@ -80,7 +80,13 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
-	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
+	server := onet.NewServerTCP(si, suite)
+	if hc.ListenAddress != "" {
+		err := server.SetListenAddress(hc.ListenAddress)
+		if err != nil {
+			return nil, nil, fmt.Errorf("setting listen address: %v", err)
+		}
+	}
 	return hc, server, nil
 }
 
