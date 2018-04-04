@@ -29,7 +29,7 @@ type CothorityConfig struct {
 // will return an error if the file couldn't be created or if
 // there is an error in the encoding.
 func (hc *CothorityConfig) Save(file string) error {
-	fd, err := os.Create(file)
+	fd, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
