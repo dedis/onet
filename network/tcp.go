@@ -290,7 +290,11 @@ func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 		quitListener: make(chan bool),
 		suite:        s,
 	}
-	global, _ := GlobalBind(addr.NetworkAddress())
+	global, err := GlobalBind(addr.NetworkAddress())
+	if err != nil {
+		return nil, err
+	}
+
 	for i := 0; i < MaxRetryConnect; i++ {
 		ln, err := net.Listen("tcp", global)
 		if err == nil {
