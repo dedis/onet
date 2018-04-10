@@ -265,9 +265,19 @@ func TestTCPConn(t *testing.T) {
 }
 
 func TestTCPConnTimeout(t *testing.T) {
+	var readTimeoutForTest = 100 * time.Millisecond
+
+	// Need to lock because using 'readTimeout' from 'tcp.go'.
+	readTimeoutLock.Lock()
 	tmp := readTimeout
-	readTimeout = 100 * time.Millisecond
-	defer func() { readTimeout = tmp }()
+	readTimeout = readTimeoutForTest
+	readTimeoutLock.Unlock()
+
+	defer func() {
+		readTimeoutLock.Lock()
+		readTimeout = tmp
+		readTimeoutLock.Unlock()
+	}()
 
 	addr := NewTCPAddress("127.0.0.1:5678")
 	ln, err := NewTCPListener(addr, tSuite)
@@ -301,14 +311,14 @@ func TestTCPConnTimeout(t *testing.T) {
 	select {
 	case received := <-connStat:
 		assert.Nil(t, received)
-	case <-time.After(readTimeout + 100*time.Millisecond):
+	case <-time.After(2 * readTimeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
 
 	select {
 	case received := <-connStat:
 		assert.NotNil(t, received)
-	case <-time.After(readTimeout + 100*time.Millisecond):
+	case <-time.After(2 * readTimeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
 
