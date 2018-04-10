@@ -15,6 +15,7 @@ import (
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"github.com/jeffallen/goversion/version"
 )
 
 // Server connects the Router, the Overlay, and the Services together. It sets
@@ -95,11 +96,16 @@ func (c *Server) Suite() network.Suite {
 	return c.suite
 }
 
+var gover version.Version
+var goverOnce sync.Once
+var goverOk = false
+
 // GetStatus is a function that returns the status report of the server.
 func (c *Server) GetStatus() *Status {
 	a := c.serviceManager.availableServices()
 	sort.Strings(a)
-	return &Status{Field: map[string]string{
+
+	st := &Status{Field: map[string]string{
 		"Available_Services": strings.Join(a, ","),
 		"TX_bytes":           strconv.FormatUint(c.Router.Tx(), 10),
 		"RX_bytes":           strconv.FormatUint(c.Router.Rx(), 10),
@@ -112,6 +118,21 @@ func (c *Server) GetStatus() *Status {
 		"Description": c.ServerIdentity.Description,
 		"ConnType":    string(c.ServerIdentity.Address.ConnType()),
 	}}
+
+	goverOnce.Do(func() {
+		v, err := version.ReadExe(os.Args[0])
+		if err == nil {
+			gover = v
+			goverOk = true
+		}
+	})
+
+	if goverOk {
+		st.Field["GoRelease"] = gover.Release
+		st.Field["GoModuleInfo"] = gover.ModuleInfo
+	}
+
+	return st
 }
 
 // Close closes the overlay and the Router
