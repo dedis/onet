@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -104,7 +105,9 @@ func TestContext_Path(t *testing.T) {
 
 	c := createContext(t, tmp)
 	pub, _ := c.ServerIdentity().Public.MarshalBinary()
-	dbPath := path.Join(tmp, fmt.Sprintf("%x.db", pub))
+	h := sha256.New()
+	h.Write(pub)
+	dbPath := path.Join(tmp, fmt.Sprintf("%x.db", h.Sum(nil)))
 	_, err = os.Stat(dbPath)
 	if err != nil {
 		t.Error(err)
@@ -120,7 +123,9 @@ func TestContext_Path(t *testing.T) {
 	_, err = os.Stat(tmp)
 	log.ErrFatal(err)
 	pub, _ = c.ServerIdentity().Public.MarshalBinary()
-	_, err = os.Stat(path.Join(tmp, fmt.Sprintf("%x.db", pub)))
+	h = sha256.New()
+	h.Write(pub)
+	_, err = os.Stat(path.Join(tmp, fmt.Sprintf("%x.db", h.Sum(nil))))
 	log.ErrFatal(err)
 }
 

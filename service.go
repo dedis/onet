@@ -289,7 +289,7 @@ func (s *serviceManager) dbFileName() string {
 	return path.Join(s.dbPath, fmt.Sprintf("%x.db", h.Sum(nil)))
 }
 
-// updateDbFileName checks if the old database file name exists, it does, it
+// updateDbFileName checks if the old database file name exists, if it does, it
 // will rename it to the new file name.
 func (s *serviceManager) updateDbFileName() {
 	if _, err := os.Stat(s.dbFileNameOld()); err == nil {
