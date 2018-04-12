@@ -376,10 +376,68 @@ func TestTCPConnWithListener(t *testing.T) {
 // will create a TCPListener with a specific address to listen on &
 // open a golang net.TCPConn to it
 func TestTCPListenerWithListenAddr(t *testing.T) {
+	// Ensuring that we cannot only have the port as a listen address.
 	addr := NewAddress(PlainTCP, "1.2.3.4:0")
-	listenAddr := "127.0.0.1:0"
-	ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
+	listenAddr := ":0"
+	_, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
+	require.NotNil(t, err, "Should fail: cannot only have a port as a listen address.")
+
+	// Testing different working configurations.
+	addrs := [2]Address{NewAddress(PlainTCP, "1.2.3.4:0"), NewAddress(PlainTCP, "1.2.3.4:0")}
+	listenAddrs := [2]string{"127.0.0.1", "127.0.0.1:0"}
+	expectedHosts := [2]string{"127.0.0.1", "127.0.0.1"}
+	for i := 0; i < len(addrs); i++ {
+		addr := addrs[i]
+		listenAddr := listenAddrs[i]
+		expectedHost := expectedHosts[i]
+
+		ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
+		require.Nil(t, err, "Error setup listener")
+		host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
+		require.Nil(t, err, "Error splitting address of listener")
+		require.Equal(t, expectedHost, host)
+
+		ready := make(chan bool)
+		stop := make(chan bool)
+		connReceived := make(chan bool)
+
+		connFn := func(c Conn) {
+			connReceived <- true
+			c.Close()
+		}
+		go func() {
+			ready <- true
+			err := ln.Listen(connFn)
+			require.Nil(t, err, "Listener stop incorrectly")
+			stop <- true
+		}()
+
+		<-ready
+		_, err = net.Dial("tcp", ln.Address().NetworkAddress())
+		require.Nil(t, err, "Could not open connection")
+		<-connReceived
+		require.Nil(t, ln.Stop(), "Error stopping listener")
+		select {
+		case <-stop:
+		case <-time.After(100 * time.Millisecond):
+			t.Fatal("Could not stop listener")
+		}
+
+		require.Nil(t, ln.listen(nil))
+	}
+}
+
+// will create a TCPListener globally binding & open a golang net.TCPConn to it
+func TestTCPListener(t *testing.T) {
+	addr := NewAddress(PlainTCP, "127.0.0.1:0")
+	ln, err := NewTCPListener(addr, tSuite)
 	require.Nil(t, err, "Error setup listener")
+
+	// Making sure the listener is globally binding
+	host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
+	require.Nil(t, err, "Error splitting address of listener")
+	require.Equal(t, "::", host, "Listener did not bind globally when given no specific listen address.")
+	
 	ready := make(chan bool)
 	stop := make(chan bool)
 	connReceived := make(chan bool)
@@ -397,40 +455,6 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 
 	<-ready
 	_, err = net.Dial("tcp", ln.Address().NetworkAddress())
-	require.Nil(t, err, "Could not open connection")
-	<-connReceived
-	require.Nil(t, ln.Stop(), "Error stopping listener")
-	select {
-	case <-stop:
-	case <-time.After(100 * time.Millisecond):
-		t.Fatal("Could not stop listener")
-	}
-
-	require.Nil(t, ln.listen(nil))
-}
-
-// will create a TCPListener globally binding & open a golang net.TCPConn to it
-func TestTCPListener(t *testing.T) {
-	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite)
-	require.Nil(t, err, "Error setup listener")
-	ready := make(chan bool)
-	stop := make(chan bool)
-	connReceived := make(chan bool)
-
-	connFn := func(c Conn) {
-		connReceived <- true
-		c.Close()
-	}
-	go func() {
-		ready <- true
-		err := ln.Listen(connFn)
-		require.Nil(t, err, "Listener stop incorrectly")
-		stop <- true
-	}()
-
-	<-ready
-	_, err = net.Dial("tcp", addr.NetworkAddress())
 	require.Nil(t, err, "Could not open connection")
 	<-connReceived
 	require.Nil(t, ln.Stop(), "Error stopping listener")
