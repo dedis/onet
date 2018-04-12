@@ -437,7 +437,7 @@ func TestTCPListener(t *testing.T) {
 	host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
 	require.Nil(t, err, "Error splitting address of listener")
 	require.Equal(t, "::", host, "Listener did not bind globally when given no specific listen address.")
-	
+
 	ready := make(chan bool)
 	stop := make(chan bool)
 	connReceived := make(chan bool)
