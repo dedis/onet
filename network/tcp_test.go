@@ -380,7 +380,7 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 	addr := NewAddress(PlainTCP, "1.2.3.4:0")
 	listenAddr := ":0"
 	_, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
-	require.NotNil(t, err, "Should fail: cannot only have a port as a listen address.")
+	require.NotNil(t, err, "Should fail: cannot only have a port as a listen address")
 
 	// Testing different working configurations.
 	addrs := [2]Address{NewAddress(PlainTCP, "1.2.3.4:0"), NewAddress(PlainTCP, "1.2.3.4:0")}
@@ -436,7 +436,7 @@ func TestTCPListener(t *testing.T) {
 	// Making sure the listener is globally binding
 	host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
 	require.Nil(t, err, "Error splitting address of listener")
-	require.Equal(t, "::", host, "Listener did not bind globally when given no specific listen address.")
+	require.Equal(t, "::", host, "Listener did not bind globally when given no specific listen address")
 
 	ready := make(chan bool)
 	stop := make(chan bool)

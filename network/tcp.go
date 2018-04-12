@@ -451,7 +451,7 @@ func getListenAddress(addr Address, listenAddr string) (string, error) {
 		return listenAddr, nil
 	}
 
-	return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s).", addr.NetworkAddress(), listenAddr)
+	return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s)", addr.NetworkAddress(), listenAddr)
 }
 
 // TCPHost implements the Host interface using TCP connections.
