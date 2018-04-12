@@ -429,29 +429,29 @@ func getListenAddress(addr Address, listenAddr string) (string, error) {
 	// If no `listenAddr`, bind globally.
 	if listenAddr == "" {
 		return GlobalBind(addr.NetworkAddress())
-	} else {
-		_, port, err := net.SplitHostPort(addr.NetworkAddress())
-		if err != nil {
-			return "", err
-		}
-
-		splitted := strings.Split(listenAddr, ":")
-		// If host and port in `listenAddr`, choose this one; otherwise
-		// mix `listenAddr` host with `addr` port if possible.
-		if len(splitted) == 1 && port != "" {
-			return splitted[0] + ":" + port, nil
-		} else {
-			hostListen, portListen, err := net.SplitHostPort(listenAddr)
-			if err != nil {
-				return "", err
-			}
-			if hostListen != "" && portListen != "" {
-				return listenAddr, nil
-			} else {
-				return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s).", addr.NetworkAddress(), listenAddr)
-			}
-		}
 	}
+	_, port, err := net.SplitHostPort(addr.NetworkAddress())
+	if err != nil {
+		return "", err
+	}
+
+	// If 'listenAddr' only contains the host, combine it with the port
+	// of 'addr'.
+	splitted := strings.Split(listenAddr, ":")
+	if len(splitted) == 1 && port != "" {
+		return splitted[0] + ":" + port, nil
+	}
+
+	// If host and port in `listenAddr`, choose this one.
+	hostListen, portListen, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		return "", err
+	}
+	if hostListen != "" && portListen != "" {
+		return listenAddr, nil
+	}
+
+	return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s).", addr.NetworkAddress(), listenAddr)
 }
 
 // TCPHost implements the Host interface using TCP connections.
