@@ -373,29 +373,38 @@ func TestTCPConnWithListener(t *testing.T) {
 	}
 }
 
-// will create a TCPListener with a specific address to listen on &
+// will create a TCPListener with a specific address to listen on and
 // open a golang net.TCPConn to it
 func TestTCPListenerWithListenAddr(t *testing.T) {
-	// Ensuring that we cannot only have the port as a listen address.
-	addr := NewAddress(PlainTCP, "1.2.3.4:0")
-	listenAddr := ":0"
-	_, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
-	require.NotNil(t, err, "Should fail: cannot only have a port as a listen address")
+	// Testing different wrong configurations.
+	testVectorWrong := []struct {
+		addr     Address
+		listen   string
+	}{
+		{NewAddress(PlainTCP, "1.2.3.4:0"), ":0"},
+	}
+	for _, tv := range testVectorWrong {
+		_, err := NewTCPListenerWithListenAddr(tv.addr, tSuite, tv.listen)
+		require.NotNil(t, err, fmt.Sprintf(`Should fail: invalid combination of 
+			'addr' (%s) and 'listenAddr' (%s)`, tv.addr, tv.listen))
+	}
 
 	// Testing different working configurations.
-	addrs := [2]Address{NewAddress(PlainTCP, "1.2.3.4:0"), NewAddress(PlainTCP, "1.2.3.4:0")}
-	listenAddrs := [2]string{"127.0.0.1", "127.0.0.1:0"}
-	expectedHosts := [2]string{"127.0.0.1", "127.0.0.1"}
-	for i := 0; i < len(addrs); i++ {
-		addr := addrs[i]
-		listenAddr := listenAddrs[i]
-		expectedHost := expectedHosts[i]
-
-		ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listenAddr)
+	testVector := []struct {
+		addr     Address
+		listen   string
+		expected string
+	}{
+		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1", "127.0.0.1"},
+		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1:0", "127.0.0.1"},
+		{NewAddress(PlainTCP, "1.2.3.4:0"), "", "::"},
+	}
+	for _, tv := range testVector {
+		ln, err := NewTCPListenerWithListenAddr(tv.addr, tSuite, tv.listen)
 		require.Nil(t, err, "Error setup listener")
 		host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
 		require.Nil(t, err, "Error splitting address of listener")
-		require.Equal(t, expectedHost, host)
+		require.Equal(t, tv.expected, host)
 
 		ready := make(chan bool)
 		stop := make(chan bool)
@@ -425,6 +434,16 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 
 		require.Nil(t, ln.listen(nil))
 	}
+
+	// Try not listening on host:port
+	addr := NewAddress(PlainTCP, "1.2.3.4:0")
+	listen := "127.0.0.1:0"
+
+	ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listen)
+	require.Nil(t, err, "Error setup listener")
+
+	_, err := net.Dial("tcp", ln.Address().NetworkAddress())
+	require.Nil(t, err, "Could not open connection")
 }
 
 // will create a TCPListener globally binding & open a golang net.TCPConn to it
