@@ -393,7 +393,7 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 	testVector := []struct {
 		addr     Address
 		listen   string
-		expected string
+		expectedHost string
 	}{
 		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1", "127.0.0.1"},
 		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1:0", "127.0.0.1"},
@@ -404,7 +404,7 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 		require.Nil(t, err, "Error setup listener")
 		host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
 		require.Nil(t, err, "Error splitting address of listener")
-		require.Equal(t, tv.expected, host)
+		require.Equal(t, tv.expectedHost, host)
 
 		ready := make(chan bool)
 		stop := make(chan bool)
@@ -435,15 +435,25 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 		require.Nil(t, ln.listen(nil))
 	}
 
-	// Try not listening on host:port
-	addr := NewAddress(PlainTCP, "1.2.3.4:0")
-	listen := "127.0.0.1:0"
-
-	ln, err := NewTCPListenerWithListenAddr(addr, tSuite, listen)
-	require.Nil(t, err, "Error setup listener")
-
-	_, err := net.Dial("tcp", ln.Address().NetworkAddress())
-	require.Nil(t, err, "Could not open connection")
+	// Testing different working configurations using static ports (but not
+	// listening because we don't want to risk any error).
+	testVectorStaticPort := []struct {
+		addr     Address
+		listen   string
+		expectedAddress string
+	}{
+		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1", "4.3.2.1:1234"},
+		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1:4321", "4.3.2.1:4321"},
+		{NewAddress(PlainTCP, "1.2.3.4:1234"), "", ":1234"},
+	}
+	for _, tv := range testVectorStaticPort {
+		// using directly 'getListenAddress' which is used by
+		// 'NewTCPListenerWithListenAddr' to figure out the address to listen
+		// to given the server address and listen address from 'private.toml'
+		listenAddr, err := getListenAddress(tv.addr, tv.listen)
+		require.Nil(t, err, "Error getting the listen address")
+		require.Equal(t, tv.expectedAddress, listenAddr)
+	}
 }
 
 // will create a TCPListener globally binding & open a golang net.TCPConn to it
