@@ -24,12 +24,13 @@ import (
 // - ListenAddress: The address this conode is listening on
 // - Description: The description
 type CothorityConfig struct {
-	Suite         string
-	Public        string
-	Private       string
-	Address       network.Address
-	ListenAddress string
-	Description   string
+	Suite                      string
+	Public                     string
+	Private                    string
+	Address                    network.Address
+	Description                string
+	WebsocketSSLCertificate    PEM
+	WebsocketSSLCertificateKey PEM
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -80,8 +81,15 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
+<<<<<<< HEAD
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
 	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
+=======
+	server := onet.NewServerTCP(si, suite)
+	if hc.WebsocketSSLCertificate != "" && hc.WebsocketSSLCertificateKey != "" {
+		server.SetWebsocketSSL(hc.WebsocketSSLCertificate, hc.WebsocketSSLCertificateKey)
+	}
+>>>>>>> Added TLS to websocket.
 	return hc, server, nil
 }
 
@@ -221,4 +229,80 @@ func (s *ServerToml) String() string {
 		return "## Error encoding server informations ##" + err.Error()
 	}
 	return buff.String()
+}
+
+type PEM string
+
+type PEMType string
+
+const (
+	// String is a PEM type containing the corresponding PEM.
+	String PEMType = "string"
+	// File is a PEM type that contains the path to a file containing the
+	// corresponding PEM.
+	File = "file"
+	// InvalidPEMType is an invalid PEM type.
+	InvalidPEMType = "wrong"
+)
+
+// typeAddressSep is the separator between the type of the connection and the actual
+// IP address.
+const typePEMSep = "://"
+
+func (pem PEM) String() string {
+	return string(pem)
+}
+
+// pemType converts a string to a PEMType. In case of failure,
+// it returns InvalidPEMType.
+func pemType(t string) PEMType {
+	pemType := PEMType(t)
+	types := []PEMType{String, File}
+	for _, t := range types {
+		if t == pemType {
+			return pemType
+		}
+	}
+	return InvalidPEMType
+}
+
+// PEMType returns the PEM type from the PEM.
+// It returns InvalidPEMType if the PEM is not valid or if the
+// PEM type is not known.
+func (pem PEM) PEMType() PEMType {
+	if !pem.Valid() {
+		return InvalidPEMType
+	}
+	vals := strings.Split(string(pem), typePEMSep)
+	return pemType(vals[0])
+}
+
+// Valid returns true if the PEM is well formed or false otherwise.
+func (pem Pem) Valid() bool {
+	vals := strings.Split(string(pem), typePEMSep)
+	if len(vals) != 2 {
+		return false
+	}
+	pemType = pemType(vals[0])
+	if pemType == InvalidPEMType {
+		return false
+	}
+
+	return true
+}
+
+func (pem PEM) Content() ([]byte, error) {
+	vals := strings.Split(string(pem), typePEMSep)
+	pemType := pem.PEMType()
+	if pemType == String {
+		return []byte(vals[1]), nil
+	}
+	if pemType == File {
+		dat, err := ioutil.ReadFile(vals[1])
+		if err != nil {
+			return nil, err
+		}
+		return dat, nil
+	}
+	return nil, fmt.Errorf("Unknown PEM type (%s), cannot get its content", pemType)
 }

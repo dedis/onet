@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dedis/onet/app"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
@@ -85,6 +87,21 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	return w
 }
 
+// SetSSL sets the TLSConfig of the server in order to allow TLS communications.
+func (w *WebSocket) SetSSL(SSLCertificate app.PEM, SSLKey app.PEM) error {
+	w.Lock()
+	defer w.Unlock()
+	if w.started {
+		return fmt.Errorf("Cannot set SSL for websocket when it has already been started.")
+	}
+	cert, err := tls.X509KeyPair(SSLCertificate.Content(), SSLKey.Content())
+	if err != nil {
+		return err
+	}
+	w.server.Server.TLSConfig = tls.Config{Certificates: {cert}}
+	return nil
+}
+
 // start listening on the port.
 func (w *WebSocket) start() {
 	w.Lock()
@@ -92,7 +109,12 @@ func (w *WebSocket) start() {
 	w.Unlock()
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
 	go func() {
-		w.server.ListenAndServe()
+		// Check if server is configured for TLS
+		if len(w.server.Server.TLSConfig.Certificates) >= 1 {
+			w.server.ListenAndServeTLS()
+		} else {
+			w.server.ListenAndServe()
+		}
 	}()
 	w.startstop <- true
 }

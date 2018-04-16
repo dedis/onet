@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dedis/kyber"
+	"github.com/dedis/onet/app"
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -184,6 +185,10 @@ func (c *Server) GetService(name string) Service {
 // It returns the ID of the protocol.
 func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
 	return c.protocols.Register(name, protocol)
+}
+
+func (c *Server) SetWebsocketSSL(SSLCertificate app.PEM, SSLKey app.PEM) error {
+	return server.websocket.SetSSL(SSLCertificate, SSLKey)
 }
 
 // protocolInstantiate instantiate a protocol from its ID
