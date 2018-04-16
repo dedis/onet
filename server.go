@@ -15,7 +15,7 @@ import (
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
-	"github.com/jeffallen/goversion/version"
+	"rsc.io/goversion/version"
 )
 
 // Server connects the Router, the Overlay, and the Services together. It sets
