@@ -378,8 +378,8 @@ func TestTCPConnWithListener(t *testing.T) {
 func TestTCPListenerWithListenAddr(t *testing.T) {
 	// Testing different wrong configurations.
 	testVectorWrong := []struct {
-		addr     Address
-		listen   string
+		addr   Address
+		listen string
 	}{
 		{NewAddress(PlainTCP, "1.2.3.4:0"), ":0"},
 	}
@@ -391,8 +391,8 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 
 	// Testing different working configurations.
 	testVector := []struct {
-		addr     Address
-		listen   string
+		addr         Address
+		listen       string
 		expectedHost string
 	}{
 		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1", "127.0.0.1"},
@@ -438,8 +438,8 @@ func TestTCPListenerWithListenAddr(t *testing.T) {
 	// Testing different working configurations using static ports (but not
 	// listening because we don't want to risk any error).
 	testVectorStaticPort := []struct {
-		addr     Address
-		listen   string
+		addr            Address
+		listen          string
 		expectedAddress string
 	}{
 		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1", "4.3.2.1:1234"},
