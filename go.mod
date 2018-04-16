@@ -11,7 +11,6 @@ require (
 	"github.com/golangplus/fmt" v0.0.0-20150411045040-2a5d6d7d2995
 	"github.com/golangplus/testing" v0.0.0-20180327235837-af21d9c3145e
 	"github.com/gorilla/websocket" v1.2.0
-	"github.com/jeffallen/goversion" v1.0.1
 	"github.com/montanaflynn/stats" v0.0.0-20171201202039-1bf9dbcd8cbe
 	"github.com/stretchr/testify" v1.2.1
 	"golang.org/x/crypto" v0.0.0-20180409150046-beb2a9779c3b
@@ -20,5 +19,5 @@ require (
 	"gopkg.in/check.v1" v0.0.0-20161208181325-20d25e280405
 	"gopkg.in/satori/go.uuid.v1" v1.2.0-gopkgin-v1.2.0
 	"gopkg.in/tylerb/graceful.v1" v1.2.15-gopkgin-v1.2.15
-
+	"rsc.io/goversion" v1.2.0
 )
