@@ -17,12 +17,19 @@ import (
 )
 
 // CothorityConfig is the configuration structure of the cothority daemon.
+// - Suite: The cryptographic suite
+// - Public: The public key
+// - Private: The Private key
+// - Address: The external address of the conode, used by others to connect to this one
+// - ListenAddress: The address this conode is listening on
+// - Description: The description
 type CothorityConfig struct {
-	Suite       string
-	Public      string
-	Private     string
-	Address     network.Address
-	Description string
+	Suite         string
+	Public        string
+	Private       string
+	Address       network.Address
+	ListenAddress string
+	Description   string
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -73,7 +80,8 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
-	server := onet.NewServerTCP(si, suite)
+	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
+	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
 	return hc, server, nil
 }
 
