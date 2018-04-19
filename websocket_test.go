@@ -31,6 +31,7 @@ func init() {
 	RegisterNewService(serviceWebSocket, newServiceWebSocket)
 }
 
+// Adapted from 'https://golang.org/src/crypto/tls/generate_cert.go'
 func generateSelfSignedCert() (string, string, error) {
 	var (
 		// Comma-separated hostnames and IPs to generate a certificate for

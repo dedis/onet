@@ -114,7 +114,8 @@ func (w *WebSocket) start() {
 			err := w.server.ListenAndServeTLS("", "")
 			log.ErrFatal(err)
 		} else {
-			w.server.ListenAndServe()
+			err := w.server.ListenAndServe()
+			log.ErrFatal(err)
 		}
 	}()
 	w.startstop <- true
