@@ -157,28 +157,28 @@ func TestNewWebSocket(t *testing.T) {
 	require.Equal(t, len(c.serviceManager.services), len(c.websocket.services))
 	require.NotEmpty(t, c.websocket.services[serviceWebSocket])
 	url, err := getWebAddress(c.ServerIdentity, false)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	ws, err := websocket.Dial(fmt.Sprintf("ws://%s/WebSocket/SimpleResponse", url),
 		"", "http://something_else")
 	log.ErrFatal(err)
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
 	buf, err := protobuf.Encode(req)
-	log.ErrFatal(err)
-	log.ErrFatal(websocket.Message.Send(ws, buf))
+	require.Nil(t, err)
+	require.Nil(t, websocket.Message.Send(ws, buf))
 
 	log.Lvl1("Waiting for reply")
 	var rcv []byte
-	log.ErrFatal(websocket.Message.Receive(ws, &rcv))
+	require.Nil(t, websocket.Message.Receive(ws, &rcv))
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
-	log.ErrFatal(protobuf.Decode(rcv, rcvMsg))
+	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
 	assert.Equal(t, 1, rcvMsg.Val)
 }
 
 func TestNewWebSocketTLS(t *testing.T) {
 	cert, key, err := getSelfSignedCertificateAndKey()
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
@@ -191,28 +191,28 @@ func TestNewWebSocketTLS(t *testing.T) {
 	require.Equal(t, len(c.serviceManager.services), len(c.websocket.services))
 	require.NotEmpty(t, c.websocket.services[serviceWebSocket])
 	url, err := getWebAddress(c.ServerIdentity, false)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 
-	serverUrl := fmt.Sprintf("wss://%s/WebSocket/SimpleResponse", url)
+	serverURL := fmt.Sprintf("wss://%s/WebSocket/SimpleResponse", url)
 	origin := "http://localhost"
-	config, err := websocket.NewConfig(serverUrl, origin)
-	log.ErrFatal(err)
+	config, err := websocket.NewConfig(serverURL, origin)
+	require.Nil(t, err)
 	config.TlsConfig = &tls.Config{RootCAs: CAPool}
 	ws, err := websocket.DialConfig(config)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
 	buf, err := protobuf.Encode(req)
-	log.ErrFatal(err)
-	log.ErrFatal(websocket.Message.Send(ws, buf))
+	require.Nil(t, err)
+	require.Nil(t, websocket.Message.Send(ws, buf))
 
 	log.Lvl1("Waiting for reply")
 	var rcv []byte
-	log.ErrFatal(websocket.Message.Receive(ws, &rcv))
+	require.Nil(t, websocket.Message.Receive(ws, &rcv))
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
-	log.ErrFatal(protobuf.Decode(rcv, rcvMsg))
+	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
 	assert.Equal(t, 1, rcvMsg.Val)
 }
 
@@ -222,10 +222,10 @@ func TestGetWebHost(t *testing.T) {
 	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
 	require.NotNil(t, err)
 	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	require.Equal(t, "0.0.0.0:7771", url)
 	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	require.Equal(t, "8.8.8.8:7771", url)
 }
 
@@ -252,7 +252,7 @@ func TestClient_Send(t *testing.T) {
 	sr := &SimpleResponse{}
 	assert.Equal(t, uint64(0), client.Rx())
 	assert.Equal(t, uint64(0), client.Tx())
-	log.ErrFatal(client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
 	assert.Equal(t, sr.Val, 10)
 	assert.NotEqual(t, uint64(0), client.Rx())
 	assert.NotEqual(t, uint64(0), client.Tx())
@@ -261,7 +261,7 @@ func TestClient_Send(t *testing.T) {
 
 func TestClientTLS_Send(t *testing.T) {
 	cert, key, err := getSelfSignedCertificateAndKey()
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
@@ -289,7 +289,7 @@ func TestClientTLS_Send(t *testing.T) {
 	sr := &SimpleResponse{}
 	assert.Equal(t, uint64(0), client.Rx())
 	assert.Equal(t, uint64(0), client.Tx())
-	log.ErrFatal(client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
 	assert.Equal(t, sr.Val, 10)
 	assert.NotEqual(t, uint64(0), client.Rx())
 	assert.NotEqual(t, uint64(0), client.Tx())
@@ -324,7 +324,7 @@ func TestClient_Parallel(t *testing.T) {
 			}
 			client := local.NewClient(backForthServiceName)
 			sr := &SimpleResponse{}
-			log.ErrFatal(client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
 			assert.Equal(t, 10*i, sr.Val)
 			log.Lvl1("Done with message", i)
 			wg.Done()
@@ -335,7 +335,7 @@ func TestClient_Parallel(t *testing.T) {
 
 func TestClientTLS_Parallel(t *testing.T) {
 	cert, key, err := getSelfSignedCertificateAndKey()
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
@@ -368,7 +368,7 @@ func TestClientTLS_Parallel(t *testing.T) {
 			client.tls = true
 			client.trustedCertificates = CAPool
 			sr := &SimpleResponse{}
-			log.ErrFatal(client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
 			assert.Equal(t, 10*i, sr.Val)
 			log.Lvl1("Done with message", i)
 			wg.Done()
@@ -387,7 +387,7 @@ func TestMultiplePath(t *testing.T) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	defer UnregisterService(dummyService3Name)
 
 	local := NewTCPTest(tSuite)
@@ -408,7 +408,7 @@ func TestMultiplePath(t *testing.T) {
 
 func TestMultiplePathTLS(t *testing.T) {
 	cert, key, err := getSelfSignedCertificateAndKey()
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
@@ -416,7 +416,7 @@ func TestMultiplePathTLS(t *testing.T) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	defer UnregisterService(dummyService3Name)
 
 	local := NewTCPTestWithTLS(tSuite, cert, key)
@@ -453,7 +453,7 @@ func TestWebSocket_Error(t *testing.T) {
 
 func TestWebSocketTLS_Error(t *testing.T) {
 	cert, key, err := getSelfSignedCertificateAndKey()
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 

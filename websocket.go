@@ -92,7 +92,7 @@ func (w *WebSocket) SetTLS(tlsCertificate []byte, tlsCertificateKey []byte) erro
 	w.Lock()
 	defer w.Unlock()
 	if w.started {
-		return fmt.Errorf("Cannot set SSL for websocket when it has already been started.")
+		return fmt.Errorf("Cannot set SSL for websocket when it has already been started")
 	}
 	cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
 	if err != nil {
@@ -293,11 +293,11 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		} else {
 			wsProtocol = "ws"
 		}
-		serverUrl := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
+		serverURL := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
 		headers := http.Header{"Origin": []string{"http://" + url}}
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
-			conn, _, err = d.Dial(serverUrl, headers)
+			conn, _, err = d.Dial(serverURL, headers)
 			if err == nil {
 				break
 			}
