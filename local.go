@@ -29,6 +29,10 @@ type LocalTest struct {
 	Nodes []*TreeNodeInstance
 	// are we running tcp or local layer
 	mode string
+	// TLS certificate if we want TLS for websocket
+	webSocketTLSCertificate []byte
+	// TLS certificate key if we want TLS for websocket
+	webSocketTLSCertificateKey []byte
 	// the context for the local connections
 	// it enables to have multiple local test running simultaneously
 	ctx   *network.LocalManager
@@ -73,6 +77,17 @@ func NewLocalTest(s network.Suite) *LocalTest {
 func NewTCPTest(s network.Suite) *LocalTest {
 	t := NewLocalTest(s)
 	t.mode = TCP
+	return t
+}
+
+// NewTCPTestWithTLS returns a LocalTest but using a TCPRouter as the
+// underlying communication layer and containing information for TLS setup.
+func NewTCPTestWithTLS(s network.Suite, wsTLSCertificate []byte,
+	wsTLSCertificateKey []byte) *LocalTest {
+	t := NewLocalTest(s)
+	t.mode = TCP
+	t.webSocketTLSCertificate = wsTLSCertificate
+	t.webSocketTLSCertificateKey = wsTLSCertificateKey
 	return t
 }
 
@@ -378,6 +393,53 @@ func newTCPServer(s network.Suite, port int, path string) *Server {
 	return h
 }
 
+// newTCPServerWithWebSocketTLS creates a new server with a tcpRouter with
+// "localhost:"+port as an address and configure TLS for its websocket.
+func newTCPServerWithWebSocketTLS(s network.Suite, port int, path string,
+	tlsCertificate []byte, tlsCertificateKey []byte) *Server {
+	priv, id := NewPrivIdentity(s, port)
+	addr := network.NewTCPAddress(id.Address.NetworkAddress())
+	id2 := network.NewServerIdentity(id.Public, addr)
+	var tcpHost *network.TCPHost
+	// For the websocket we need a port at the address one higher than the
+	// TCPHost. Let TCPHost chose a port, then check if the port+1 is also
+	// available. Else redo the search.
+	for {
+		var err error
+		tcpHost, err = network.NewTCPHost(id2, s)
+		if err != nil {
+			panic(err)
+		}
+		id.Address = tcpHost.Address()
+		if port != 0 {
+			break
+		}
+		port, err := strconv.Atoi(id.Address.Port())
+		if err != nil {
+			panic(err)
+		}
+		addr := net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
+		if l, err := net.Listen("tcp", addr); err == nil {
+			l.Close()
+			break
+		}
+		log.Lvl2("Found closed port:", addr)
+	}
+	id.Address = network.NewAddress(id.Address.ConnType(), "127.0.0.1:"+id.Address.Port())
+	router := network.NewRouter(id, tcpHost)
+	router.UnauthOk = true
+	h := newServer(s, path, router, priv)
+	err := h.SetWebsocketTLS(tlsCertificate, tlsCertificateKey)
+	if err != nil {
+		panic(err)
+	}
+	go h.Start()
+	for !h.Listening() {
+		time.Sleep(10 * time.Millisecond)
+	}
+	return h
+}
+
 // NewLocalServer returns a new server using a LocalRouter (channels) to communicate.
 // At the return of this function, the router is already Run()ing in a go
 // routine.
@@ -438,10 +500,18 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 	return server
 }
 
-// NewTCPServer returns a new TCP Server attached to this LocalTest.
+// NewTCPServer returns a new TCP Server attached to this LocalTest, configured
+// for TLS if possible (if anything in LocalTest.webSocketTLSCertificate/Key).
 func (l *LocalTest) newTCPServer(s network.Suite) *Server {
 	l.panicClosed()
-	server := newTCPServer(s, 0, l.path)
+	var server *Server
+	// Use TLS if any configuration available.
+	if len(l.webSocketTLSCertificate) > 0 && len(l.webSocketTLSCertificateKey) > 0 {
+		server = newTCPServerWithWebSocketTLS(s, 0, l.path,
+			l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
+	} else {
+		server = newTCPServer(s, 0, l.path)
+	}
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services

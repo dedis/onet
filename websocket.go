@@ -2,6 +2,7 @@ package onet
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -12,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/onet/app"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
@@ -87,18 +87,18 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	return w
 }
 
-// SetSSL sets the TLSConfig of the server in order to allow TLS communications.
-func (w *WebSocket) SetSSL(SSLCertificate app.PEM, SSLKey app.PEM) error {
+// SetTLS sets the TLSConfig of the server in order to allow TLS communications.
+func (w *WebSocket) SetTLS(tlsCertificate []byte, tlsCertificateKey []byte) error {
 	w.Lock()
 	defer w.Unlock()
 	if w.started {
 		return fmt.Errorf("Cannot set SSL for websocket when it has already been started.")
 	}
-	cert, err := tls.X509KeyPair(SSLCertificate.Content(), SSLKey.Content())
+	cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
 	if err != nil {
 		return err
 	}
-	w.server.Server.TLSConfig = tls.Config{Certificates: {cert}}
+	w.server.Server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 	return nil
 }
 
@@ -110,8 +110,9 @@ func (w *WebSocket) start() {
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
 	go func() {
 		// Check if server is configured for TLS
-		if len(w.server.Server.TLSConfig.Certificates) >= 1 {
-			w.server.ListenAndServeTLS()
+		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
+			err := w.server.ListenAndServeTLS("", "")
+			log.ErrFatal(err)
 		} else {
 			w.server.ListenAndServe()
 		}
@@ -229,7 +230,11 @@ type Client struct {
 	service     string
 	connections map[destination]*websocket.Conn
 	suite       network.Suite
-
+	// whether we should use TLS
+	tls bool
+	// Pool of certificates we trust, can be used for self-signed certificates;
+	// only useful if tls is set to true.
+	trustedCertificates *x509.CertPool
 	// whether to keep the connection
 	keep bool
 	rx   uint64
@@ -277,10 +282,22 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		}
 		log.Lvlf4("Sending %x to %s/%s/%s", buf, url, c.service, path)
 		d := &websocket.Dialer{}
+		// Set RootCAs if needed
+		if c.trustedCertificates != nil {
+			d.TLSClientConfig = &tls.Config{RootCAs: c.trustedCertificates}
+		}
+
+		var wsProtocol string
+		if c.tls {
+			wsProtocol = "wss"
+		} else {
+			wsProtocol = "ws"
+		}
+		serverUrl := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
+		headers := http.Header{"Origin": []string{"http://" + url}}
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
-			conn, _, err = d.Dial(fmt.Sprintf("ws://%s/%s/%s", url, c.service, path),
-				http.Header{"Origin": []string{"http://" + url}})
+			conn, _, err = d.Dial(serverUrl, headers)
 			if err == nil {
 				break
 			}

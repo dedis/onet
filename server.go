@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/dedis/kyber"
-	"github.com/dedis/onet/app"
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -187,8 +186,9 @@ func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID
 	return c.protocols.Register(name, protocol)
 }
 
-func (c *Server) SetWebsocketSSL(SSLCertificate app.PEM, SSLKey app.PEM) error {
-	return server.websocket.SetSSL(SSLCertificate, SSLKey)
+// SetWebsocketTLS sets the TLS configuration for its websocket.
+func (c *Server) SetWebsocketTLS(tlsCertificate []byte, tlsCertificateKey []byte) error {
+	return c.websocket.SetTLS(tlsCertificate, tlsCertificateKey)
 }
 
 // protocolInstantiate instantiate a protocol from its ID
