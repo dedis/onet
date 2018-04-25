@@ -166,6 +166,27 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		return 0, errors.New("Can't send nil-packet")
 	}
 
+	// If sending to ourself, directly dispatch it
+	if e.Address == r.address {
+		log.Lvlf4("Sending to ourself (%s) msg: %+v", e, msg)
+		packet := &Envelope{
+			ServerIdentity: e,
+			MsgType:        MessageType(msg),
+			Msg:            msg,
+		}
+		if err := r.Dispatch(packet); err != nil {
+			return 0, fmt.Errorf("Error dispatching: %s", err)
+		}
+		// Marshal the message to get its length
+		b, err := Marshal(msg)
+		if err != nil {
+			return 0, err
+		}
+		log.Lvl5("Message sent")
+
+		return uint64(len(b)), nil
+	}
+
 	var totSentLen uint64
 	c := r.connection(e.ID)
 	if c == nil {
