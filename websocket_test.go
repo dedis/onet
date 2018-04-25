@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/websocket"
 	"gopkg.in/satori/go.uuid.v1"
@@ -33,43 +31,21 @@ func init() {
 
 // Adapted from 'https://golang.org/src/crypto/tls/generate_cert.go'
 func generateSelfSignedCert() (string, string, error) {
-	var (
-		// Comma-separated hostnames and IPs to generate a certificate for
-		host = "127.0.0.1"
-		// Creation date formatted as Jan 1 15:04:05 2006
-		validFrom = time.Now().Format("Jan 1 15:04:05 2006")
-		// Duration that certificate is valid for
-		validFor = 365 * 24 * time.Hour
-		// ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521
-		ecdsaCurve = "P256"
-	)
+	// Hostname or IP to generate a certificate for
+	host := "127.0.0.1"
+	// Creation date formatted as Jan 1 15:04:05 2006
+	validFrom := time.Now().Format("Jan 1 15:04:05 2006")
+	// Duration that certificate is valid for
+	validFor := 365 * 24 * time.Hour
 
-	var priv *ecdsa.PrivateKey
-	var err error
-	switch ecdsaCurve {
-	case "P224":
-		priv, err = ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-	case "P256":
-		priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	case "P384":
-		priv, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	case "P521":
-		priv, err = ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
-	default:
-		return "", "", fmt.Errorf("Unrecognized elliptic curve: %q", ecdsaCurve)
-	}
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return "", "", err
 	}
 
-	var notBefore time.Time
-	if len(validFrom) == 0 {
-		notBefore = time.Now()
-	} else {
-		notBefore, err = time.Parse("Jan 2 15:04:05 2006", validFrom)
-		if err != nil {
-			return "", "", err
-		}
+	notBefore, err := time.Parse("Jan 2 15:04:05 2006", validFrom)
+	if err != nil {
+		return "", "", err
 	}
 
 	notAfter := notBefore.Add(validFor)
@@ -93,13 +69,10 @@ func generateSelfSignedCert() (string, string, error) {
 		BasicConstraintsValid: true,
 	}
 
-	hosts := strings.Split(host, ",")
-	for _, h := range hosts {
-		if ip := net.ParseIP(h); ip != nil {
-			template.IPAddresses = append(template.IPAddresses, ip)
-		} else {
-			template.DNSNames = append(template.DNSNames, h)
-		}
+	if ip := net.ParseIP(host); ip != nil {
+		template.IPAddresses = append(template.IPAddresses, ip)
+	} else {
+		template.DNSNames = append(template.DNSNames, host)
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
@@ -174,7 +147,7 @@ func TestNewWebSocket(t *testing.T) {
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
-	assert.Equal(t, 1, rcvMsg.Val)
+	require.Equal(t, 1, rcvMsg.Val)
 }
 
 func TestNewWebSocketTLS(t *testing.T) {
@@ -214,7 +187,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
-	assert.Equal(t, 1, rcvMsg.Val)
+	require.Equal(t, 1, rcvMsg.Val)
 }
 
 func TestGetWebHost(t *testing.T) {
@@ -251,13 +224,13 @@ func TestClient_Send(t *testing.T) {
 		Val:              10,
 	}
 	sr := &SimpleResponse{}
-	assert.Equal(t, uint64(0), client.Rx())
-	assert.Equal(t, uint64(0), client.Tx())
+	require.Equal(t, uint64(0), client.Rx())
+	require.Equal(t, uint64(0), client.Tx())
 	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-	assert.Equal(t, sr.Val, 10)
-	assert.NotEqual(t, uint64(0), client.Rx())
-	assert.NotEqual(t, uint64(0), client.Tx())
-	assert.True(t, client.Tx() > client.Rx())
+	require.Equal(t, sr.Val, 10)
+	require.NotEqual(t, uint64(0), client.Rx())
+	require.NotEqual(t, uint64(0), client.Tx())
+	require.True(t, client.Tx() > client.Rx())
 }
 
 func TestClientTLS_Send(t *testing.T) {
@@ -288,13 +261,13 @@ func TestClientTLS_Send(t *testing.T) {
 		Val:              10,
 	}
 	sr := &SimpleResponse{}
-	assert.Equal(t, uint64(0), client.Rx())
-	assert.Equal(t, uint64(0), client.Tx())
+	require.Equal(t, uint64(0), client.Rx())
+	require.Equal(t, uint64(0), client.Tx())
 	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-	assert.Equal(t, sr.Val, 10)
-	assert.NotEqual(t, uint64(0), client.Rx())
-	assert.NotEqual(t, uint64(0), client.Tx())
-	assert.True(t, client.Tx() > client.Rx())
+	require.Equal(t, sr.Val, 10)
+	require.NotEqual(t, uint64(0), client.Rx())
+	require.NotEqual(t, uint64(0), client.Tx())
+	require.True(t, client.Tx() > client.Rx())
 }
 
 func TestClient_Parallel(t *testing.T) {
@@ -326,7 +299,7 @@ func TestClient_Parallel(t *testing.T) {
 			client := local.NewClient(backForthServiceName)
 			sr := &SimpleResponse{}
 			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-			assert.Equal(t, 10*i, sr.Val)
+			require.Equal(t, 10*i, sr.Val)
 			log.Lvl1("Done with message", i)
 			wg.Done()
 		}(i)
@@ -370,7 +343,7 @@ func TestClientTLS_Parallel(t *testing.T) {
 			client.trustedCertificates = CAPool
 			sr := &SimpleResponse{}
 			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-			assert.Equal(t, 10*i, sr.Val)
+			require.Equal(t, 10*i, sr.Val)
 			log.Lvl1("Done with message", i)
 			wg.Done()
 		}(i)
@@ -380,7 +353,7 @@ func TestClientTLS_Parallel(t *testing.T) {
 
 func TestNewClientKeep(t *testing.T) {
 	c := NewClientKeep(tSuite, serviceWebSocket)
-	assert.True(t, c.keep)
+	require.True(t, c.keep)
 }
 
 func TestMultiplePath(t *testing.T) {
@@ -449,7 +422,7 @@ func TestWebSocket_Error(t *testing.T) {
 	_, err := client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
-	assert.NotEqual(t, "", log.GetStdOut())
+	require.NotEqual(t, "", log.GetStdOut())
 }
 
 func TestWebSocketTLS_Error(t *testing.T) {
@@ -470,7 +443,7 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	_, err = client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
-	assert.NotEqual(t, "", log.GetStdOut())
+	require.NotEqual(t, "", log.GetStdOut())
 }
 
 const serviceWebSocket = "WebSocket"
