@@ -70,6 +70,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
+	log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
 	return r
 }
 
@@ -464,7 +465,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			}
 		}
 	}
-
+	log.Lvlf3("%s: Identity received si=%x from %s", r.address, dst.Public, dst.Address)
 	return dst, nil
 }
 
