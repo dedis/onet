@@ -121,6 +121,35 @@ func TestRouterErrorHandling(t *testing.T) {
 		t.Error("Error handler should have been called after a disconnection")
 	}
 }
+
+func TestRouterSendToSelf(t *testing.T) {
+	r, err := NewTestRouterTCP(0)
+	require.Nil(t, err)
+
+	go r.Start()
+
+	defer func() {
+		r.Stop()
+	}()
+
+	// Need the "1" because sending message through channel in the same
+	// goroutine, will deadlock otherwise
+	proc := &simpleMessageProc{t, make(chan SimpleMessage, 1)}
+	r.RegisterProcessor(proc, SimpleMessageType)
+
+	simpleMsg := &SimpleMessage{3}
+	sentLen, err := r.Send(r.ServerIdentity, simpleMsg)
+	require.Nil(t, err)
+	require.NotZero(t, sentLen)
+	decoded := <-proc.relay
+	require.Equal(t, 3, decoded.I)
+
+	// Ensure no connections were open (since sending to ourself)
+	r.Lock()
+	require.Equal(t, 0, len(r.connections))
+	r.Unlock()
+}
+
 func testRouterRemoveConnection(t *testing.T) {
 	r1, err := NewTestRouterTCP(2008)
 	require.Nil(t, err)
