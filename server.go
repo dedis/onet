@@ -196,7 +196,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 }
 
 // Start makes the router and the websocket listen on their respective
-// ports.
+// ports. It blocks until the server is stopped.
 func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
@@ -204,5 +204,8 @@ func (c *Server) Start() {
 		c.started.Format("2006-01-02 15:04:05"),
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
+	log.Lvlf1("Started server at %s on address %s with public key %s",
+		c.started.Format("2006-01-02 15:04:05"),
+		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	c.websocket.start()
 }

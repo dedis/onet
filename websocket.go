@@ -141,7 +141,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ok := false
 
 	defer func() {
-		log.Lvl4("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
+		log.Lvl2("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
 	}()
 
 	u := websocket.Upgrader{
