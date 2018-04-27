@@ -411,16 +411,25 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the PI. If the corresponding service returns (nil,nil), then onet handles
 // the creation of the PI. Otherwise the service is responsible for setting up
 // the PI.
-func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (ProtocolInstance, error) {
+func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
 	si, ok := s.serviceByID(tni.Token().ServiceID)
 	defaultHandle := func() (ProtocolInstance, error) { return s.server.protocolInstantiate(tni.Token().ProtoID, tni) }
 	if !ok {
 		// let onet handle it
 		return defaultHandle()
 	}
-	pi, err := si.NewProtocol(tni, config)
+
+	defer func() {
+		if r := recover(); r != nil {
+			pi = nil
+			err = fmt.Errorf("could not create new protocol: %v", r)
+			return
+		}
+	}()
+
+	pi, err = si.NewProtocol(tni, config)
 	if pi == nil && err == nil {
 		return defaultHandle()
 	}
-	return pi, err
+	return
 }
