@@ -280,6 +280,7 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		return nil, err
 	}
 	c.tx += uint64(len(buf))
+
 	_, rcv, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err

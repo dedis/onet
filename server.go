@@ -204,8 +204,5 @@ func (c *Server) Start() {
 		c.started.Format("2006-01-02 15:04:05"),
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
-	log.Lvlf1("Started server at %s on address %s with public key %s",
-		c.started.Format("2006-01-02 15:04:05"),
-		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	c.websocket.start()
 }
