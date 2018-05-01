@@ -6,6 +6,26 @@ import (
 	"strconv"
 )
 
+// Listener is the interface that specifies how log listeners
+// will receive messages.
+type Listener interface {
+	Log(level int, msg string)
+}
+
+var (
+	// concurrent access is protected by debugMut
+	listeners []Listener
+)
+
+// RegisterListener will register a callback that will receive
+// a copy of every message, fully formatted but without a trailing
+// newline.
+func RegisterListener(l Listener) {
+	debugMut.Lock()
+	listeners = append(listeners, l)
+	debugMut.Unlock()
+}
+
 func lvlUI(l int, args ...interface{}) {
 	if DebugVisible() > 0 {
 		lvl(l, 3, args...)
