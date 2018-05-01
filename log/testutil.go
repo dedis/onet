@@ -29,6 +29,9 @@ func interestingGoroutines() (gs []string) {
 			strings.Contains(stack, "runtime.MHeap_Scavenger") ||
 			strings.Contains(stack, "graceful") ||
 			strings.Contains(stack, "sigqueue") ||
+			strings.Contains(stack, "stackimpact-go/internal") ||
+			// stackimpact uses persistent http client conns
+			strings.Contains(stack, "created by net/http.(*Transport).dialConn") ||
 			strings.Contains(stack, "log.MainTest") {
 			continue
 		}

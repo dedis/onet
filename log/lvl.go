@@ -84,7 +84,8 @@ func lvl(lvl, skip int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 
-	if lvl > debugVisible {
+	// Do not short-cut formatting if there are listeners, they need a copy.
+	if len(listeners) == 0 && lvl > debugVisible {
 		return
 	}
 	pc, _, line, _ := runtime.Caller(skip)
@@ -119,6 +120,16 @@ func lvl(lvl, skip int, args ...interface{}) {
 	if bright {
 		lvlAbs *= -1
 	}
+
+	for _, l := range listeners {
+		// Send the listeners lines with no newlines on them.
+		l.Log(lvlAbs, message[0:len(message)-1])
+	}
+	// Now that the listeners got their copy, check level.
+	if lvl > debugVisible {
+		return
+	}
+
 	lvlStr := strconv.Itoa(lvlAbs)
 	if lvl < 0 {
 		lvlStr += "!"
