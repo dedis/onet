@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -98,10 +99,14 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 		if err != nil {
 			return nil, nil, fmt.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
 		}
-		err = server.SetWebsocketTLS(tlsCertificate, tlsCertificateKey)
+		cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
 		if err != nil {
-			return nil, nil, fmt.Errorf("setting TLS for websocket: %v", err)
+			return nil, nil, fmt.Errorf("loading X509KeyPair: %v", err)
 		}
+
+		server.WebSocket.Lock()
+		server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+		server.WebSocket.Unlock()
 	}
 	return hc, server, nil
 }
@@ -261,6 +266,8 @@ const (
 	File = "file"
 	// InvalidCertificateURLType is an invalid CertificateURL type.
 	InvalidCertificateURLType = "wrong"
+	// DefaultCertificateURLType is the default type when no type is specified
+	DefaultCertificateURLType = File
 )
 
 // typeCertificateURLSep is the separator between the type of the URL
@@ -271,6 +278,9 @@ const typeCertificateURLSep = "://"
 // certificateURLType converts a string to a CertificateURLType. In case of
 // failure, it returns InvalidCertificateURLType.
 func certificateURLType(t string) CertificateURLType {
+	if t == "" {
+		return DefaultCertificateURLType
+	}
 	cuType := CertificateURLType(t)
 	types := []CertificateURLType{String, File}
 	for _, t := range types {
@@ -293,17 +303,16 @@ func (cu CertificateURL) CertificateURLType() CertificateURLType {
 	if !cu.Valid() {
 		return InvalidCertificateURLType
 	}
-	vals := strings.Split(string(cu), typeCertificateURLSep)
-	return certificateURLType(vals[0])
+	return certificateURLType(cu.typePart())
 }
 
 // Valid returns true if the CertificateURL is well formed or false otherwise.
 func (cu CertificateURL) Valid() bool {
 	vals := strings.Split(string(cu), typeCertificateURLSep)
-	if len(vals) != 2 {
+	if len(vals) > 2 {
 		return false
 	}
-	cuType := certificateURLType(vals[0])
+	cuType := certificateURLType(cu.typePart())
 	if cuType == InvalidCertificateURLType {
 		return false
 	}
@@ -313,17 +322,36 @@ func (cu CertificateURL) Valid() bool {
 
 // Content returns the bytes representing the certificate.
 func (cu CertificateURL) Content() ([]byte, error) {
-	vals := strings.Split(string(cu), typeCertificateURLSep)
 	cuType := cu.CertificateURLType()
 	if cuType == String {
-		return []byte(vals[1]), nil
+		return []byte(cu.blobPart()), nil
 	}
 	if cuType == File {
-		dat, err := ioutil.ReadFile(vals[1])
+		dat, err := ioutil.ReadFile(cu.blobPart())
 		if err != nil {
 			return nil, err
 		}
 		return dat, nil
 	}
 	return nil, fmt.Errorf("Unknown CertificateURL type (%s), cannot get its content", cuType)
+}
+
+// typePart returns only the string representing the type of a CertificateURL
+// (empty string for no type specified)
+func (cu CertificateURL) typePart() string {
+	vals := strings.Split(string(cu), typeCertificateURLSep)
+	if len(vals) == 1 {
+		return ""
+	}
+	return vals[0]
+}
+
+// blobPart returns only the string representing the blob of a CertificateURL
+// (the content of the certificate, a file path, ...)
+func (cu CertificateURL) blobPart() string {
+	vals := strings.Split(string(cu), typeCertificateURLSep)
+	if len(vals) == 1 {
+		return vals[0]
+	}
+	return vals[1]
 }

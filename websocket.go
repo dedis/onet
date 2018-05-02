@@ -2,7 +2,6 @@ package onet
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -31,6 +30,7 @@ type WebSocket struct {
 	mux       *http.ServeMux
 	startstop chan bool
 	started   bool
+	TLSConfig *tls.Config // can only be modified before Start is called
 	sync.Mutex
 }
 
@@ -87,25 +87,11 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	return w
 }
 
-// SetTLS sets the TLSConfig of the server in order to allow TLS communications.
-func (w *WebSocket) SetTLS(tlsCertificate []byte, tlsCertificateKey []byte) error {
-	w.Lock()
-	defer w.Unlock()
-	if w.started {
-		return fmt.Errorf("Cannot set SSL for websocket when it has already been started")
-	}
-	cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
-	if err != nil {
-		return err
-	}
-	w.server.Server.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
-	return nil
-}
-
 // start listening on the port.
 func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
+	w.server.Server.TLSConfig = w.TLSConfig
 	w.Unlock()
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
 	go func() {
@@ -229,11 +215,8 @@ type Client struct {
 	service     string
 	connections map[destination]*websocket.Conn
 	suite       network.Suite
-	// whether we should use TLS
-	tls bool
-	// Pool of certificates we trust, can be used for self-signed certificates;
-	// only useful if tls is set to true.
-	trustedCertificates *x509.CertPool
+	// if not nil, use TLS
+	TLSClientConfig *tls.Config
 	// whether to keep the connection
 	keep bool
 	rx   uint64
@@ -281,19 +264,19 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		}
 		log.Lvlf4("Sending %x to %s/%s/%s", buf, url, c.service, path)
 		d := &websocket.Dialer{}
-		// Set RootCAs if needed
-		if c.trustedCertificates != nil {
-			d.TLSClientConfig = &tls.Config{RootCAs: c.trustedCertificates}
-		}
+		d.TLSClientConfig = c.TLSClientConfig
 
 		var wsProtocol string
-		if c.tls {
+		var protocol string
+		if c.TLSClientConfig != nil {
 			wsProtocol = "wss"
+			protocol = "https"
 		} else {
 			wsProtocol = "ws"
+			protocol = "http"
 		}
 		serverURL := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
-		headers := http.Header{"Origin": []string{"http://" + url}}
+		headers := http.Header{"Origin": []string{protocol + "://" + url}}
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
 			conn, _, err = d.Dial(serverURL, headers)

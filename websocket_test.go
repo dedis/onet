@@ -33,8 +33,8 @@ func init() {
 func generateSelfSignedCert() (string, string, error) {
 	// Hostname or IP to generate a certificate for
 	host := "127.0.0.1"
-	// Creation date formatted as Jan 1 15:04:05 2006
-	validFrom := time.Now().Format("Jan 1 15:04:05 2006")
+	// Creation date formatted as Jan 2 15:04:05 2006
+	validFrom := time.Now().UTC().Format("Jan 2 15:04:05 2006")
 	// Duration that certificate is valid for
 	validFor := 365 * 24 * time.Hour
 
@@ -127,9 +127,14 @@ func TestNewWebSocket(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
+	go c.Start()
+	for !c.Listening() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	defer c.Close()
-	require.Equal(t, len(c.serviceManager.services), len(c.websocket.services))
-	require.NotEmpty(t, c.websocket.services[serviceWebSocket])
+	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
+	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 	url, err := getWebAddress(c.ServerIdentity, false)
 	require.Nil(t, err)
 	ws, err := websocket.Dial(fmt.Sprintf("ws://%s/WebSocket/SimpleResponse", url),
@@ -159,16 +164,28 @@ func TestNewWebSocketTLS(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	defer l.CloseAll()
 
-	c := newTCPServerWithWebSocketTLS(tSuite, 0, l.path, cert, key)
+	c := newTCPServer(tSuite, 0, l.path)
+
+	certToAdd, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		require.Nil(t, err)
+	}
+	c.WebSocket.Lock()
+	c.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certToAdd}}
+	c.WebSocket.Unlock()
+	go c.Start()
+	for !c.Listening() {
+		time.Sleep(10 * time.Millisecond)
+	}
 	defer c.Close()
 
-	require.Equal(t, len(c.serviceManager.services), len(c.websocket.services))
-	require.NotEmpty(t, c.websocket.services[serviceWebSocket])
+	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
+	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 	url, err := getWebAddress(c.ServerIdentity, false)
 	require.Nil(t, err)
 
 	serverURL := fmt.Sprintf("wss://%s/WebSocket/SimpleResponse", url)
-	origin := "http://localhost"
+	origin := "https://127.0.0.1"
 	config, err := websocket.NewConfig(serverURL, origin)
 	require.Nil(t, err)
 	config.TlsConfig = &tls.Config{RootCAs: CAPool}
@@ -239,7 +256,9 @@ func TestClientTLS_Send(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	local := NewTCPTestWithTLS(tSuite, cert, key)
+	local := NewTCPTest(tSuite)
+	local.webSocketTLSCertificate = cert
+	local.webSocketTLSCertificateKey = key
 	defer local.CloseAll()
 
 	// register service
@@ -253,8 +272,7 @@ func TestClientTLS_Send(t *testing.T) {
 	// create servers
 	servers, el, _ := local.GenTree(4, false)
 	client := local.NewClient(backForthServiceName)
-	client.tls = true
-	client.trustedCertificates = CAPool
+	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 
 	r := &SimpleRequest{
 		ServerIdentities: el,
@@ -315,7 +333,9 @@ func TestClientTLS_Parallel(t *testing.T) {
 
 	nbrNodes := 4
 	nbrParallel := 20
-	local := NewTCPTestWithTLS(tSuite, cert, key)
+	local := NewTCPTest(tSuite)
+	local.webSocketTLSCertificate = cert
+	local.webSocketTLSCertificateKey = key
 	defer local.CloseAll()
 
 	// register service
@@ -339,8 +359,7 @@ func TestClientTLS_Parallel(t *testing.T) {
 				Val:              10 * i,
 			}
 			client := local.NewClient(backForthServiceName)
-			client.tls = true
-			client.trustedCertificates = CAPool
+			client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 			sr := &SimpleResponse{}
 			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
 			require.Equal(t, 10*i, sr.Val)
@@ -393,13 +412,14 @@ func TestMultiplePathTLS(t *testing.T) {
 	require.Nil(t, err)
 	defer UnregisterService(dummyService3Name)
 
-	local := NewTCPTestWithTLS(tSuite, cert, key)
+	local := NewTCPTest(tSuite)
+	local.webSocketTLSCertificate = cert
+	local.webSocketTLSCertificateKey = key
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
 	client := NewClientKeep(tSuite, dummyService3Name)
-	client.tls = true
-	client.trustedCertificates = CAPool
+	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	msg, err := protobuf.Encode(&DummyMsg{})
 	require.Nil(t, err)
 	path1, path2 := "path1", "path2"
@@ -432,9 +452,10 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	CAPool.AppendCertsFromPEM(cert)
 
 	client := NewClientKeep(tSuite, dummyService3Name)
-	client.tls = true
-	client.trustedCertificates = CAPool
-	local := NewTCPTestWithTLS(tSuite, cert, key)
+	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
+	local := NewTCPTest(tSuite)
+	local.webSocketTLSCertificate = cert
+	local.webSocketTLSCertificateKey = key
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
