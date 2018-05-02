@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -114,7 +115,16 @@ func getSelfSignedCertificateAndKey() ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	err = os.Remove(certFilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	key, err := ioutil.ReadFile(keyFilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = os.Remove(keyFilePath)
 	if err != nil {
 		return nil, nil, err
 	}
