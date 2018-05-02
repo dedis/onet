@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-    "os"
+	"os"
 	"strings"
 	"testing"
 
@@ -133,19 +133,19 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 
 	// Write files containing cert and key (+ be sure to delete them at the end)
 	certFile, err := ioutil.TempFile("", "temp_cert.pem")
-    defer func() {
-        err := os.Remove(certFile.Name())
-        require.Nil(t, err)
-    }()
+	defer func() {
+		err := os.Remove(certFile.Name())
+		require.Nil(t, err)
+	}()
 	require.Nil(t, err)
 	certFile.WriteString(wsTLSCert)
 	certFile.Close()
 
 	keyFile, err := ioutil.TempFile("", "temp_key.pem")
-    defer func() {
-        err := os.Remove(keyFile.Name())
-        require.Nil(t, err)
-    }()
+	defer func() {
+		err := os.Remove(keyFile.Name())
+		require.Nil(t, err)
+	}()
 	require.Nil(t, err)
 	keyFile.WriteString(wsTLSCertKey)
 	keyFile.Close()
@@ -213,7 +213,7 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 
 		srv.Close()
 
-        err = os.Remove(privateToml.Name())
-        require.Nil(t, err)
+		err = os.Remove(privateToml.Name())
+		require.Nil(t, err)
 	}
 }
