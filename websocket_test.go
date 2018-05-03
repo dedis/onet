@@ -448,9 +448,12 @@ func TestWebSocket_Error(t *testing.T) {
 	server := hs[0]
 	defer local.CloseAll()
 
+	lvl := log.DebugVisible()
+	log.SetDebugVisible(0)
 	log.OutputToBuf()
 	_, err := client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
+	log.SetDebugVisible(lvl)
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
 	require.NotEqual(t, "", log.GetStdOut())
 }
@@ -470,9 +473,12 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	server := hs[0]
 	defer local.CloseAll()
 
+	lvl := log.DebugVisible()
+	log.SetDebugVisible(0)
 	log.OutputToBuf()
 	_, err = client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
+	log.SetDebugVisible(lvl)
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
 	require.NotEqual(t, "", log.GetStdOut())
 }

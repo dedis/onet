@@ -20,6 +20,7 @@ func init() {
 }
 
 func TestTime(t *testing.T) {
+	SetShowTime(false)
 	SetDebugVisible(1)
 	GetStdOut()
 	Lvl1("No time")
