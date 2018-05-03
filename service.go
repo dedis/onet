@@ -252,7 +252,7 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		}
 		log.Lvl3("Started Service", name)
 		services[id] = s
-		svr.websocket.registerService(name, s)
+		svr.WebSocket.registerService(name, s)
 	}
 	log.Lvl3(svr.Address(), "instantiated all services")
 	svr.statusReporterStruct.RegisterStatusReporter("Db", s)

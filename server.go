@@ -35,7 +35,7 @@ type Server struct {
 	// instance of it
 	protocols *protocolStorage
 	// webservice
-	websocket *WebSocket
+	WebSocket *WebSocket
 	// when this node has been started
 	started time.Time
 
@@ -71,7 +71,7 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		suite:                s,
 	}
 	c.overlay = NewOverlay(c)
-	c.websocket = NewWebSocket(r.ServerIdentity)
+	c.WebSocket = NewWebSocket(r.ServerIdentity)
 	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
 	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
 	for name, inst := range protocols.instantiators {
@@ -153,7 +153,7 @@ func (c *Server) GetStatus() *Status {
 // Close closes the overlay and the Router
 func (c *Server) Close() error {
 	c.overlay.stop()
-	c.websocket.stop()
+	c.WebSocket.stop()
 	c.overlay.Close()
 	err := c.serviceManager.closeDatabase()
 	if err != nil {
@@ -195,7 +195,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 	return fn(tni)
 }
 
-// Start makes the router and the websocket listen on their respective
+// Start makes the router and the WebSocket listen on their respective
 // ports. It blocks until the server is stopped.
 func (c *Server) Start() {
 	InformServerStarted()
@@ -204,5 +204,5 @@ func (c *Server) Start() {
 		c.started.Format("2006-01-02 15:04:05"),
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
-	c.websocket.start()
+	c.WebSocket.start()
 }
