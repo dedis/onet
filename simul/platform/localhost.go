@@ -23,6 +23,10 @@ import (
 
 // Localhost is the platform for launching thee apps locally
 type Localhost struct {
+	// Need mutex because build.go has a global variable that
+	// is used for multiple experiments
+	sync.Mutex
+
 	// Address of the logger (can be local or not)
 	logger string
 
@@ -69,6 +73,8 @@ type Localhost struct {
 
 // Configure various internal variables
 func (d *Localhost) Configure(pc *Config) {
+	d.Lock()
+	defer d.Unlock()
 	pwd, _ := os.Getwd()
 	d.runDir = pwd + "/build"
 	os.RemoveAll(d.runDir)
@@ -98,6 +104,8 @@ func (d *Localhost) Cleanup() error {
 
 // Deploy copies all files to the run-directory
 func (d *Localhost) Deploy(rc *RunConfig) error {
+	d.Lock()
+	defer d.Unlock()
 	if runtime.GOOS == "darwin" {
 		files, err := exec.Command("ulimit", "-n").Output()
 		if err != nil {
@@ -158,6 +166,8 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 // Start will execute one cothority-binary for each server
 // configured
 func (d *Localhost) Start(args ...string) error {
+	d.Lock()
+	defer d.Unlock()
 	if err := os.Chdir(d.runDir); err != nil {
 		return err
 	}
@@ -201,6 +211,8 @@ func (d *Localhost) Start(args ...string) error {
 
 // Wait for all processes to finish
 func (d *Localhost) Wait() error {
+	d.Lock()
+	defer d.Unlock()
 	log.Lvl3("Waiting for processes to finish")
 
 	var err error
