@@ -52,7 +52,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	// all non-registered paths) and correctly upgrade to a websocket and
 	// throw an error.
 	w.mux.HandleFunc("/", func(wr http.ResponseWriter, re *http.Request) {
-		log.Error("Got a request for an invalid path:", re.URL.Path)
+		log.Error("request from ", re.RemoteAddr, "for invalid path ", re.URL.Path)
 
 		u := websocket.Upgrader{
 			EnableCompression: true,
