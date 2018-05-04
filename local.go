@@ -189,6 +189,32 @@ func (l *LocalTest) panicClosed() {
 	}
 }
 
+// WaitDone loops until all protocolInstances are done or
+// the timeout is reached. If all protocolInstances are closed
+// within the timeout, nil is returned.
+func (l *LocalTest) WaitDone(t time.Duration) error {
+	var i int
+	for i = 0; i < 10; i++ {
+		ct := 0
+		for _, o := range l.Overlays {
+			o.instancesLock.Lock()
+			for _, pi := range o.protocolInstances {
+				log.Lvl3("Lingering protocol instance: %T", pi)
+				ct++
+			}
+			o.instancesLock.Unlock()
+		}
+		if ct == 0 {
+			break
+		}
+		time.Sleep(t / 10)
+	}
+	if i == 10 {
+		return errors.New("still have ProtocolInstanes after timeout")
+	}
+	return nil
+}
+
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
@@ -199,17 +225,9 @@ func (l *LocalTest) CloseAll() {
 		log.OutputToBuf()
 	}
 
-	if l.T != nil {
-		ct := 0
-		for _, o := range l.Overlays {
-			for _, pi := range o.protocolInstances {
-				l.T.Logf("Lingering protocol instance: %T", pi)
-				ct++
-			}
-		}
-		if ct > 0 {
-			l.T.Fatal("Protocols lingering.")
-		}
+	err := l.WaitDone(time.Second)
+	if l.T != nil && err != nil {
+		l.T.Fatal("Protocols lingering.")
 	}
 
 	l.ctx.Stop()
