@@ -270,7 +270,7 @@ runCoBG(){
       touch "$COLOG$nb.log.dead"
     ) &
   done
-  sleep .1
+  sleep 1
   for nb in "$@"; do
     dbgOut "checking conode-server #$nb"
     if [ -f "$COLOG$nb.log.dead" ]; then
