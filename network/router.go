@@ -168,7 +168,7 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 	}
 
 	// If sending to ourself, directly dispatch it
-	if e.Address == r.address {
+	if e.ID == r.ServerIdentity.ID {
 		log.Lvlf4("Sending to ourself (%s) msg: %+v", e, msg)
 		packet := &Envelope{
 			ServerIdentity: e,
