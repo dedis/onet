@@ -266,6 +266,37 @@ func TestServiceBackForthProtocol(t *testing.T) {
 	require.Equal(t, sr.Val, 10)
 }
 
+func TestPanicNewProto(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	name := "panicSvc"
+	_, err := RegisterNewService(name, func(c *Context) (Service, error) {
+		return &simpleService{
+			ctx:   c,
+			panic: true,
+		}, nil
+	})
+	log.ErrFatal(err)
+	defer ServiceFactory.Unregister(name)
+
+	// create servers
+	servers, el, _ := local.GenTree(4, false)
+
+	// create client
+	client := local.NewClient(name)
+
+	// create request
+	r := &SimpleRequest{
+		ServerIdentities: el,
+		Val:              10,
+	}
+	sr := &SimpleResponse{}
+	err = client.SendProtobuf(servers[0].ServerIdentity, r, sr)
+	require.Nil(t, err)
+	client.Close()
+}
+
 func TestServiceManager_Service(t *testing.T) {
 	local := NewLocalTest(tSuite)
 	defer local.CloseAll()
@@ -363,6 +394,7 @@ type BackForthProtocol struct {
 		*TreeNode
 		SimpleMessageBack
 	}
+	stop    chan struct{}
 	handler func(val int)
 }
 
@@ -376,6 +408,7 @@ func newBackForthProtocolRoot(tn *TreeNodeInstance, val int, handler func(int)) 
 func newBackForthProtocol(tn *TreeNodeInstance) (*BackForthProtocol, error) {
 	s := &BackForthProtocol{
 		TreeNodeInstance: tn,
+		stop:             make(chan struct{}),
 	}
 	err := s.RegisterChannel(&s.forthChan)
 	if err != nil {
@@ -399,6 +432,11 @@ func (sp *BackForthProtocol) Start() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (sp *BackForthProtocol) Shutdown() error {
+	close(sp.stop)
 	return nil
 }
 
@@ -432,6 +470,9 @@ func (sp *BackForthProtocol) dispatch() {
 				sp.Done()
 				return
 			}
+		case <-sp.stop:
+			sp.Done()
+			return
 		}
 	}
 }
@@ -449,7 +490,8 @@ type SimpleResponse struct {
 var SimpleResponseType = network.RegisterMessage(SimpleResponse{})
 
 type simpleService struct {
-	ctx *Context
+	ctx   *Context
+	panic bool
 }
 
 func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
@@ -471,14 +513,17 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 		return nil, errors.New("")
 	}
 	proto.Start()
-	resp, err := protobuf.Encode(&SimpleResponse{<-ret})
-	if err != nil {
-		return nil, errors.New("")
+	if s.panic {
+		close(ret)
 	}
-	return resp, nil
+	resp, err := protobuf.Encode(&SimpleResponse{<-ret})
+	return resp, err
 }
 
 func (s *simpleService) NewProtocol(tni *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
+	if s.panic {
+		panic("this is a panic in NewProtocol")
+	}
 	pi, err := newBackForthProtocol(tni)
 	return pi, err
 }

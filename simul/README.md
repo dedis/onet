@@ -6,7 +6,7 @@ different settings:
 - localhost - for up to 100 nodes
 - deterlab - for up to 50'000 nodes
 
-Refer to the simulation-examples in simul/manage/simulation and 
+Refer to the simulation-examples in simul/manage/simulation and
 https://github.com/dedis/cothority_template
 
 ## Runfile for simulations
@@ -16,23 +16,23 @@ to be run on localhost or deterlab.
 
 The .toml-files are split in two parts, separated by an empty line. The first
 part consists of one or more 'global' variables that describe all experiments.
- 
+
 The second part starts with a line of variables that have to be defined for each
 experiment, where each experiment makes up one line.
 
 ### Necessary variables
 
-- Simulation - what simulation to run
-- Hosts - how many hosts to instantiate
-- Servers - how many servers to use
+- `Simulation` - what simulation to run
+- `Hosts` - how many hosts to instantiate
+- `Servers` - how many servers to use
 
 ### onet.SimulationBFTree
 
 If you use the `onet.SimulationBFTree`, the following variables are also available:
 
-- BF - branching factor: how many children each node has
-- Depth - the depth of the tree in levels below the root-node
-- Rounds - for how many rounds the simulation should run
+- `BF` - branching factor: how many children each node has
+- `Depth` - the depth of the tree in levels below the root-node
+- `Rounds` - for how many rounds the simulation should run
 
 ### Simulations with long setup-times and multiple measurements
 
@@ -51,9 +51,9 @@ time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 Two timeout variables are available:
 
-- RunWait - how many seconds to wait for a run (one line of .toml-file) to finish
+- `RunWait` - how many seconds to wait for a run (one line of .toml-file) to finish
     (default: 180s)
-- ExperimentWait - how many seconds to wait for the while experiment to finish
+- `ExperimentWait` - how many seconds to wait for the while experiment to finish
     (default: RunWait * #Runs)
 
 ### PreScript
@@ -61,14 +61,26 @@ Two timeout variables are available:
 If you need to run a script before the simulation is started (like installing
 a missing library), you can define
 
-- PreScript - a shell-script that is run _before_ the simulation is started
+- `PreScript` - a shell-script that is run _before_ the simulation is started
   on each machine.
   It receives a single argument: the platform this simulation runs:
   [localhost,mininet,deterlab]
 
+### MiniNet specific
+
+Mininet has support for setting up delays and bandwidth for each simulation.
+You can use the following two variables:
+- `Delay`[ms] - the delay between two hosts - the round-trip delay will be
+the double of this
+- `Bandwidth`[MBps] - the bandwidth in both sending and receiving direction
+for each host
+
+You can put these variables either globally at the top of the .toml file or
+set them up for each line in the experiment.
+
 ### Experimental
 
-- SingleHost - which will reduce the tree to use only one host per server, and
+- `SingleHost` - which will reduce the tree to use only one host per server, and
 thus speeding up connections again
 
 ### Example

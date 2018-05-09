@@ -19,15 +19,19 @@ func GetConfigPath(appName string) string {
 		log.Panic("appName cannot be empty")
 	}
 
-	u, err := user.Current()
-	if err != nil {
-		log.Error("could not get your home-directory switching back to current dir.")
-		return getCurrentDir(appName)
+	home := os.Getenv("HOME")
+	if home == "" {
+		u, err := user.Current()
+		if err != nil {
+			log.Warn("Could not find the home directory. Switching back to current dir.")
+			return getCurrentDir(appName)
+		}
+		home = u.HomeDir
 	}
 
 	switch runtime.GOOS {
 	case "darwin":
-		return path.Join(u.HomeDir, "Library", "Application Support", appName)
+		return path.Join(home, "Library", "Application Support", appName)
 	case "windows":
 		return path.Join(os.Getenv("APPDATA"), appName)
 	case "linux", "freebsd":
@@ -35,7 +39,7 @@ func GetConfigPath(appName string) string {
 		if xdg != "" {
 			return path.Join(xdg, appName)
 		}
-		return path.Join(u.HomeDir, ".config", appName)
+		return path.Join(home, ".config", appName)
 	default:
 		return getCurrentDir(appName)
 	}
@@ -47,16 +51,11 @@ func GetConfigPath(appName string) string {
 func GetDataPath(appName string) string {
 	switch runtime.GOOS {
 	case "linux", "freebsd":
-		u, err := user.Current()
-		if err != nil {
-			log.Error("could not get your home-directory switching back to current dir.")
-			return path.Join(getCurrentDir(appName), "data")
-		}
 		xdg := os.Getenv("XDG_DATA_HOME")
 		if xdg != "" {
 			return path.Join(xdg, appName)
 		}
-		return path.Join(u.HomeDir, ".local", "share", appName)
+		return path.Join(os.Getenv("HOME"), ".local", "share", appName)
 	default:
 		p := GetConfigPath(appName)
 		return path.Join(p, "data")
