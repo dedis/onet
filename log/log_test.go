@@ -35,3 +35,20 @@ func containsStdErr(str string) bool {
 func containsStdOut(str string) bool {
 	return strings.Contains(GetStdOut(), str)
 }
+
+type countMsgs int
+
+func (c *countMsgs) Log(lvl int, msg string) {
+	*c++
+}
+
+func TestListener(t *testing.T) {
+	var c countMsgs
+	RegisterListener(&c)
+	SetDebugVisible(2)
+	Lvl1("testing")
+	Lvl5("testing")
+	if c != 2 {
+		t.Fatal("wrong count")
+	}
+}

@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -29,6 +30,7 @@ type WebSocket struct {
 	mux       *http.ServeMux
 	startstop chan bool
 	started   bool
+	TLSConfig *tls.Config // can only be modified before Start is called
 	sync.Mutex
 }
 
@@ -52,7 +54,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	// all non-registered paths) and correctly upgrade to a websocket and
 	// throw an error.
 	w.mux.HandleFunc("/", func(wr http.ResponseWriter, re *http.Request) {
-		log.Error("Got a request for an invalid path:", re.URL.Path)
+		log.Error("request from ", re.RemoteAddr, "for invalid path ", re.URL.Path)
 
 		u := websocket.Upgrader{
 			EnableCompression: true,
@@ -89,10 +91,16 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
+	w.server.Server.TLSConfig = w.TLSConfig
 	w.Unlock()
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
 	go func() {
-		w.server.ListenAndServe()
+		// Check if server is configured for TLS
+		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
+			w.server.ListenAndServeTLS("", "")
+		} else {
+			w.server.ListenAndServe()
+		}
 	}()
 	w.startstop <- true
 }
@@ -141,7 +149,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ok := false
 
 	defer func() {
-		log.Lvl4("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
+		log.Lvl2("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
 	}()
 
 	u := websocket.Upgrader{
@@ -207,7 +215,8 @@ type Client struct {
 	service     string
 	connections map[destination]*websocket.Conn
 	suite       network.Suite
-
+	// if not nil, use TLS
+	TLSClientConfig *tls.Config
 	// whether to keep the connection
 	keep bool
 	rx   uint64
@@ -255,10 +264,22 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		}
 		log.Lvlf4("Sending %x to %s/%s/%s", buf, url, c.service, path)
 		d := &websocket.Dialer{}
+		d.TLSClientConfig = c.TLSClientConfig
+
+		var wsProtocol string
+		var protocol string
+		if c.TLSClientConfig != nil {
+			wsProtocol = "wss"
+			protocol = "https"
+		} else {
+			wsProtocol = "ws"
+			protocol = "http"
+		}
+		serverURL := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
+		headers := http.Header{"Origin": []string{protocol + "://" + url}}
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
-			conn, _, err = d.Dial(fmt.Sprintf("ws://%s/%s/%s", url, c.service, path),
-				http.Header{"Origin": []string{"http://" + url}})
+			conn, _, err = d.Dial(serverURL, headers)
 			if err == nil {
 				break
 			}
@@ -280,6 +301,7 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		return nil, err
 	}
 	c.tx += uint64(len(buf))
+
 	_, rcv, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err

@@ -42,12 +42,25 @@ func TestServerIdentity(t *testing.T) {
 }
 
 func TestGlobalBind(t *testing.T) {
-	_, err := GlobalBind("127.0.0.1:2000")
+	gb, err := GlobalBind("127.0.0.1:2000")
 	if err != nil {
-		t.Error("Wrong with global bind")
+		t.Fatal("global bind err", err)
 	}
+	if gb != ":2000" {
+		t.Fatal("Wrong result", gb)
+	}
+
 	_, err = GlobalBind("127.0.0.12000")
 	if err == nil {
-		t.Error("Wrong with global bind")
+		t.Fatal("Missing error for global bind")
+	}
+
+	// IPv6
+	gb, err = GlobalBind("[::1]:2000")
+	if err != nil {
+		t.Fatal("global bind err", err)
+	}
+	if gb != ":2000" {
+		t.Fatal("Wrong result", gb)
 	}
 }

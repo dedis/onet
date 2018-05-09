@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"crypto/tls"
 	"errors"
 	"io/ioutil"
 	"net"
@@ -29,6 +30,10 @@ type LocalTest struct {
 	Nodes []*TreeNodeInstance
 	// are we running tcp or local layer
 	mode string
+	// TLS certificate if we want TLS for websocket
+	webSocketTLSCertificate []byte
+	// TLS certificate key if we want TLS for websocket
+	webSocketTLSCertificateKey []byte
 	// the context for the local connections
 	// it enables to have multiple local test running simultaneously
 	ctx   *network.LocalManager
@@ -73,6 +78,17 @@ func NewLocalTest(s network.Suite) *LocalTest {
 func NewTCPTest(s network.Suite) *LocalTest {
 	t := NewLocalTest(s)
 	t.mode = TCP
+	return t
+}
+
+// NewTCPTestWithTLS returns a LocalTest but using a TCPRouter as the
+// underlying communication layer and containing information for TLS setup.
+func NewTCPTestWithTLS(s network.Suite, wsTLSCertificate []byte,
+	wsTLSCertificateKey []byte) *LocalTest {
+	t := NewLocalTest(s)
+	t.mode = TCP
+	t.webSocketTLSCertificate = wsTLSCertificate
+	t.webSocketTLSCertificateKey = wsTLSCertificateKey
 	return t
 }
 
@@ -173,26 +189,45 @@ func (l *LocalTest) panicClosed() {
 	}
 }
 
+// WaitDone loops until all protocolInstances are done or
+// the timeout is reached. If all protocolInstances are closed
+// within the timeout, nil is returned.
+func (l *LocalTest) WaitDone(t time.Duration) error {
+	var i int
+	for i = 0; i < 10; i++ {
+		ct := 0
+		for _, o := range l.Overlays {
+			o.instancesLock.Lock()
+			for _, pi := range o.protocolInstances {
+				log.Lvl3("Lingering protocol instance: %T", pi)
+				ct++
+			}
+			o.instancesLock.Unlock()
+		}
+		if ct == 0 {
+			break
+		}
+		time.Sleep(t / 10)
+	}
+	if i == 10 {
+		return errors.New("still have ProtocolInstanes after timeout")
+	}
+	return nil
+}
+
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
+	InformAllServersStopped()
 	// If the debug-level is 0, we copy all errors to a buffer that
 	// will be discarded at the end.
 	if log.DebugVisible() == 0 {
 		log.OutputToBuf()
 	}
 
-	if l.T != nil {
-		ct := 0
-		for _, o := range l.Overlays {
-			for _, pi := range o.protocolInstances {
-				l.T.Logf("Lingering protocol instance: %T", pi)
-				ct++
-			}
-		}
-		if ct > 0 {
-			l.T.Fatal("Protocols lingering.")
-		}
+	err := l.WaitDone(time.Second)
+	if l.T != nil && err != nil {
+		l.T.Fatal("Protocols lingering.")
 	}
 
 	l.ctx.Stop()
@@ -369,12 +404,7 @@ func newTCPServer(s network.Suite, port int, path string) *Server {
 	id.Address = network.NewAddress(id.Address.ConnType(), "127.0.0.1:"+id.Address.Port())
 	router := network.NewRouter(id, tcpHost)
 	router.UnauthOk = true
-	h := newServer(s, path, router, priv)
-	go h.Start()
-	for !h.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
-	return h
+	return newServer(s, path, router, priv)
 }
 
 // NewLocalServer returns a new server using a LocalRouter (channels) to communicate.
@@ -431,13 +461,28 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 	switch l.mode {
 	case TCP:
 		server = l.newTCPServer(s)
+		// Set TLS certificate if any configuration available
+		if len(l.webSocketTLSCertificate) > 0 && len(l.webSocketTLSCertificateKey) > 0 {
+			cert, err := tls.X509KeyPair(l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
+			if err != nil {
+				panic(err)
+			}
+			server.WebSocket.Lock()
+			server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			server.WebSocket.Unlock()
+		}
+		go server.Start()
+		for !server.Listening() {
+			time.Sleep(10 * time.Millisecond)
+		}
 	default:
 		server = l.NewLocalServer(s, port)
 	}
 	return server
 }
 
-// NewTCPServer returns a new TCP Server attached to this LocalTest.
+// NewTCPServer returns a new TCP Server attached to this LocalTest, configured
+// for TLS if possible (if anything in LocalTest.webSocketTLSCertificate/Key).
 func (l *LocalTest) newTCPServer(s network.Suite) *Server {
 	l.panicClosed()
 	server := newTCPServer(s, 0, l.path)

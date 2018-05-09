@@ -3,6 +3,7 @@ package onet
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"strconv"
 
@@ -24,6 +25,11 @@ func TestStatusHost(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
+	go c.Start()
+	for !c.Listening() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	defer c.Close()
 	stats := c.GetStatus()
 	a := ServiceFactory.RegisteredServiceNames()

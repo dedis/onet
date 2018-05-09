@@ -15,6 +15,7 @@ import (
 	"gopkg.in/dedis/onet.v2/cfgpath"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
+	"rsc.io/goversion/version"
 )
 
 // Server connects the Router, the Overlay, and the Services together. It sets
@@ -34,7 +35,7 @@ type Server struct {
 	// instance of it
 	protocols *protocolStorage
 	// webservice
-	websocket *WebSocket
+	WebSocket *WebSocket
 	// when this node has been started
 	started time.Time
 
@@ -70,7 +71,7 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		suite:                s,
 	}
 	c.overlay = NewOverlay(c)
-	c.websocket = NewWebSocket(r.ServerIdentity)
+	c.WebSocket = NewWebSocket(r.ServerIdentity)
 	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
 	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
 	for name, inst := range protocols.instantiators {
@@ -80,10 +81,19 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 	return c
 }
 
-// NewServerTCP returns a new Server out of a private-key and its related public
-// key within the ServerIdentity. The server will use a default TcpRouter as Router.
+// NewServerTCP returns a new Server out of a private-key and its related
+// public key within the ServerIdentity. The server will use a default
+// TcpRouter as Router.
 func NewServerTCP(e *network.ServerIdentity, suite network.Suite) *Server {
-	r, err := network.NewTCPRouter(e, suite)
+	return NewServerTCPWithListenAddr(e, suite, "")
+}
+
+// NewServerTCPWithListenAddr returns a new Server out of a private-key and
+// its related public key within the ServerIdentity. The server will use a
+// TcpRouter listening on the given address as Router.
+func NewServerTCPWithListenAddr(e *network.ServerIdentity, suite network.Suite,
+	listenAddr string) *Server {
+	r, err := network.NewTCPRouterWithListenAddr(e, suite, listenAddr)
 	log.ErrFatal(err)
 	return newServer(suite, "", r, e.GetPrivate())
 }
@@ -95,29 +105,55 @@ func (c *Server) Suite() network.Suite {
 	return c.suite
 }
 
+var gover version.Version
+var goverOnce sync.Once
+var goverOk = false
+
 // GetStatus is a function that returns the status report of the server.
 func (c *Server) GetStatus() *Status {
+	v := Version
+	if gitTag != "" {
+		v += "-"
+		v += gitTag
+	}
+
 	a := c.serviceManager.availableServices()
 	sort.Strings(a)
-	return &Status{Field: map[string]string{
+
+	st := &Status{Field: map[string]string{
 		"Available_Services": strings.Join(a, ","),
 		"TX_bytes":           strconv.FormatUint(c.Router.Tx(), 10),
 		"RX_bytes":           strconv.FormatUint(c.Router.Rx(), 10),
 		"Uptime":             time.Now().Sub(c.started).String(),
 		"System": fmt.Sprintf("%s/%s/%s", runtime.GOOS, runtime.GOARCH,
 			runtime.Version()),
-		"Version":     Version,
+		"Version":     v,
 		"Host":        c.ServerIdentity.Address.Host(),
 		"Port":        c.ServerIdentity.Address.Port(),
 		"Description": c.ServerIdentity.Description,
 		"ConnType":    string(c.ServerIdentity.Address.ConnType()),
 	}}
+
+	goverOnce.Do(func() {
+		v, err := version.ReadExe(os.Args[0])
+		if err == nil {
+			gover = v
+			goverOk = true
+		}
+	})
+
+	if goverOk {
+		st.Field["GoRelease"] = gover.Release
+		st.Field["GoModuleInfo"] = gover.ModuleInfo
+	}
+
+	return st
 }
 
 // Close closes the overlay and the Router
 func (c *Server) Close() error {
 	c.overlay.stop()
-	c.websocket.stop()
+	c.WebSocket.stop()
 	c.overlay.Close()
 	err := c.serviceManager.closeDatabase()
 	if err != nil {
@@ -159,13 +195,14 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 	return fn(tni)
 }
 
-// Start makes the router and the websocket listen on their respective
-// ports.
+// Start makes the router and the WebSocket listen on their respective
+// ports. It blocks until the server is stopped.
 func (c *Server) Start() {
+	InformServerStarted()
 	c.started = time.Now()
 	log.Lvlf1("Starting server at %s on address %s with public key %s",
 		c.started.Format("2006-01-02 15:04:05"),
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
-	c.websocket.start()
+	c.WebSocket.start()
 }

@@ -18,6 +18,11 @@ import (
 // sent.
 var readTimeout = 1 * time.Minute
 
+// Global lock for 'readTimeout' (because also used in 'tcp_test.go')
+// Using a 'RWMutex' to be as efficient as possible, because it will be used
+// quite a lot in 'Receive()'.
+var readTimeoutLock = sync.RWMutex{}
+
 // MaxPacketSize limits the amount of memory that is allocated before a packet
 // is checked and thrown away if it's not legit. If you need more than 10MB
 // packets, increase this value.
@@ -31,7 +36,14 @@ func NewTCPAddress(addr string) Address {
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
 func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
-	h, err := NewTCPHost(sid, suite)
+	return NewTCPRouterWithListenAddr(sid, suite, "")
+}
+
+// NewTCPRouterWithListenAddr returns a new Router using TCPHost with the
+// given listen address as the underlying Host.
+func NewTCPRouterWithListenAddr(sid *ServerIdentity, suite Suite,
+	listenAddr string) (*Router, error) {
+	h, err := NewTCPHostWithListenAddr(sid, suite, listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +118,9 @@ func (c *TCPConn) Receive() (env *Envelope, e error) {
 func (c *TCPConn) receiveRaw() ([]byte, error) {
 	c.receiveMutex.Lock()
 	defer c.receiveMutex.Unlock()
+	readTimeoutLock.RLock()
 	c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+	readTimeoutLock.RUnlock()
 	// First read the size
 	var total Size
 	if err := binary.Read(c.conn, globalOrder, &total); err != nil {
@@ -122,7 +136,9 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 	var buffer bytes.Buffer
 	for read < total {
 		// Read the size of the next packet.
+		readTimeoutLock.RLock()
 		c.conn.SetReadDeadline(time.Now().Add(readTimeout))
+		readTimeoutLock.RUnlock()
 		n, err := c.conn.Read(b)
 		// Quit if there is an error.
 		if err != nil {
@@ -238,7 +254,8 @@ func handleError(err error) error {
 	return ErrUnknown
 }
 
-// TCPListener implements the Host-interface using Tcp as a communication channel.
+// TCPListener implements the Host-interface using Tcp as a communication
+// channel.
 type TCPListener struct {
 	// the underlying golang/net listener.
 	listener net.Listener
@@ -265,13 +282,25 @@ type TCPListener struct {
 	suite Suite
 }
 
-// NewTCPListener returns a TCPListener. This function binds to the given
-// address.
+// NewTCPListener returns a TCPListener. This function binds globally using
+// the port of 'addr'.
 // It returns the listener and an error if one occurred during
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
 func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
+	return NewTCPListenerWithListenAddr(addr, s, "")
+}
+
+// NewTCPListenerWithListenAddr returns a TCPListener. This function binds to the
+// given 'listenAddr'. If it is empty, the function binds globally using
+// the port of 'addr'.
+// It returns the listener and an error if one occurred during
+// the binding.
+// A subsequent call to Address() gives the actual listening
+// address which is different if you gave it a ":0"-address.
+func NewTCPListenerWithListenAddr(addr Address,
+	s Suite, listenAddr string) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
 		return nil, errors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
@@ -281,9 +310,12 @@ func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 		quitListener: make(chan bool),
 		suite:        s,
 	}
-	global, _ := GlobalBind(addr.NetworkAddress())
+	listenOn, err := getListenAddress(addr, listenAddr)
+	if err != nil {
+		return nil, err
+	}
 	for i := 0; i < MaxRetryConnect; i++ {
-		ln, err := net.Listen("tcp", global)
+		ln, err := net.Listen("tcp", listenOn)
 		if err == nil {
 			t.listener = ln
 			break
@@ -385,6 +417,43 @@ func (t *TCPListener) Listening() bool {
 	return t.listening
 }
 
+// getListenAddress returns the address the listener should listen
+// on given the server's address (addr) and the address it was told to listen
+// on (listenAddr), which could be empty.
+// Rules:
+// 1. If there is no listenAddr, bind globally with addr.
+// 2. If there is only an IP in listenAddr, take the port from addr.
+// 3. If there is an IP:Port in listenAddr, take only listenAddr.
+// Otherwise return an error.
+func getListenAddress(addr Address, listenAddr string) (string, error) {
+	// If no `listenAddr`, bind globally.
+	if listenAddr == "" {
+		return GlobalBind(addr.NetworkAddress())
+	}
+	_, port, err := net.SplitHostPort(addr.NetworkAddress())
+	if err != nil {
+		return "", err
+	}
+
+	// If 'listenAddr' only contains the host, combine it with the port
+	// of 'addr'.
+	splitted := strings.Split(listenAddr, ":")
+	if len(splitted) == 1 && port != "" {
+		return splitted[0] + ":" + port, nil
+	}
+
+	// If host and port in `listenAddr`, choose this one.
+	hostListen, portListen, err := net.SplitHostPort(listenAddr)
+	if err != nil {
+		return "", err
+	}
+	if hostListen != "" && portListen != "" {
+		return listenAddr, nil
+	}
+
+	return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s)", addr.NetworkAddress(), listenAddr)
+}
+
 // TCPHost implements the Host interface using TCP connections.
 type TCPHost struct {
 	suite Suite
@@ -394,15 +463,22 @@ type TCPHost struct {
 
 // NewTCPHost returns a new Host using TCP connection based type.
 func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
+	return NewTCPHostWithListenAddr(sid, s, "")
+}
+
+// NewTCPHostWithListenAddr returns a new Host using TCP connection based type
+// listening on the given address.
+func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
+	listenAddr string) (*TCPHost, error) {
 	h := &TCPHost{
 		suite: s,
 		sid:   sid,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListener(sid, s)
+		h.TCPListener, err = NewTLSListenerWithListenAddr(sid, s, listenAddr)
 	} else {
-		h.TCPListener, err = NewTCPListener(sid.Address, s)
+		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, s, listenAddr)
 	}
 	return h, err
 }

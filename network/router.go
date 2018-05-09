@@ -70,6 +70,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
+	log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
 	return r
 }
 
@@ -164,6 +165,27 @@ func (r *Router) Stop() error {
 func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 	if msg == nil {
 		return 0, errors.New("Can't send nil-packet")
+	}
+
+	// If sending to ourself, directly dispatch it
+	if e.ID.Equal(r.ServerIdentity.ID) {
+		log.Lvlf4("Sending to ourself (%s) msg: %+v", e, msg)
+		packet := &Envelope{
+			ServerIdentity: e,
+			MsgType:        MessageType(msg),
+			Msg:            msg,
+		}
+		if err := r.Dispatch(packet); err != nil {
+			return 0, fmt.Errorf("Error dispatching: %s", err)
+		}
+		// Marshal the message to get its length
+		b, err := Marshal(msg)
+		if err != nil {
+			return 0, err
+		}
+		log.Lvl5("Message sent")
+
+		return uint64(len(b)), nil
 	}
 
 	var totSentLen uint64
@@ -443,7 +465,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			}
 		}
 	}
-
+	log.Lvlf3("%s: Identity received si=%x from %s", r.address, dst.Public, dst.Address)
 	return dst, nil
 }
 

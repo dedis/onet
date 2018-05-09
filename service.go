@@ -1,13 +1,13 @@
 package onet
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
-
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
@@ -227,6 +227,8 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		Dispatcher: network.NewRoutineDispatcher(),
 	}
 
+	s.updateDbFileName()
+
 	db, err := openDb(s.dbFileName())
 	if err != nil {
 		log.Panic("Failed to create new database: " + err.Error())
@@ -250,7 +252,7 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		}
 		log.Lvl3("Started Service", name)
 		services[id] = s
-		svr.websocket.registerService(name, s)
+		svr.WebSocket.registerService(name, s)
 	}
 	log.Lvl3(svr.Address(), "instantiated all services")
 	svr.statusReporterStruct.RegisterStatusReporter("Db", s)
@@ -275,9 +277,28 @@ func createBucketForService(db *bolt.DB, bucketName string) error {
 	})
 }
 
-func (s *serviceManager) dbFileName() string {
+func (s *serviceManager) dbFileNameOld() string {
 	pub, _ := s.server.ServerIdentity.Public.MarshalBinary()
 	return path.Join(s.dbPath, fmt.Sprintf("%x.db", pub))
+}
+
+func (s *serviceManager) dbFileName() string {
+	pub, _ := s.server.ServerIdentity.Public.MarshalBinary()
+	h := sha256.New()
+	h.Write(pub)
+	return path.Join(s.dbPath, fmt.Sprintf("%x.db", h.Sum(nil)))
+}
+
+// updateDbFileName checks if the old database file name exists, if it does, it
+// will rename it to the new file name.
+func (s *serviceManager) updateDbFileName() {
+	if _, err := os.Stat(s.dbFileNameOld()); err == nil {
+		// we assume the new name does not exist
+		log.Lvl2("Renaming database from", s.dbFileNameOld(), "to", s.dbFileName())
+		if err := os.Rename(s.dbFileNameOld(), s.dbFileName()); err != nil {
+			log.Error(err)
+		}
+	}
 }
 
 // Process implements the Processor interface: service manager will relay
@@ -390,16 +411,25 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the PI. If the corresponding service returns (nil,nil), then onet handles
 // the creation of the PI. Otherwise the service is responsible for setting up
 // the PI.
-func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (ProtocolInstance, error) {
+func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
 	si, ok := s.serviceByID(tni.Token().ServiceID)
 	defaultHandle := func() (ProtocolInstance, error) { return s.server.protocolInstantiate(tni.Token().ProtoID, tni) }
 	if !ok {
 		// let onet handle it
 		return defaultHandle()
 	}
-	pi, err := si.NewProtocol(tni, config)
+
+	defer func() {
+		if r := recover(); r != nil {
+			pi = nil
+			err = fmt.Errorf("could not create new protocol: %v", r)
+			return
+		}
+	}()
+
+	pi, err = si.NewProtocol(tni, config)
 	if pi == nil && err == nil {
 		return defaultHandle()
 	}
-	return pi, err
+	return
 }
