@@ -96,6 +96,7 @@ func TestMiniNet_parseServers(t *testing.T) {
 	err = m.parseServers()
 	log.ErrFatal(err)
 	assert.Equal(t, 2, len(m.HostIPs))
+	log.ErrFatal(os.Remove(path.Join(filepath.Dir(tmpfile.Name()), "server_list")))
 }
 
 func makeRunConfig(servers, hosts int) *RunConfig {
