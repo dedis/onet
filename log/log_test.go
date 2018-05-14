@@ -1,10 +1,14 @@
 package log
 
 import (
+	//"io/ioutil"
+	"log/syslog"
+	//"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContains(t *testing.T) {
@@ -51,4 +55,41 @@ func TestListener(t *testing.T) {
 	if c != 2 {
 		t.Fatal("wrong count")
 	}
+}
+
+func TestFileLogger(t *testing.T) {
+	tempFile, err := ioutil.TempFile("", "test_file_logger.txt")
+	require.Nil(t, err)
+	path := "/Users/valentin/go/src/github.com/dedis/onet/log/test_val.log"
+	require.Nil(t, NewFileLogger(path))
+	/*
+	defer func() {
+		err := os.Remove(path)
+		require.Nil(t, err)
+	}()
+	*/
+
+	SetDebugVisible(2)
+	Lvl1("testing1")
+	SetShowTime(true)
+	Lvl5("testing2")
+	out, err := ioutil.ReadFile(path)
+	require.Nil(t, err)
+	require.Equal(t, "testing1\ntesting2\n", string(out))
+}
+
+func TestSyslogLogger(t *testing.T) {
+	writer, err := NewSyslogLogger(syslog.LOG_NOTICE, "")
+	require.Nil(t, err)
+	writer.Close()
+	/*
+	defer func() {
+		err := writer.Close()
+		require.Nil(t, err)
+	}()
+	*/
+
+	SetDebugVisible(2)
+	Lvl1("testing1")
+	Lvl5("testing2")
 }

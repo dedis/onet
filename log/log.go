@@ -44,8 +44,11 @@ package log
 
 import (
 	"bytes"
+	"fmt"
 	"io"
+	"log/syslog"
 	"os"
+	"time"
 )
 
 // For testing we can change the output-writer
@@ -96,4 +99,62 @@ func GetStdErr() string {
 	ret := bufStdErr.String()
 	bufStdErr.Reset()
 	return ret
+}
+
+
+type fileLogger struct {
+	path string
+}
+
+
+func (fl *fileLogger) Log(level int, msg string) {
+	// The file should exist (created when calling 'NewFileLogger')
+	f, err := os.OpenFile(fl.path, os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+	    panic(err)
+	}
+
+	defer f.Close()
+
+	str := msg + "\n"
+	if showTime {
+		ti := time.Now()
+		str = fmt.Sprintf("[%s.%09d] %s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)
+	}
+
+	if _, err = f.WriteString(str); err != nil {
+	    panic(err)
+	}
+}
+
+func NewFileLogger(path string) error {
+	// Override file if it already exists.
+	_, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	fl := &fileLogger{path: path}
+	RegisterListener(fl)
+	return nil
+}
+
+type syslogLogger struct {
+	writer *syslog.Writer
+}
+
+func (sl *syslogLogger) Log(level int, msg string) {
+	_, err := sl.writer.Write([]byte(msg))
+	if err != nil {
+		panic(err)
+	}
+}
+
+func NewSyslogLogger(priority syslog.Priority, tag string) (*syslog.Writer, error) {
+	writer, err := syslog.New(priority, tag)
+	if err != nil {
+		return nil, err
+	}
+	sl := &syslogLogger{writer: writer}
+	RegisterListener(sl)
+	return writer, nil
 }
