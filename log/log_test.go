@@ -1,9 +1,8 @@
 package log
 
 import (
-	//"io/ioutil"
-	"log/syslog"
-	//"os"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -46,13 +45,38 @@ func (c *countMsgs) Log(lvl int, msg string) {
 	*c++
 }
 
-func TestListener(t *testing.T) {
+func (c *countMsgs) Close() {}
+
+func TestRegisterListener(t *testing.T) {
 	var c countMsgs
-	RegisterListener(&c)
-	SetDebugVisible(2)
+	lInfo := &ListenerInfo{
+		lvl: 3,
+		useColors: false,
+		showTime: false,
+		Listener: &c,
+	}
+	key := RegisterListener(lInfo)
+	defer UnregisterListener(key)
 	Lvl1("testing")
 	Lvl5("testing")
-	if c != 2 {
+	if c != 1 {
+		t.Fatal("wrong count")
+	}
+}
+
+func TestUnregisterListener(t *testing.T) {
+	var c countMsgs
+	lInfo := &ListenerInfo{
+		lvl: 3,
+		useColors: false,
+		showTime: false,
+		Listener: &c,
+	}
+	key := RegisterListener(lInfo)
+	Lvl1("testing")
+	UnregisterListener(key)
+	Lvl1("testing")
+	if c != 1 {
 		t.Fatal("wrong count")
 	}
 }
@@ -60,36 +84,22 @@ func TestListener(t *testing.T) {
 func TestFileLogger(t *testing.T) {
 	tempFile, err := ioutil.TempFile("", "test_file_logger.txt")
 	require.Nil(t, err)
-	path := "/Users/valentin/go/src/github.com/dedis/onet/log/test_val.log"
-	require.Nil(t, NewFileLogger(path))
-	/*
+	path := tempFile.Name()
+	lInfo := &ListenerInfo{
+		lvl: 2,
+		showTime: false,
+		useColors: false,
+	}
+	key, err := NewFileLogger(path, lInfo)
+	require.Nil(t, err)
 	defer func() {
+		UnregisterListener(key)
 		err := os.Remove(path)
 		require.Nil(t, err)
 	}()
-	*/
 
-	SetDebugVisible(2)
 	Lvl1("testing1")
-	SetShowTime(true)
-	Lvl5("testing2")
 	out, err := ioutil.ReadFile(path)
 	require.Nil(t, err)
-	require.Equal(t, "testing1\ntesting2\n", string(out))
-}
-
-func TestSyslogLogger(t *testing.T) {
-	writer, err := NewSyslogLogger(syslog.LOG_NOTICE, "")
-	require.Nil(t, err)
-	writer.Close()
-	/*
-	defer func() {
-		err := writer.Close()
-		require.Nil(t, err)
-	}()
-	*/
-
-	SetDebugVisible(2)
-	Lvl1("testing1")
-	Lvl5("testing2")
+	require.Equal(t, "1 : (                      log.TestFileLogger:   0) - testing1\n", string(out))
 }

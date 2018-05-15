@@ -76,104 +76,118 @@ var debugMut sync.RWMutex
 
 var regexpPaths, _ = regexp.Compile(".*/")
 
+type stdListener struct {}
+
+func (sl *stdListener) Log(level int, msg string) {
+	if level < lvlInfo {
+		fmt.Fprint(stdErr, msg)
+	} else {
+		fmt.Fprint(stdOut, msg)
+	}
+}
+
+func (sl *stdListener) Close() {}
+
 func init() {
+	initStdListener()
 	ParseEnv()
+}
+
+func initStdListener() {
+	lInfo := &ListenerInfo{
+		lvl: 1,
+		useColors: false,
+		showTime: false,
+		Listener: &stdListener{},
+	}
+	RegisterListener(lInfo)
 }
 
 func lvl(lvl, skip int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-
-	// Do not short-cut formatting if there are listeners, they need a copy.
-	if len(listeners) == 0 && lvl > debugVisible {
-		return
-	}
-	pc, _, line, _ := runtime.Caller(skip)
-	name := regexpPaths.ReplaceAllString(runtime.FuncForPC(pc).Name(), "")
-	lineStr := fmt.Sprintf("%d", line)
-
-	// For the testing-framework, we check the resulting string. So as not to
-	// have the tests fail every time somebody moves the functions, we put
-	// the line-# to 0
-	if !outputLines {
-		line = 0
-	}
-
-	fmtstr := ""
-	if useColors {
-		// Only adjust the name and line padding if we also have color.
-		if len(name) > NamePadding && NamePadding > 0 {
-			NamePadding = len(name)
-		}
-		if len(lineStr) > LinePadding && LinePadding > 0 {
-			LinePadding = len(name)
-		}
-	}
-	fmtstr = fmt.Sprintf("%%%ds: %%%dd", NamePadding, LinePadding)
-	caller := fmt.Sprintf(fmtstr, name, line)
-	if StaticMsg != "" {
-		caller += "@" + StaticMsg
-	}
-	message := fmt.Sprintln(args...)
-	bright := lvl < 0
-	lvlAbs := lvl
-	if bright {
-		lvlAbs *= -1
-	}
-
 	for _, l := range listeners {
-		// Send the listeners lines with no newlines on them.
-		l.Log(lvlAbs, message[0:len(message)-1])
-	}
-	// Now that the listeners got their copy, check level.
-	if lvl > debugVisible {
-		return
-	}
+		if lvl > l.lvl {
+			continue
+		}
 
-	lvlStr := strconv.Itoa(lvlAbs)
-	if lvl < 0 {
-		lvlStr += "!"
-	}
-	switch lvl {
-	case lvlPrint:
-		fg(ct.White, true)
-		lvlStr = "I"
-	case lvlInfo:
-		fg(ct.White, true)
-		lvlStr = "I"
-	case lvlWarning:
-		fg(ct.Green, true)
-		lvlStr = "W"
-	case lvlError:
-		fg(ct.Red, false)
-		lvlStr = "E"
-	case lvlFatal:
-		fg(ct.Red, true)
-		lvlStr = "F"
-	case lvlPanic:
-		fg(ct.Red, true)
-		lvlStr = "P"
-	default:
-		if lvl != 0 {
-			if lvlAbs <= 5 {
-				colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
-				fg(colors[lvlAbs-1], bright)
+		pc, _, line, _ := runtime.Caller(skip)
+		name := regexpPaths.ReplaceAllString(runtime.FuncForPC(pc).Name(), "")
+		lineStr := fmt.Sprintf("%d", line)
+
+		// For the testing-framework, we check the resulting string. So as not to
+		// have the tests fail every time somebody moves the functions, we put
+		// the line-# to 0
+		if !outputLines {
+			line = 0
+		}
+
+		fmtstr := ""
+		if l.useColors {
+			// Only adjust the name and line padding if we also have color.
+			if len(name) > NamePadding && NamePadding > 0 {
+				NamePadding = len(name)
+			}
+			if len(lineStr) > LinePadding && LinePadding > 0 {
+				LinePadding = len(name)
 			}
 		}
-	}
-	str := fmt.Sprintf(": (%s) - %s", caller, message)
-	if showTime {
-		ti := time.Now()
-		str = fmt.Sprintf("%s.%09d%s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)
-	}
-	str = fmt.Sprintf("%-2s%s", lvlStr, str)
-	if lvl < lvlInfo {
-		fmt.Fprint(stdErr, str)
-	} else {
-		fmt.Fprint(stdOut, str)
-	}
-	if useColors {
-		ct.ResetColor()
+		fmtstr = fmt.Sprintf("%%%ds: %%%dd", NamePadding, LinePadding)
+		caller := fmt.Sprintf(fmtstr, name, line)
+		if StaticMsg != "" {
+			caller += "@" + StaticMsg
+		}
+		message := fmt.Sprintln(args...)
+		bright := lvl < 0
+		lvlAbs := lvl
+		if bright {
+			lvlAbs *= -1
+		}
+
+		lvlStr := strconv.Itoa(lvlAbs)
+		if lvl < 0 {
+			lvlStr += "!"
+		}
+		switch lvl {
+		case lvlPrint:
+			fg(ct.White, true)
+			lvlStr = "I"
+		case lvlInfo:
+			fg(ct.White, true)
+			lvlStr = "I"
+		case lvlWarning:
+			fg(ct.Green, true)
+			lvlStr = "W"
+		case lvlError:
+			fg(ct.Red, false)
+			lvlStr = "E"
+		case lvlFatal:
+			fg(ct.Red, true)
+			lvlStr = "F"
+		case lvlPanic:
+			fg(ct.Red, true)
+			lvlStr = "P"
+		default:
+			if lvl != 0 {
+				if lvlAbs <= 5 {
+					colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
+					fg(colors[lvlAbs-1], bright)
+				}
+			}
+		}
+		str := fmt.Sprintf(": (%s) - %s", caller, message)
+		if l.showTime {
+			ti := time.Now()
+			str = fmt.Sprintf("%s.%09d%s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)
+		}
+		str = fmt.Sprintf("%-2s%s", lvlStr, str)
+
+		// Send the listeners lines with no newlines on them.
+		l.Log(lvl, str)
+
+		if useColors {
+			ct.ResetColor()
+		}		
 	}
 }
 
@@ -279,6 +293,7 @@ func LLvlf4(f string, args ...interface{}) { lvlf(-4, f, args...) }
 // LLvlf5 *always* prints
 func LLvlf5(f string, args ...interface{}) { lvlf(-5, f, args...) }
 
+/*
 // TestOutput sets the DebugVisible to 0 if 'show'
 // is false, else it will set DebugVisible to 'level'
 //
@@ -336,6 +351,66 @@ func UseColors() bool {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	return useColors
+}
+*/
+
+// TestOutput sets the DebugVisible to 0 if 'show'
+// is false, else it will set DebugVisible to 'level'
+//
+// Usage: TestOutput( test.Verbose(), 2 )
+func TestOutput(show bool, level int) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+
+	if show {
+		listeners[0].lvl = level
+	} else {
+		listeners[0].lvl = 0
+	}
+}
+
+// SetDebugVisible set the global debug output level in a go-rountine-safe way
+func SetDebugVisible(lvl int) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	listeners[0].lvl = lvl
+}
+
+// DebugVisible returns the actual visible debug-level
+func DebugVisible() int {
+	debugMut.RLock()
+	defer debugMut.RUnlock()
+	return listeners[0].lvl
+}
+
+// SetShowTime allows for turning on the flag that adds the current
+// time to the debug-output
+func SetShowTime(show bool) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	listeners[0].showTime = show
+}
+
+// ShowTime returns the current setting for showing the time in the debug
+// output
+func ShowTime() bool {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	return listeners[0].showTime
+}
+
+// SetUseColors can turn off or turn on the use of colors in the debug-output
+func SetUseColors(show bool) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	listeners[0].useColors = show
+}
+
+// UseColors returns the actual setting of the color-usage in log
+func UseColors() bool {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	return listeners[0].useColors
 }
 
 // MainTest can be called from TestMain. It will parse the flags and
