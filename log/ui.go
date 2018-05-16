@@ -6,48 +6,6 @@ import (
 	"strconv"
 )
 
-
-type ListenerInfo struct {
-	lvl int
-	useColors bool
-	showTime bool
-	Listener
-}
-
-// Listener is the interface that specifies how log listeners
-// will receive messages.
-type Listener interface {
-	Log(level int, msg string)
-	Close()
-}
-
-var (
-	// concurrent access is protected by debugMut
-	listeners map[int]*ListenerInfo = make(map[int]*ListenerInfo)
-	listenersCounter int
-)
-
-// RegisterListener will register a callback that will receive
-// a copy of every message, fully formatted but without a trailing
-// newline.
-func RegisterListener(l *ListenerInfo) int {
-	debugMut.Lock()
-	defer debugMut.Unlock()
-	key := listenersCounter
-	listeners[key] = l
-	listenersCounter += 1
-	return key
-}
-
-func UnregisterListener(key int) {
-	debugMut.Lock()
-	defer debugMut.Unlock()
-	if l, ok := listeners[key]; ok {
-		l.Close()
-		delete(listeners, key)
-	}
-}
-
 func lvlUI(l int, args ...interface{}) {
 	if DebugVisible() > 0 {
 		lvl(l, 3, args...)
@@ -139,7 +97,7 @@ func ErrFatalf(err error, f string, args ...interface{}) {
 func print(lvl int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	switch listeners[0].lvl {
+	switch loggers[0].debugLvl {
 	case FormatPython:
 		prefix := []string{"[-]", "[!]", "[X]", "[Q]", "[+]", ""}
 		ind := lvl - lvlWarning
