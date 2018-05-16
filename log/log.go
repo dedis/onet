@@ -85,7 +85,7 @@ type Logger interface {
 
 var (
 	// concurrent access is protected by debugMut
-	loggers        map[int]*LoggerInfo = make(map[int]*LoggerInfo)
+	loggers        = make(map[int]*LoggerInfo)
 	loggersCounter int
 )
 
