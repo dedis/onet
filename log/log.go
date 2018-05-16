@@ -140,7 +140,7 @@ func RegisterLogger(l *LoggerInfo) int {
 	defer debugMut.Unlock()
 	key := loggersCounter
 	loggers[key] = l
-	loggersCounter += 1
+	loggersCounter++
 	return key
 }
 

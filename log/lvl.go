@@ -89,7 +89,7 @@ func initStdLogger() {
 	}
 	stdKey := RegisterLogger(lInfo)
 	if stdKey != 0 {
-		panic(errors.New("Cannot add a logger before the standard logger."))
+		panic(errors.New("Cannot add a logger before the standard logger"))
 	}
 }
 
