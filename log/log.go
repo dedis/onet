@@ -39,6 +39,7 @@
 //	DEBUG_LVL // will act like SetDebugVisible
 //	DEBUG_TIME // if 'true' it will print the date and time
 //	DEBUG_COLOR // if 'false' it will not use colors
+//	DEBUG_PADDING // if 'false' it will not use padding
 // But for this the function ParseEnv() or AddFlags() has to be called.
 package log
 

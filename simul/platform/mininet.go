@@ -68,6 +68,8 @@ type MiniNet struct {
 	DebugTime bool
 	// Whether to show color debugging-messages
 	DebugColor bool
+	// Whether to pad debugging-messages
+	DebugPadding bool
 	// The number of seconds to wait for closing the connection
 	RunWait time.Duration
 	// Delay in ms of the network connection
@@ -105,6 +107,7 @@ func (m *MiniNet) Configure(pc *Config) {
 	m.Debug = pc.Debug
 	m.DebugTime = log.ShowTime()
 	m.DebugColor = log.UseColors()
+	m.DebugPadding = log.Padding()
 
 	m.Delay = 0
 	m.Bandwidth = 1000
@@ -412,8 +415,8 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	if d, err := rc.GetInt("Delay"); err == nil {
 		delay = d
 	}
-	list = fmt.Sprintf("%s %d %d\n%d %t %t\n%s\n", m.Simulation, bandwidth, delay,
-		m.Debug, m.DebugTime, m.DebugColor, m.PreScript)
+	list = fmt.Sprintf("%s %d %d\n%d %t %t %t\n%s\n", m.Simulation, bandwidth, delay,
+		m.Debug, m.DebugTime, m.DebugColor, m.DebugPadding, m.PreScript)
 
 	// Add descriptions for `start.py` to know which mininet-network it has to
 	// run on what physical server with how many hosts.

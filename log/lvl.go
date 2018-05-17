@@ -86,7 +86,6 @@ func lvl(lvl, skip int, args ...interface{}) {
 			line = 0
 		}
 
-		fmtstr := ""
 		if l.useColors {
 			// Only adjust the name and line padding if we also have color.
 			if len(name) > NamePadding && NamePadding > 0 {
@@ -96,7 +95,14 @@ func lvl(lvl, skip int, args ...interface{}) {
 				LinePadding = len(name)
 			}
 		}
-		fmtstr = fmt.Sprintf("%%%ds: %%%dd", NamePadding, LinePadding)
+
+		namePadding := 0
+		linePadding := 0
+		if l.padding {
+			namePadding = NamePadding
+			linePadding = LinePadding
+		}
+		fmtstr := fmt.Sprintf("%%%ds: %%%dd", namePadding, linePadding)
 		caller := fmt.Sprintf(fmtstr, name, line)
 		if StaticMsg != "" {
 			caller += "@" + StaticMsg
@@ -315,6 +321,20 @@ func UseColors() bool {
 	return loggers[0].useColors
 }
 
+// SetPadding can turn off or turn on the use of padding in log
+func SetPadding(padding bool) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	loggers[0].padding = padding
+}
+
+// Padding returns the actual setting of the padding in log
+func Padding() bool {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	return loggers[0].padding
+}
+
 // MainTest can be called from TestMain. It will parse the flags and
 // set the DebugVisible to defaultMainTest, then run the tests and check for
 // remaining go-routines.
@@ -349,6 +369,7 @@ func MainTest(m *testing.M, ls ...int) {
 //   DEBUG_LVL - for the actual debug-lvl - default is 1
 //   DEBUG_TIME - whether to show the timestamp - default is false
 //   DEBUG_COLOR - whether to color the output - default is false
+//   DEBUG_PADDING - whether to pad the output nicely - default is true
 func ParseEnv() {
 	dv := os.Getenv("DEBUG_LVL")
 	if dv != "" {
@@ -377,6 +398,15 @@ func ParseEnv() {
 			Error("Couldn't convert", dc, "to boolean")
 		}
 	}
+	dp := os.Getenv("DEBUG_PADDING")
+	if dp != "" {
+		dpBool, err := strconv.ParseBool(dp)
+		Lvl3("Setting padding to", dp, dpBool, err)
+		SetPadding(dpBool)
+		if err != nil {
+			Error("Couldn't convert", dp, "to boolean")
+		}
+	}
 }
 
 // RegisterFlags adds the flags and the variables for the debug-control
@@ -386,11 +416,13 @@ func RegisterFlags() {
 	defaultDebugLvl := DebugVisible()
 	defaultShowTime := ShowTime()
 	defaultUseColors := UseColors()
+	defaultPadding := Padding()
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	flag.IntVar(&loggers[0].debugLvl, "debug", defaultDebugLvl, "Change debug level (0-5)")
 	flag.BoolVar(&loggers[0].showTime, "debug-time", defaultShowTime, "Shows the time of each message")
 	flag.BoolVar(&loggers[0].useColors, "debug-color", defaultUseColors, "Colors each message")
+	flag.BoolVar(&loggers[0].padding, "debug-padding", defaultPadding, "Pads each message nicely")
 }
 
 var timeoutFlagMutex sync.Mutex
