@@ -1,7 +1,6 @@
 package log
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -64,33 +63,8 @@ var debugMut sync.RWMutex
 var regexpPaths, _ = regexp.Compile(".*/")
 
 func init() {
-	initStdLogger()
+	newStdLogger()
 	ParseEnv()
-}
-
-type stdLogger struct{}
-
-func (sl *stdLogger) Log(level int, msg string) {
-	if level < lvlInfo {
-		fmt.Fprint(stdErr, msg)
-	} else {
-		fmt.Fprint(stdOut, msg)
-	}
-}
-
-func (sl *stdLogger) Close() {}
-
-func initStdLogger() {
-	lInfo := &LoggerInfo{
-		debugLvl:  1,
-		useColors: false,
-		showTime:  false,
-		Logger:    &stdLogger{},
-	}
-	stdKey := RegisterLogger(lInfo)
-	if stdKey != 0 {
-		panic(errors.New("Cannot add a logger before the standard logger"))
-	}
 }
 
 func lvl(lvl, skip int, args ...interface{}) {
