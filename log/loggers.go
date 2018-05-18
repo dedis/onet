@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/syslog"
 	"os"
+
+	"github.com/daviddengcn/go-colortext"
 )
 
 // LoggerInfo is a structure that should be used when creating a logger.
@@ -32,7 +34,7 @@ type LoggerInfo struct {
 // Logger is the interface that specifies how loggers
 // will receive and display messages.
 type Logger interface {
-	Log(level int, msg string)
+	Log(level int, msg string, l *LoggerInfo)
 	Close()
 }
 
@@ -77,7 +79,7 @@ type fileLogger struct {
 	file *os.File
 }
 
-func (fl *fileLogger) Log(level int, msg string) {
+func (fl *fileLogger) Log(level int, msg string, l *LoggerInfo) {
 	if _, err := fl.file.WriteString(msg); err != nil {
 		panic(err)
 	}
@@ -104,7 +106,7 @@ type syslogLogger struct {
 	writer *syslog.Writer
 }
 
-func (sl *syslogLogger) Log(level int, msg string) {
+func (sl *syslogLogger) Log(level int, msg string, l *LoggerInfo) {
 	_, err := sl.writer.Write([]byte(msg))
 	if err != nil {
 		panic(err)
@@ -130,11 +132,43 @@ func NewSyslogLogger(priority syslog.Priority, tag string, lInfo *LoggerInfo) (i
 
 type stdLogger struct{}
 
-func (sl *stdLogger) Log(level int, msg string) {
-	if level < lvlInfo {
+func (sl *stdLogger) Log(lvl int, msg string, l *LoggerInfo) {
+	bright := lvl < 0
+	lvlAbs := lvl
+	if bright {
+		lvlAbs *= -1
+	}
+
+	switch lvl {
+	case lvlPrint:
+		fg(l, ct.White, true)
+	case lvlInfo:
+		fg(l, ct.White, true)
+	case lvlWarning:
+		fg(l, ct.Green, true)
+	case lvlError:
+		fg(l, ct.Red, false)
+	case lvlFatal:
+		fg(l, ct.Red, true)
+	case lvlPanic:
+		fg(l, ct.Red, true)
+	default:
+		if lvl != 0 {
+			if lvlAbs <= 5 {
+				colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
+				fg(l, colors[lvlAbs-1], bright)
+			}
+		}
+	}
+
+	if lvl < lvlInfo {
 		fmt.Fprint(stdErr, msg)
 	} else {
 		fmt.Fprint(stdOut, msg)
+	}
+
+	if l.useColors {
+		ct.ResetColor()
 	}
 }
 

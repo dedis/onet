@@ -10,7 +10,7 @@ import (
 
 type countMsgs int
 
-func (c *countMsgs) Log(lvl int, msg string) {
+func (c *countMsgs) Log(lvl int, msg string, l *LoggerInfo) {
 	*c++
 }
 

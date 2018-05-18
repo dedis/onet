@@ -108,42 +108,29 @@ func lvl(lvl, skip int, args ...interface{}) {
 			caller += "@" + StaticMsg
 		}
 		message := fmt.Sprintln(args...)
+
 		bright := lvl < 0
 		lvlAbs := lvl
 		if bright {
 			lvlAbs *= -1
 		}
-
 		lvlStr := strconv.Itoa(lvlAbs)
 		if lvl < 0 {
 			lvlStr += "!"
 		}
 		switch lvl {
 		case lvlPrint:
-			fg(l, ct.White, true)
 			lvlStr = "I"
 		case lvlInfo:
-			fg(l, ct.White, true)
 			lvlStr = "I"
 		case lvlWarning:
-			fg(l, ct.Green, true)
 			lvlStr = "W"
 		case lvlError:
-			fg(l, ct.Red, false)
 			lvlStr = "E"
 		case lvlFatal:
-			fg(l, ct.Red, true)
 			lvlStr = "F"
 		case lvlPanic:
-			fg(l, ct.Red, true)
 			lvlStr = "P"
-		default:
-			if lvl != 0 {
-				if lvlAbs <= 5 {
-					colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
-					fg(l, colors[lvlAbs-1], bright)
-				}
-			}
 		}
 		str := fmt.Sprintf(": (%s) - %s", caller, message)
 		if l.showTime {
@@ -152,11 +139,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 		}
 		str = fmt.Sprintf("%-2s%s", lvlStr, str)
 
-		l.Log(lvl, str)
-
-		if l.useColors {
-			ct.ResetColor()
-		}
+		l.Log(lvl, str, l)
 	}
 }
 
