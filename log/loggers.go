@@ -40,13 +40,13 @@ type Logger interface {
 
 const (
 	// The default debug level for the standard logger
-	DefaultStdDebugLvl  = 1
+	DefaultStdDebugLvl = 1
 	// The default value for 'showTime' for the standard logger
-	DefaultStdShowTime  = false
+	DefaultStdShowTime = false
 	// The default value for 'useColors' for the standard logger
 	DefaultStdUseColors = false
 	// The default value for 'padding' for the standard logger
-	DefaultStdPadding   = true
+	DefaultStdPadding = true
 )
 
 var (
