@@ -63,7 +63,14 @@ var debugMut sync.RWMutex
 var regexpPaths, _ = regexp.Compile(".*/")
 
 func init() {
-	newStdLogger()
+	stdLogger, err := newStdLogger()
+	if err != nil {
+		panic(err)
+	}
+	stdKey := RegisterLogger(stdLogger)
+	if stdKey != 0 {
+		panic(errors.New("Cannot add a logger before the standard logger"))
+	}
 	ParseEnv()
 }
 
