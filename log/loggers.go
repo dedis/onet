@@ -151,30 +151,32 @@ type stdLogger struct {
 }
 
 func (sl *stdLogger) Log(lvl int, msg string) {
-	bright := lvl < 0
-	lvlAbs := lvl
-	if bright {
-		lvlAbs *= -1
-	}
+	if sl.lInfo.UseColors {
+		bright := lvl < 0
+		lvlAbs := lvl
+		if bright {
+			lvlAbs *= -1
+		}
 
-	switch lvl {
-	case lvlPrint:
-		fg(sl.lInfo, ct.White, true)
-	case lvlInfo:
-		fg(sl.lInfo, ct.White, true)
-	case lvlWarning:
-		fg(sl.lInfo, ct.Green, true)
-	case lvlError:
-		fg(sl.lInfo, ct.Red, false)
-	case lvlFatal:
-		fg(sl.lInfo, ct.Red, true)
-	case lvlPanic:
-		fg(sl.lInfo, ct.Red, true)
-	default:
-		if lvl != 0 {
-			if lvlAbs <= 5 {
-				colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
-				fg(sl.lInfo, colors[lvlAbs-1], bright)
+		switch lvl {
+		case lvlPrint:
+			ct.Foreground(ct.White, true)
+		case lvlInfo:
+			ct.Foreground(ct.White, true)
+		case lvlWarning:
+			ct.Foreground(ct.Green, true)
+		case lvlError:
+			ct.Foreground(ct.Red, false)
+		case lvlFatal:
+			ct.Foreground(ct.Red, true)
+		case lvlPanic:
+			ct.Foreground(ct.Red, true)
+		default:
+			if lvl != 0 {
+				if lvlAbs <= 5 {
+					colors := []ct.Color{ct.Yellow, ct.Cyan, ct.Green, ct.Blue, ct.Cyan}
+					ct.Foreground(colors[lvlAbs-1], bright)
+				}
 			}
 		}
 	}
@@ -196,6 +198,8 @@ func (sl *stdLogger) GetLoggerInfo() *LoggerInfo {
 	return sl.lInfo
 }
 
+// Not public + not taking a LoggerInfo as argument because we don't want
+// multiple stdLoggers.
 func newStdLogger() (Logger, error) {
 	lInfo := &LoggerInfo{
 		DebugLvl:  DefaultStdDebugLvl,

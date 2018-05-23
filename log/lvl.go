@@ -12,8 +12,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/daviddengcn/go-colortext"
 )
 
 const (
@@ -150,12 +148,6 @@ func lvl(lvl, skip int, args ...interface{}) {
 		str = fmt.Sprintf("%-2s%s", lvlStr, str)
 
 		l.Log(lvl, str)
-	}
-}
-
-func fg(l *LoggerInfo, c ct.Color, bright bool) {
-	if l.UseColors {
-		ct.Foreground(c, bright)
 	}
 }
 
