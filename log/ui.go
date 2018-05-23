@@ -97,7 +97,7 @@ func ErrFatalf(err error, f string, args ...interface{}) {
 func print(lvl int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	switch loggers[0].debugLvl {
+	switch loggers[0].GetLoggerInfo().DebugLvl {
 	case FormatPython:
 		prefix := []string{"[-]", "[!]", "[X]", "[Q]", "[+]", ""}
 		ind := lvl - lvlWarning

@@ -1,7 +1,6 @@
 package log
 
 import (
-	"errors"
 	"fmt"
 	"log/syslog"
 	"os"
@@ -34,6 +33,7 @@ type LoggerInfo struct {
 type Logger interface {
 	Log(level int, msg string)
 	Close()
+	GetLoggerInfo() *LoggerInfo
 }
 
 const (
@@ -79,7 +79,7 @@ func UnregisterLogger(key int) {
 
 type fileLogger struct {
 	lInfo *LoggerInfo
-	file *os.File
+	file  *os.File
 }
 
 func (fl *fileLogger) Log(level int, msg string) {
@@ -90,6 +90,10 @@ func (fl *fileLogger) Log(level int, msg string) {
 
 func (fl *fileLogger) Close() {
 	fl.file.Close()
+}
+
+func (fl *fileLogger) GetLoggerInfo() *LoggerInfo {
+	return fl.lInfo
 }
 
 // NewFileLogger creates a logger that writes into the file with
@@ -103,12 +107,12 @@ func NewFileLogger(lInfo *LoggerInfo, path string) (Logger, error) {
 	}
 	return &fileLogger{
 		lInfo: lInfo,
-		file: file,
+		file:  file,
 	}, nil
 }
 
 type syslogLogger struct {
-	lInfo *LoggerInfo
+	lInfo  *LoggerInfo
 	writer *syslog.Writer
 }
 
@@ -123,6 +127,10 @@ func (sl *syslogLogger) Close() {
 	sl.writer.Close()
 }
 
+func (sl *syslogLogger) GetLoggerInfo() *LoggerInfo {
+	return sl.lInfo
+}
+
 // NewSyslogLogger creates a logger that writes into syslog with
 // the given priority and tag, and is using the given LoggerInfo (without the
 // Logger).
@@ -133,12 +141,12 @@ func NewSyslogLogger(lInfo *LoggerInfo, priority syslog.Priority, tag string) (L
 		return nil, err
 	}
 	return &syslogLogger{
-		lInfo: lInfo,
+		lInfo:  lInfo,
 		writer: writer,
 	}, nil
 }
 
-type stdLogger struct{
+type stdLogger struct {
 	lInfo *LoggerInfo
 }
 
@@ -183,6 +191,10 @@ func (sl *stdLogger) Log(lvl int, msg string) {
 }
 
 func (sl *stdLogger) Close() {}
+
+func (sl *stdLogger) GetLoggerInfo() *LoggerInfo {
+	return sl.lInfo
+}
 
 func newStdLogger() (Logger, error) {
 	lInfo := &LoggerInfo{

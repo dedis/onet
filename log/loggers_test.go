@@ -8,47 +8,58 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type countMsgs int
+type countMsgs struct {
+	count int
+	lInfo *LoggerInfo
+}
 
-func (c *countMsgs) Log(lvl int, msg string, l *LoggerInfo) {
-	*c++
+func (c *countMsgs) Log(lvl int, msg string) {
+	c.count++
 }
 
 func (c *countMsgs) Close() {}
 
+func (c *countMsgs) GetLoggerInfo() *LoggerInfo {
+	return c.lInfo
+}
+
 func TestRegisterLogger(t *testing.T) {
-	var c countMsgs
 	lInfo := &LoggerInfo{
-		debugLvl:  3,
-		useColors: false,
-		showTime:  false,
-		padding:   false,
-		Logger:    &c,
+		DebugLvl:  3,
+		UseColors: false,
+		ShowTime:  false,
+		Padding:   false,
 	}
-	key := RegisterLogger(lInfo)
+	c := &countMsgs{
+		count: 0,
+		lInfo: lInfo,
+	}
+	key := RegisterLogger(c)
 	defer UnregisterLogger(key)
 	Lvl1("testing")
 	Lvl3("testing")
 	Lvl5("testing")
-	if c != 2 {
+	if c.count != 2 {
 		t.Fatal("wrong count")
 	}
 }
 
 func TestUnregisterLogger(t *testing.T) {
-	var c countMsgs
 	lInfo := &LoggerInfo{
-		debugLvl:  3,
-		useColors: false,
-		showTime:  false,
-		padding:   false,
-		Logger:    &c,
+		DebugLvl:  3,
+		UseColors: false,
+		ShowTime:  false,
+		Padding:   false,
 	}
-	key := RegisterLogger(lInfo)
+	c := &countMsgs{
+		count: 0,
+		lInfo: lInfo,
+	}
+	key := RegisterLogger(c)
 	Lvl1("testing")
 	UnregisterLogger(key)
 	Lvl1("testing")
-	if c != 1 {
+	if c.count != 1 {
 		t.Fatal("wrong count")
 	}
 }
@@ -58,13 +69,14 @@ func TestFileLogger(t *testing.T) {
 	require.Nil(t, err)
 	path := tempFile.Name()
 	lInfo := &LoggerInfo{
-		debugLvl:  2,
-		showTime:  false,
-		useColors: false,
-		padding:   false,
+		DebugLvl:  2,
+		ShowTime:  false,
+		UseColors: false,
+		Padding:   false,
 	}
-	key, err := NewFileLogger(path, lInfo)
+	fileLogger, err := NewFileLogger(lInfo, path)
 	require.Nil(t, err)
+	key := RegisterLogger(fileLogger)
 	defer func() {
 		UnregisterLogger(key)
 		err := os.Remove(path)

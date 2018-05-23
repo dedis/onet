@@ -1,6 +1,7 @@
 package log
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -78,7 +79,10 @@ func lvl(lvl, skip int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	for _, l := range loggers {
-		if lvl > l.debugLvl {
+		// Get the *LoggerInfo that contains how should the formatting go.
+		lInfo := l.GetLoggerInfo()
+
+		if lvl > lInfo.DebugLvl {
 			continue
 		}
 
@@ -93,7 +97,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 			line = 0
 		}
 
-		if l.useColors {
+		if lInfo.UseColors {
 			// Only adjust the name and line padding if we also have color.
 			if len(name) > NamePadding && NamePadding > 0 {
 				NamePadding = len(name)
@@ -105,7 +109,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 
 		namePadding := 0
 		linePadding := 0
-		if l.padding {
+		if lInfo.Padding {
 			namePadding = NamePadding
 			linePadding = LinePadding
 		}
@@ -116,9 +120,8 @@ func lvl(lvl, skip int, args ...interface{}) {
 		}
 		message := fmt.Sprintln(args...)
 
-		bright := lvl < 0
 		lvlAbs := lvl
-		if bright {
+		if lvl < 0 {
 			lvlAbs *= -1
 		}
 		lvlStr := strconv.Itoa(lvlAbs)
@@ -140,18 +143,18 @@ func lvl(lvl, skip int, args ...interface{}) {
 			lvlStr = "P"
 		}
 		str := fmt.Sprintf(": (%s) - %s", caller, message)
-		if l.showTime {
+		if lInfo.ShowTime {
 			ti := time.Now()
 			str = fmt.Sprintf("%s.%09d%s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)
 		}
 		str = fmt.Sprintf("%-2s%s", lvlStr, str)
 
-		l.Log(lvl, str, l)
+		l.Log(lvl, str)
 	}
 }
 
 func fg(l *LoggerInfo, c ct.Color, bright bool) {
-	if l.useColors {
+	if l.UseColors {
 		ct.Foreground(c, bright)
 	}
 }
@@ -261,9 +264,9 @@ func TestOutput(show bool, level int) {
 	defer debugMut.Unlock()
 
 	if show {
-		loggers[0].debugLvl = level
+		loggers[0].GetLoggerInfo().DebugLvl = level
 	} else {
-		loggers[0].debugLvl = 0
+		loggers[0].GetLoggerInfo().DebugLvl = 0
 	}
 }
 
@@ -271,14 +274,14 @@ func TestOutput(show bool, level int) {
 func SetDebugVisible(lvl int) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	loggers[0].debugLvl = lvl
+	loggers[0].GetLoggerInfo().DebugLvl = lvl
 }
 
 // DebugVisible returns the actual visible debug-level
 func DebugVisible() int {
 	debugMut.RLock()
 	defer debugMut.RUnlock()
-	return loggers[0].debugLvl
+	return loggers[0].GetLoggerInfo().DebugLvl
 }
 
 // SetShowTime allows for turning on the flag that adds the current
@@ -286,7 +289,7 @@ func DebugVisible() int {
 func SetShowTime(show bool) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	loggers[0].showTime = show
+	loggers[0].GetLoggerInfo().ShowTime = show
 }
 
 // ShowTime returns the current setting for showing the time in the debug
@@ -294,35 +297,35 @@ func SetShowTime(show bool) {
 func ShowTime() bool {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	return loggers[0].showTime
+	return loggers[0].GetLoggerInfo().ShowTime
 }
 
 // SetUseColors can turn off or turn on the use of colors in the debug-output
-func SetUseColors(show bool) {
+func SetUseColors(useColors bool) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	loggers[0].useColors = show
+	loggers[0].GetLoggerInfo().UseColors = useColors
 }
 
 // UseColors returns the actual setting of the color-usage in log
 func UseColors() bool {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	return loggers[0].useColors
+	return loggers[0].GetLoggerInfo().UseColors
 }
 
 // SetPadding can turn off or turn on the use of padding in log
 func SetPadding(padding bool) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	loggers[0].padding = padding
+	loggers[0].GetLoggerInfo().Padding = padding
 }
 
 // Padding returns the actual setting of the padding in log
 func Padding() bool {
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	return loggers[0].padding
+	return loggers[0].GetLoggerInfo().Padding
 }
 
 // MainTest can be called from TestMain. It will parse the flags and
@@ -409,10 +412,10 @@ func RegisterFlags() {
 	defaultPadding := Padding()
 	debugMut.Lock()
 	defer debugMut.Unlock()
-	flag.IntVar(&loggers[0].debugLvl, "debug", defaultDebugLvl, "Change debug level (0-5)")
-	flag.BoolVar(&loggers[0].showTime, "debug-time", defaultShowTime, "Shows the time of each message")
-	flag.BoolVar(&loggers[0].useColors, "debug-color", defaultUseColors, "Colors each message")
-	flag.BoolVar(&loggers[0].padding, "debug-padding", defaultPadding, "Pads each message nicely")
+	flag.IntVar(&loggers[0].GetLoggerInfo().DebugLvl, "debug", defaultDebugLvl, "Change debug level (0-5)")
+	flag.BoolVar(&loggers[0].GetLoggerInfo().ShowTime, "debug-time", defaultShowTime, "Shows the time of each message")
+	flag.BoolVar(&loggers[0].GetLoggerInfo().UseColors, "debug-color", defaultUseColors, "Colors each message")
+	flag.BoolVar(&loggers[0].GetLoggerInfo().Padding, "debug-padding", defaultPadding, "Pads each message nicely")
 }
 
 var timeoutFlagMutex sync.Mutex
