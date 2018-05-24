@@ -39,6 +39,7 @@
 //	DEBUG_LVL // will act like SetDebugVisible
 //	DEBUG_TIME // if 'true' it will print the date and time
 //	DEBUG_COLOR // if 'false' it will not use colors
+//	DEBUG_PADDING // if 'false' it will not use padding
 // But for this the function ParseEnv() or AddFlags() has to be called.
 package log
 
@@ -52,13 +53,13 @@ import (
 var stdOut io.Writer
 var stdErr io.Writer
 
+var bufStdOut bytes.Buffer
+var bufStdErr bytes.Buffer
+
 func init() {
 	stdOut = os.Stdout
 	stdErr = os.Stderr
 }
-
-var bufStdOut bytes.Buffer
-var bufStdErr bytes.Buffer
 
 // OutputToBuf is called for sending all the log.*-outputs to internal buffers
 // that can be used for checking what the logger would've written. This is

@@ -27,7 +27,7 @@ from mininet.node import OVSController
 
 # What debugging-level to use
 debugLvl = 1
-# Debug-string for color and time
+# Debug-string for color, time and padding
 debugStr = ""
 # Logging-file
 logfile = "/tmp/mininet.log"
@@ -205,12 +205,14 @@ def GetNetworks(filename):
     simulation, bw, d = content.pop(0).rstrip().split(' ')
     bandwidth = int(bw)
     delay = d + "ms"
-    dbgLvl, dbgTime, dbgColor = content.pop(0).rstrip().split(' ')
+    dbgLvl, dbgTime, dbgColor, dbgPadding = content.pop(0).rstrip().split(' ')
     debugLvl = int(dbgLvl)
     if dbgTime == "true":
         debugStr = "DEBUG_TIME=true "
     if dbgColor == "true":
         debugStr += "DEBUG_COLOR=true"
+    if dbgPadding == "false":
+        debugStr += "DEBUG_PADDING=false"
     preScript = content.pop(0).rstrip().split(' ')[0]
 
     list = []
