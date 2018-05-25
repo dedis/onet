@@ -7,7 +7,12 @@ include $(shell go env GOPATH)/src/github.com/dedis/Coding/bin/Makefile.base
 # for more than once in Travis. Change `make test` in .travis.yml
 # to `make test_playground`.
 test_playground:
-	cd network; \
 	for a in $$( seq 100 ); do \
-	  go test -v -race -run ParallelStore || exit 1 ; \
+	  if DEBUG_TIME=true go test -v -race -short > log.txt 2>&1; then \
+		  echo Successfully ran at $$(date); \
+		else \
+		  echo Failed at $$(date); \
+			cat log.txt; \
+			exit 1; \
+		fi; \
 	done;

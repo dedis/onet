@@ -2,6 +2,7 @@ package onet
 
 import (
 	"testing"
+	"time"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -23,6 +24,7 @@ func init() {
 		*TreeNode
 		NodeTestMsg
 	}, 1)
+	network.RegisterMessage(&Closing{})
 }
 
 func TestNodeChannelCreateSlice(t *testing.T) {
@@ -44,6 +46,7 @@ func TestNodeChannelCreateSlice(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't register channel:", err)
 	}
+	tni.Done()
 }
 
 func TestNodeChannelCreate(t *testing.T) {
@@ -79,6 +82,7 @@ func TestNodeChannelCreate(t *testing.T) {
 	if msg.I != 3 {
 		t.Fatal("Message should contain '3'")
 	}
+	tni.Done()
 }
 
 func TestNodeChannel(t *testing.T) {
@@ -114,6 +118,7 @@ func TestNodeChannel(t *testing.T) {
 	if msg.I != 3 {
 		t.Fatal("Message should contain '3'")
 	}
+	tni.Done()
 }
 
 // Test instantiation of Node
@@ -185,7 +190,7 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 	// Wait for both children to be up
 	<-Incoming
 	<-Incoming
-	log.Lvl3("Both children are up")
+	log.Lvl2("Both children are up")
 	child1 := local.GetTreeNodeInstances(tree.Root.Children[0].ServerIdentity.ID)[0]
 	child2 := local.GetTreeNodeInstances(tree.Root.Children[1].ServerIdentity.ID)[0]
 
@@ -209,6 +214,7 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 		t.Fatal("Second message should be 4")
 	}
 
+	proto.Closing(ClosingMsg{})
 }
 
 func TestTreeNodeFlags(t *testing.T) {
@@ -220,7 +226,8 @@ func TestTreeNodeFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't create node.")
 	}
-	tni := p.(*ProtocolChannels).TreeNodeInstance
+	pc := p.(*ProtocolChannels)
+	tni := pc.TreeNodeInstance
 	if tni.hasFlag(testType, AggregateMessages) {
 		t.Fatal("Should NOT have AggregateMessages-flag")
 	}
@@ -232,6 +239,7 @@ func TestTreeNodeFlags(t *testing.T) {
 	if tni.hasFlag(testType, AggregateMessages) {
 		t.Fatal("Should NOT have AggregateMessages-flag")
 	}
+	pc.Closing(ClosingMsg{})
 }
 
 // Protocol/service Channels test code:
@@ -256,13 +264,28 @@ type ProtocolChannels struct {
 	}
 }
 
+type Closing struct{}
+
+type ClosingMsg struct {
+	*TreeNode
+	Closing
+}
+
 func NewProtocolChannels(n *TreeNodeInstance) (ProtocolInstance, error) {
 	p := &ProtocolChannels{
 		TreeNodeInstance: n,
 	}
 	p.RegisterChannel(Incoming)
 	p.RegisterChannel(&p.IncomingAgg)
+	log.ErrFatal(p.RegisterHandler(p.Closing))
 	return p, nil
+}
+
+func (p *ProtocolChannels) Closing(msg ClosingMsg) error {
+	log.ErrFatal(p.SendToChildren(&Closing{}))
+	time.Sleep(100 * time.Millisecond)
+	p.Done()
+	return nil
 }
 
 func (p *ProtocolChannels) Start() error {
@@ -273,11 +296,6 @@ func (p *ProtocolChannels) Start() error {
 		}
 	}
 	return nil
-}
-
-// release resources ==> call Done()
-func (p *ProtocolChannels) Release() {
-	p.Done()
 }
 
 type ProtocolHandlers struct {
@@ -312,6 +330,7 @@ func (p *ProtocolHandlers) HandleMessageOne(msg struct {
 	NodeTestMsg
 }) error {
 	IncomingHandlers <- p.TreeNodeInstance
+	p.Done()
 	return nil
 }
 
@@ -321,16 +340,12 @@ func (p *ProtocolHandlers) HandleMessageAggregate(msg []struct {
 }) error {
 	log.Lvl3("Received message")
 	IncomingHandlers <- p.TreeNodeInstance
+	p.Done()
 	return nil
 }
 
 func (p *ProtocolHandlers) Dispatch() error {
 	return nil
-}
-
-// release resources ==> call Done()
-func (p *ProtocolHandlers) Release() {
-	p.Done()
 }
 
 func TestNodeBlocking(t *testing.T) {
@@ -375,6 +390,8 @@ func TestNodeBlocking(t *testing.T) {
 	p1.stopBlockChan <- true
 	<-p1.doneChan
 
+	p1.Done()
+	p2.Done()
 }
 
 // BlockingProtocol is a protocol that will block until it receives a "continue"

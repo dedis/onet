@@ -38,6 +38,9 @@ type Server struct {
 	WebSocket *WebSocket
 	// when this node has been started
 	started time.Time
+	// once everything's up and running
+	startedChannel chan bool
+	IsStarted      bool
 
 	suite network.Suite
 }
@@ -69,6 +72,7 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		Router:               r,
 		protocols:            newProtocolStorage(),
 		suite:                s,
+		startedChannel:       make(chan bool, 1),
 	}
 	c.overlay = NewOverlay(c)
 	c.WebSocket = NewWebSocket(r.ServerIdentity)
@@ -196,7 +200,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 }
 
 // Start makes the router and the WebSocket listen on their respective
-// ports. It blocks until the server is stopped.
+// ports. It returns once all servers are started.
 func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
@@ -205,4 +209,8 @@ func (c *Server) Start() {
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
 	c.WebSocket.start()
+	for !c.Router.Listening() {
+		time.Sleep(50 * time.Millisecond)
+	}
+	c.IsStarted = true
 }
