@@ -28,6 +28,8 @@ type LocalTest struct {
 	Trees map[TreeID]*Tree
 	// All single nodes
 	Nodes []*TreeNodeInstance
+	// Don't test for leaky goroutines
+	NoLeakyTest bool
 	// are we running tcp or local layer
 	mode string
 	// TLS certificate if we want TLS for websocket
@@ -198,11 +200,18 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		ct := 0
 		for _, o := range l.Overlays {
 			o.instancesLock.Lock()
-			for _, pi := range o.protocolInstances {
-				log.Lvl3("Lingering protocol instance: %T", pi)
+			for si, pi := range o.protocolInstances {
+				log.LLvlf3("Lingering protocol instance: %s: %T", si, pi)
 				ct++
 			}
 			o.instancesLock.Unlock()
+		}
+		for _, s := range l.Servers {
+			disp, ok := s.serviceManager.Dispatcher.(*network.RoutineDispatcher)
+			if ok && disp.GetRoutines() > 0 {
+				log.Lvl3("Lingering routinedispatchers")
+				ct++
+			}
 		}
 		if ct == 0 {
 			break
@@ -225,9 +234,12 @@ func (l *LocalTest) CloseAll() {
 		log.OutputToBuf()
 	}
 
-	err := l.WaitDone(time.Second)
-	if l.T != nil && err != nil {
-		l.T.Fatal("Protocols lingering.")
+	if err := l.WaitDone(5 * time.Second); err != nil {
+		if l.T != nil {
+			l.T.Fatal("Protocols lingering: " + err.Error())
+		} else {
+			log.Fatalf("still have something running: %s", err.Error())
+		}
 	}
 
 	l.ctx.Stop()
@@ -254,6 +266,9 @@ func (l *LocalTest) CloseAll() {
 	l.closed = true
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
+	}
+	if !l.NoLeakyTest {
+		log.AfterTest(nil)
 	}
 }
 
@@ -422,10 +437,7 @@ func NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	h := newServer(s, dir, localRouter, priv)
-	go h.Start()
-	for !h.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	h.Start()
 	return h
 }
 
@@ -471,10 +483,7 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 			server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 			server.WebSocket.Unlock()
 		}
-		go server.Start()
-		for !server.Listening() {
-			time.Sleep(10 * time.Millisecond)
-		}
+		server.Start()
 	default:
 		server = l.NewLocalServer(s, port)
 	}
@@ -503,10 +512,7 @@ func (l *LocalTest) NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	server := newServer(s, l.path, localRouter, priv)
-	go server.Start()
-	for !server.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	server.Start()
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services

@@ -39,7 +39,7 @@ type WebSocket struct {
 func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	w := &WebSocket{
 		services:  make(map[string]Service),
-		startstop: make(chan bool),
+		startstop: make(chan bool, 1),
 	}
 	webHost, err := getWebAddress(si, true)
 	log.ErrFatal(err)
@@ -92,17 +92,20 @@ func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
 	w.server.Server.TLSConfig = w.TLSConfig
-	w.Unlock()
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
+	started := make(chan bool)
 	go func() {
 		// Check if server is configured for TLS
+		started <- true
 		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
 			w.server.ListenAndServeTLS("", "")
 		} else {
 			w.server.ListenAndServe()
 		}
 	}()
+	<-started
 	w.startstop <- true
+	w.Unlock()
 }
 
 // registerService stores a service to the given path. All requests to that

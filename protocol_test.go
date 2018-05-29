@@ -40,12 +40,14 @@ func NewProtocolTest(n *TreeNodeInstance) (ProtocolInstance, error) {
 func (p *ProtocolTest) Dispatch() error {
 	log.Lvl2("ProtocolTest.Dispatch()")
 	p.DispMsg <- "Dispatch"
+	p.Done()
 	return nil
 }
 
 func (p *ProtocolTest) Start() error {
 	log.Lvl2("ProtocolTest.Start()")
 	p.StartMsg <- "Start"
+	p.Done()
 	return nil
 }
 
@@ -72,6 +74,7 @@ func (p *SimpleProtocol) ReceiveMessage(msg MsgSimpleMessage) error {
 		return errors.New("Not the value expected")
 	}
 	p.Chan <- true
+	p.Done()
 	return nil
 }
 
@@ -83,6 +86,7 @@ func (p *SimpleProtocol) ReturnError(msg MsgSimpleMessage) error {
 	} else {
 		p.Chan <- true
 	}
+	p.Done()
 	return p.Error
 }
 
@@ -143,12 +147,16 @@ func TestProtocolAutomaticInstantiation(t *testing.T) {
 	defer local.CloseAll()
 	h, _, tree := local.GenTree(2, true)
 	h1 := h[0]
+	var pi ProtocolInstance
+	started := make(chan bool)
 	// start the protocol
 	go func() {
-		_, err := h1.StartProtocol(simpleProto, tree)
+		var err error
+		pi, err = h1.StartProtocol(simpleProto, tree)
 		if err != nil {
 			t.Fatal(fmt.Sprintf("Could not start protocol %v", err))
 		}
+		started <- true
 	}()
 
 	// we are supposed to receive something from host1 from Start()
@@ -157,6 +165,8 @@ func TestProtocolAutomaticInstantiation(t *testing.T) {
 	// Then we are supposed to receive from h2 after he got the tree and the
 	// entity list from h1
 	<-chanH2
+	<-started
+	pi.(*SimpleProtocol).Done()
 }
 
 func TestProtocolError(t *testing.T) {
@@ -276,11 +286,12 @@ func TestMessageProxyStore(t *testing.T) {
 		require.Equal(t, "", res)
 
 	}()
-	_, err = h[0].StartProtocol(testProtoIOName, tree)
+	pi, err := h[0].StartProtocol(testProtoIOName, tree)
 	require.Nil(t, err)
 
 	res := <-chanTestProtoInstance
 	assert.True(t, res)
+	pi.(*TestProtocolInstance).Done()
 }
 
 // MessageProxy part

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dedis/onet/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSimulationBF(t *testing.T) {
@@ -54,9 +55,7 @@ func TestSimulationBigTree(t *testing.T) {
 	}
 	for i := uint(4); i < 8; i++ {
 		_, _, err := createBFTree(1<<i-1, 2, false, []string{"test1", "test2"})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	}
 }
 
