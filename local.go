@@ -201,7 +201,7 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		for _, o := range l.Overlays {
 			o.instancesLock.Lock()
 			for si, pi := range o.protocolInstances {
-				log.LLvlf3("Lingering protocol instance: %s: %T", si, pi)
+				log.Lvlf3("Lingering protocol instance: %s: %T", si, pi)
 				ct++
 			}
 			o.instancesLock.Unlock()
@@ -437,7 +437,7 @@ func NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	h := newServer(s, dir, localRouter, priv)
-	h.Start()
+	h.StartInBackground()
 	return h
 }
 
@@ -483,7 +483,7 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 			server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 			server.WebSocket.Unlock()
 		}
-		server.Start()
+		server.StartInBackground()
 	default:
 		server = l.NewLocalServer(s, port)
 	}
@@ -512,7 +512,7 @@ func (l *LocalTest) NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	server := newServer(s, l.path, localRouter, priv)
-	server.Start()
+	server.StartInBackground()
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services

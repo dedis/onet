@@ -135,7 +135,7 @@ func TestNewWebSocket(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
-	c.Start()
+	c.StartInBackground()
 
 	defer c.Close()
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
@@ -172,7 +172,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	c.WebSocket.Lock()
 	c.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certToAdd}}
 	c.WebSocket.Unlock()
-	c.Start()
+	c.StartInBackground()
 	defer c.Close()
 
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))

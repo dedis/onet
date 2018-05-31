@@ -39,7 +39,7 @@ type Server struct {
 	// when this node has been started
 	started time.Time
 	// once everything's up and running
-	startedChannel chan bool
+	closeitChannel chan bool
 	IsStarted      bool
 
 	suite network.Suite
@@ -72,7 +72,7 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		Router:               r,
 		protocols:            newProtocolStorage(),
 		suite:                s,
-		startedChannel:       make(chan bool, 1),
+		closeitChannel:       make(chan bool),
 	}
 	c.overlay = NewOverlay(c)
 	c.WebSocket = NewWebSocket(r.ServerIdentity)
@@ -156,6 +156,12 @@ func (c *Server) GetStatus() *Status {
 
 // Close closes the overlay and the Router
 func (c *Server) Close() error {
+	c.Lock()
+	if c.IsStarted {
+		c.closeitChannel <- true
+		c.IsStarted = false
+	}
+	c.Unlock()
 	c.overlay.stop()
 	c.WebSocket.stop()
 	c.overlay.Close()
@@ -208,9 +214,35 @@ func (c *Server) Start() {
 		c.started.Format("2006-01-02 15:04:05"),
 		c.ServerIdentity.Address, c.ServerIdentity.Public)
 	go c.Router.Start()
-	c.WebSocket.start()
-	for !c.Router.Listening() {
+	go c.WebSocket.start()
+	for !c.Router.Listening() || !c.WebSocket.Listening() {
 		time.Sleep(50 * time.Millisecond)
 	}
+	c.Lock()
 	c.IsStarted = true
+	c.Unlock()
+	// Wait for closing of the channel
+	<-c.closeitChannel
+}
+
+// StartInBackground starts the services and returns once everything
+// is up and running.
+func (c *Server) StartInBackground() {
+	go c.Start()
+	c.WaitStartup()
+}
+
+// WaitStartup can be called to ensure that the server is up and
+// running. It will loop and wait 50 milliseconds between each
+// test.
+func (c *Server) WaitStartup() {
+	for {
+		c.Lock()
+		s := c.IsStarted
+		c.Unlock()
+		if s {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }

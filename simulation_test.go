@@ -103,7 +103,7 @@ func TestSimulationMultipleInstances(t *testing.T) {
 func closeAll(scs []*SimulationConfig) {
 	for _, s := range scs {
 		if err := s.Server.Close(); err != nil {
-			log.Error("Error closing host ", s.Server.ServerIdentity)
+			log.Error("Error closing host", s.Server.ServerIdentity, err)
 		}
 
 		for s.Server.Router.Listening() {
