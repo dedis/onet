@@ -24,7 +24,7 @@ func TestStatusHost(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
-	c.Start()
+	c.StartInBackground()
 
 	defer c.Close()
 	stats := c.GetStatus()

@@ -39,7 +39,7 @@ type WebSocket struct {
 func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	w := &WebSocket{
 		services:  make(map[string]Service),
-		startstop: make(chan bool, 1),
+		startstop: make(chan bool),
 	}
 	webHost, err := getWebAddress(si, true)
 	log.ErrFatal(err)
@@ -87,6 +87,14 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	return w
 }
 
+// Listening returns true if the server has been started and is
+// listening on the ports for incoming connections.
+func (w *WebSocket) Listening() bool {
+	w.Lock()
+	defer w.Unlock()
+	return w.started
+}
+
 // start listening on the port.
 func (w *WebSocket) start() {
 	w.Lock()
@@ -104,8 +112,8 @@ func (w *WebSocket) start() {
 		}
 	}()
 	<-started
-	w.startstop <- true
 	w.Unlock()
+	w.startstop <- true
 }
 
 // registerService stores a service to the given path. All requests to that
