@@ -71,7 +71,7 @@ type MiniNet struct {
 	// Whether to pad debugging-messages
 	DebugPadding bool
 	// The number of seconds to wait for closing the connection
-	RunWait time.Duration
+	RunWait string
 	// Delay in ms of the network connection
 	Delay int
 	// Bandwidth in Mbps of the network connection
@@ -80,6 +80,8 @@ type MiniNet struct {
 	Suite string
 	// PreScript defines a script that is run before the simulation
 	PreScript string
+	// Tags to use when compiling
+	Tags string
 }
 
 // Configure implements the Platform-interface. It is called once to set up
@@ -143,8 +145,12 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	}
 
 	log.Lvl3("Relative-path is", srcRel, ". Will build into", m.buildDir)
+	var tags []string
+	if m.Tags != "" {
+		tags = append([]string{"-tags"}, strings.Split(m.Tags, " ")...)
+	}
 	out, err := Build("./"+srcRel, m.buildDir+"/conode",
-		processor, system, arg...)
+		processor, system, append(arg, tags...)...)
 	if err != nil {
 		return fmt.Errorf(err.Error() + " " + out)
 	}
@@ -303,7 +309,10 @@ func (m *MiniNet) Start(args ...string) error {
 
 // Wait blocks on the channel till the main-process finishes.
 func (m *MiniNet) Wait() error {
-	wait := m.RunWait
+	wait, err := time.ParseDuration(m.RunWait)
+	if err != nil {
+		return err
+	}
 	if wait == 0 {
 		wait = 600 * time.Second
 	}
@@ -371,6 +380,11 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	if err != nil {
 		return
 	}
+	if nbrServers > physicalServers {
+		log.Warn(nbrServers, "servers requested, but only", physicalServers,
+			"available - proceeding anyway.")
+		nbrServers = physicalServers
+	}
 	nets := make([]*net.IPNet, nbrServers)
 	ips := make([]net.IP, nbrServers)
 
@@ -385,10 +399,6 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 		ips[n][len(ips[n])-1] = byte(1)
 	}
 	hosts = []string{}
-	if nbrServers > physicalServers {
-		log.Warn(nbrServers, "servers requested, but only", physicalServers,
-			"available - proceeding anyway.")
-	}
 	nbrHosts, err := rc.GetInt("Hosts")
 	if err != nil {
 		return
