@@ -219,7 +219,7 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		time.Sleep(t / 10)
 	}
 	if i == 10 {
-		return errors.New("still have ProtocolInstanes after timeout")
+		return errors.New("still have ProtocolInstances after timeout")
 	}
 	return nil
 }
