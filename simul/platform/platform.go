@@ -124,7 +124,7 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 		}
 	}()
 	if err != nil {
-		log.Fatal("Couldn't open file", file, err)
+		log.Fatal("Couldn't open file", filename, err)
 	}
 
 	// Decoding of the first part of the run config file

@@ -175,7 +175,7 @@ func (m *MiniNet) Cleanup() error {
 	}
 	for _, h := range m.HostIPs {
 		log.Lvl3("Cleaning up server", h)
-		_, err = SSHRun(m.Login, h, "pkill -9 -f start.py; mn -c; killall sshd")
+		_, err = SSHRun(m.Login, h, "pkill -9 -f start.py; killall sshd; pkill -f 'sshd[^ ]'; mn -c")
 		if err != nil {
 			log.Lvl2("Error while cleaning up:", err)
 		}
@@ -310,10 +310,8 @@ func (m *MiniNet) Start(args ...string) error {
 // Wait blocks on the channel till the main-process finishes.
 func (m *MiniNet) Wait() error {
 	wait, err := time.ParseDuration(m.RunWait)
-	if err != nil {
-		return err
-	}
-	if wait == 0 {
+	if wait == 0 || err != nil {
+		log.Lvl2("Using standard 10 minutes for RunWait")
 		wait = 600 * time.Second
 	}
 	if m.started {
@@ -425,7 +423,7 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	if d, err := rc.GetInt("Delay"); err == nil {
 		delay = d
 	}
-	list = fmt.Sprintf("%s %d %d\n%d %t %t %t\n%s\n", m.Simulation, bandwidth, delay,
+	list = fmt.Sprintf("%s %s %d %d\n%d %t %t %t\n%s\n", m.Simulation, m.Suite, bandwidth, delay,
 		m.Debug, m.DebugTime, m.DebugColor, m.DebugPadding, m.PreScript)
 
 	// Add descriptions for `start.py` to know which mininet-network it has to
