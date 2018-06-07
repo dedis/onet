@@ -233,10 +233,18 @@ func (l *LocalTest) CloseAll() {
 	}
 
 	if err := l.WaitDone(5 * time.Second); err != nil {
-		if l.T != nil {
-			l.T.Fatal(err.Error())
+		if l.NoLeakyTest {
+			if l.T != nil {
+				l.T.Log("Warning:", err)
+			} else {
+				log.Warn("Warning:", err)
+			}
 		} else {
-			log.Fatal(err.Error())
+			if l.T != nil {
+				l.T.Fatal(err.Error())
+			} else {
+				log.Fatal(err.Error())
+			}
 		}
 	}
 
