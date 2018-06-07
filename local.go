@@ -18,6 +18,14 @@ import (
 	"github.com/dedis/onet/network"
 )
 
+// LeakyTest is false by default, but can be set to true in `TestMain`
+// to have all tests undergo more stringent testing. This only influences
+// LocalTest.CloseAll
+//  0 - no leaky test at all
+//  1 - only log.AfterTest (default)
+//  2 - also test for leaky processors or protocolInstances
+var LeakyTest = 1
+
 // LocalTest represents all that is needed for a local test-run
 type LocalTest struct {
 	// A map of ServerIdentity.Id to Servers
@@ -31,7 +39,7 @@ type LocalTest struct {
 	// All single nodes
 	Nodes []*TreeNodeInstance
 	// Don't test for leaky goroutines
-	NoLeakyTest bool
+	LeakyTest int
 	// are we running tcp or local layer
 	mode string
 	// TLS certificate if we want TLS for websocket
@@ -233,13 +241,18 @@ func (l *LocalTest) CloseAll() {
 	}
 
 	if err := l.WaitDone(5 * time.Second); err != nil {
-		if l.NoLeakyTest {
+		switch l.LeakyTest {
+		case 0:
+			// Ignore waitDone
+		case 1:
+			// Only print a warning
 			if l.T != nil {
 				l.T.Log("Warning:", err)
 			} else {
 				log.Warn("Warning:", err)
 			}
-		} else {
+		case 2:
+			// Fail if there are leaking processes or protocolInstances
 			if l.T != nil {
 				l.T.Fatal(err.Error())
 			} else {
@@ -273,7 +286,7 @@ func (l *LocalTest) CloseAll() {
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
 	}
-	if !l.NoLeakyTest {
+	if l.LeakyTest > 0 {
 		log.AfterTest(nil)
 	}
 }
