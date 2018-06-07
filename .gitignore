@@ -30,3 +30,4 @@ build/
 test_data/
 test/
 deploy/
+.tags*
