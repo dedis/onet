@@ -211,7 +211,7 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		for _, s := range l.Servers {
 			disp, ok := s.serviceManager.Dispatcher.(*network.RoutineDispatcher)
 			if ok && disp.GetRoutines() > 0 {
-				lingering = append(lingering, fmt.Sprintf("Routinedispatchers running at: %s", s.ServerIdentity))
+				lingering = append(lingering, fmt.Sprintf("RoutineDispatcher has %v routines running on %s", disp.GetRoutines(), s.ServerIdentity))
 			}
 		}
 		if len(lingering) == 0 {
