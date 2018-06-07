@@ -82,6 +82,8 @@ set them up for each line in the experiment.
 
 - `SingleHost` - which will reduce the tree to use only one host per server, and
 thus speeding up connections again
+- `Tags` - build-tags that will be called when building the binaries for the
+simulation
 
 ### Example
 

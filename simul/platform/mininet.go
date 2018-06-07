@@ -71,7 +71,7 @@ type MiniNet struct {
 	// Whether to pad debugging-messages
 	DebugPadding bool
 	// The number of seconds to wait for closing the connection
-	RunWait time.Duration
+	RunWait string
 	// Delay in ms of the network connection
 	Delay int
 	// Bandwidth in Mbps of the network connection
@@ -80,6 +80,8 @@ type MiniNet struct {
 	Suite string
 	// PreScript defines a script that is run before the simulation
 	PreScript string
+	// Tags to use when compiling
+	Tags string
 }
 
 // Configure implements the Platform-interface. It is called once to set up
@@ -143,8 +145,12 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	}
 
 	log.Lvl3("Relative-path is", srcRel, ". Will build into", m.buildDir)
+	var tags []string
+	if m.Tags != "" {
+		tags = append([]string{"-tags"}, strings.Split(m.Tags, " ")...)
+	}
 	out, err := Build("./"+srcRel, m.buildDir+"/conode",
-		processor, system, arg...)
+		processor, system, append(arg, tags...)...)
 	if err != nil {
 		return fmt.Errorf(err.Error() + " " + out)
 	}
@@ -169,7 +175,7 @@ func (m *MiniNet) Cleanup() error {
 	}
 	for _, h := range m.HostIPs {
 		log.Lvl3("Cleaning up server", h)
-		_, err = SSHRun(m.Login, h, "pkill -9 -f start.py; mn -c; killall sshd")
+		_, err = SSHRun(m.Login, h, "pkill -9 -f start.py; killall sshd; pkill -f 'sshd[^ ]'; mn -c")
 		if err != nil {
 			log.Lvl2("Error while cleaning up:", err)
 		}
@@ -303,8 +309,9 @@ func (m *MiniNet) Start(args ...string) error {
 
 // Wait blocks on the channel till the main-process finishes.
 func (m *MiniNet) Wait() error {
-	wait := m.RunWait
-	if wait == 0 {
+	wait, err := time.ParseDuration(m.RunWait)
+	if wait == 0 || err != nil {
+		log.Lvl2("Using standard 10 minutes for RunWait")
 		wait = 600 * time.Second
 	}
 	if m.started {
@@ -371,6 +378,11 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	if err != nil {
 		return
 	}
+	if nbrServers > physicalServers {
+		log.Warn(nbrServers, "servers requested, but only", physicalServers,
+			"available - proceeding anyway.")
+		nbrServers = physicalServers
+	}
 	nets := make([]*net.IPNet, nbrServers)
 	ips := make([]net.IP, nbrServers)
 
@@ -385,10 +397,6 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 		ips[n][len(ips[n])-1] = byte(1)
 	}
 	hosts = []string{}
-	if nbrServers > physicalServers {
-		log.Warn(nbrServers, "servers requested, but only", physicalServers,
-			"available - proceeding anyway.")
-	}
 	nbrHosts, err := rc.GetInt("Hosts")
 	if err != nil {
 		return
@@ -415,7 +423,7 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	if d, err := rc.GetInt("Delay"); err == nil {
 		delay = d
 	}
-	list = fmt.Sprintf("%s %d %d\n%d %t %t %t\n%s\n", m.Simulation, bandwidth, delay,
+	list = fmt.Sprintf("%s %s %d %d\n%d %t %t %t\n%s\n", m.Simulation, m.Suite, bandwidth, delay,
 		m.Debug, m.DebugTime, m.DebugColor, m.DebugPadding, m.PreScript)
 
 	// Add descriptions for `start.py` to know which mininet-network it has to

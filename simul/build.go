@@ -204,13 +204,13 @@ func RunTest(rc *platform.RunConfig) (*monitor.Stats, error) {
 	go func() {
 		var err error
 		if err = deployP.Wait(); err != nil {
-			log.Lvl3("Test failed:", err)
+			log.Error("Test failed:", err)
 			if err := deployP.Cleanup(); err != nil {
 				log.Lvl3("Couldn't cleanup platform:", err)
 			}
 			monitor.Stop()
 		}
-		log.Lvl3("Test complete:", rs)
+		log.Lvl1("Test complete:", rs)
 	}()
 
 	timeout, err := getRunWait(rc)

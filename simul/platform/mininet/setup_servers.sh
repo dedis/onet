@@ -37,9 +37,12 @@ for s in $SERVERS; do
 	fi
 	scp $mininet/install_mininet.sh $login: > /dev/null
 	if ! ssh $login which mn; then
-		ssh -f $login "apt-get update"
-		ssh -f $login "apt-get install -y psmisc"
-		ssh -f $login "./install_mininet.sh > /dev/null" &
+		echo "Fetching latest package info on $login"
+		ssh $login "apt-get update" &> /dev/null
+		echo "Installing psmisc on $login"
+		ssh $login "apt-get install -y psmisc" &> /dev/null
+		echo "Launching installation of mininet in background on $login"
+		ssh -f $login "./install_mininet.sh > /dev/null" &> /dev/null
 	else
 		echo "Mininet already installed on $login"
 	fi
