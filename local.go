@@ -3,10 +3,12 @@ package onet
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,33 +197,29 @@ func (l *LocalTest) panicClosed() {
 // the timeout is reached. If all protocolInstances are closed
 // within the timeout, nil is returned.
 func (l *LocalTest) WaitDone(t time.Duration) error {
-	var i int
-	for i = 0; i < 10; i++ {
-		ct := 0
+	var lingering []string
+	for i := 0; i < 10; i++ {
+		lingering = []string{}
 		for _, o := range l.Overlays {
 			o.instancesLock.Lock()
 			for si, pi := range o.protocolInstances {
-				log.Lvlf3("Lingering protocol instance: %s: %T", si, pi)
-				ct++
+				lingering = append(lingering, fmt.Sprintf("ProtocolInstance type %T on %s with id %s",
+					pi, o.ServerIdentity(), si))
 			}
 			o.instancesLock.Unlock()
 		}
 		for _, s := range l.Servers {
 			disp, ok := s.serviceManager.Dispatcher.(*network.RoutineDispatcher)
 			if ok && disp.GetRoutines() > 0 {
-				log.Lvl3("Lingering routinedispatchers")
-				ct++
+				lingering = append(lingering, fmt.Sprintf("Routinedispatchers running at: %s", s.ServerIdentity))
 			}
 		}
-		if ct == 0 {
-			break
+		if len(lingering) == 0 {
+			return nil
 		}
 		time.Sleep(t / 10)
 	}
-	if i == 10 {
-		return errors.New("still have ProtocolInstances after timeout")
-	}
-	return nil
+	return errors.New("still have things lingering: " + strings.Join(lingering, "\n"))
 }
 
 // CloseAll closes all the servers.
@@ -236,9 +234,9 @@ func (l *LocalTest) CloseAll() {
 
 	if err := l.WaitDone(5 * time.Second); err != nil {
 		if l.T != nil {
-			l.T.Fatal("Protocols lingering: " + err.Error())
+			l.T.Fatal(err.Error())
 		} else {
-			log.Fatalf("still have something running: %s", err.Error())
+			log.Fatal(err.Error())
 		}
 	}
 
