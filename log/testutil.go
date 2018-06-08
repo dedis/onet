@@ -23,6 +23,7 @@ func interestingGoroutines() (gs []string) {
 			strings.Contains(stack, "(*LocalTest).CloseAll") ||
 			strings.Contains(stack, "created by testing.RunTests") ||
 			strings.Contains(stack, "testing.RunTests(") ||
+			strings.Contains(stack, "testing.(*T).Run(") ||
 			strings.Contains(stack, "testing.Main(") ||
 			strings.Contains(stack, "runtime.goexit") ||
 			strings.Contains(stack, "interestingGoroutines") ||

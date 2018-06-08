@@ -4,3 +4,6 @@ DST="$2"
 # Adjust paths in libtest.sh - this will not be done by goimports.
 perl -pi -e "s:github.com/dedis/onet:gopkg.in/dedis/onet.v2:" $DST/app/libtest.sh
 perl -pi -e "s:github.com/dedis/kyber:gopkg.in/dedis/kyber.v2:" $DST/app/libtest.sh
+
+# Make CloseAll behave as before, so we don't break tests depending on onet.v2
+perl -pi -e "s/		Check:.*CheckAll,/		Check:    CheckGoroutines,/" $DST/local.go

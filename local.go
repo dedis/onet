@@ -18,6 +18,20 @@ import (
 	"github.com/dedis/onet/network"
 )
 
+// LeakyTestCheck represents an enum to indicate how deep CloseAll needs to
+// check the tests.
+type LeakyTestCheck int
+
+const (
+	// CheckNone will make CloseAll not check anything.
+	CheckNone LeakyTestCheck = iota + 1
+	// CheckGoroutines will only check for leaking goroutines.
+	CheckGoroutines
+	// CheckAll will also check for leaking Overlay.Processors and
+	// ProtocolInstances.
+	CheckAll
+)
+
 // LocalTest represents all that is needed for a local test-run
 type LocalTest struct {
 	// A map of ServerIdentity.Id to Servers
@@ -30,8 +44,8 @@ type LocalTest struct {
 	Trees map[TreeID]*Tree
 	// All single nodes
 	Nodes []*TreeNodeInstance
-	// Don't test for leaky goroutines
-	NoLeakyTest bool
+	// How carefully to check for leaking resources at the end of the test.
+	Check LeakyTestCheck
 	// are we running tcp or local layer
 	mode string
 	// TLS certificate if we want TLS for websocket
@@ -70,6 +84,7 @@ func NewLocalTest(s network.Suite) *LocalTest {
 		Services: make(map[network.ServerIdentityID]map[ServiceID]Service),
 		Trees:    make(map[TreeID]*Tree),
 		Nodes:    make([]*TreeNodeInstance, 0, 1),
+		Check:    CheckAll,
 		mode:     Local,
 		ctx:      network.NewLocalManager(),
 		Suite:    s,
@@ -233,13 +248,18 @@ func (l *LocalTest) CloseAll() {
 	}
 
 	if err := l.WaitDone(5 * time.Second); err != nil {
-		if l.NoLeakyTest {
+		switch l.Check {
+		case CheckNone:
+			// Ignore waitDone
+		case CheckGoroutines:
+			// Only print a warning
 			if l.T != nil {
 				l.T.Log("Warning:", err)
 			} else {
 				log.Warn("Warning:", err)
 			}
-		} else {
+		case CheckAll:
+			// Fail if there are leaking processes or protocolInstances
 			if l.T != nil {
 				l.T.Fatal(err.Error())
 			} else {
@@ -273,7 +293,7 @@ func (l *LocalTest) CloseAll() {
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
 	}
-	if !l.NoLeakyTest {
+	if l.Check != CheckNone {
 		log.AfterTest(nil)
 	}
 }
