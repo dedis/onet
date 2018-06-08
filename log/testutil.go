@@ -20,8 +20,10 @@ func interestingGoroutines() (gs []string) {
 		}
 		stack := strings.TrimSpace(sl[1])
 		if stack == "" ||
+			strings.Contains(stack, "(*LocalTest).CloseAll") ||
 			strings.Contains(stack, "created by testing.RunTests") ||
 			strings.Contains(stack, "testing.RunTests(") ||
+			strings.Contains(stack, "testing.(*T).Run(") ||
 			strings.Contains(stack, "testing.Main(") ||
 			strings.Contains(stack, "runtime.goexit") ||
 			strings.Contains(stack, "interestingGoroutines") ||
@@ -48,7 +50,7 @@ func interestingGoroutines() (gs []string) {
 // and https://github.com/coreos/etcd/blob/master/pkg/testutil/leak.go
 func AfterTest(t *testing.T) {
 	var stackCount map[string]int
-	for i := 0; i < 6; i++ {
+	for i := 0; i < 10; i++ {
 		n := 0
 		stackCount = make(map[string]int)
 		gs := interestingGoroutines()
@@ -62,14 +64,15 @@ func AfterTest(t *testing.T) {
 		// Wait for goroutines to schedule and die off:
 		time.Sleep(100 * time.Millisecond)
 	}
-	for stack, count := range stackCount {
-		if t != nil {
-			t.Logf("%d instances of:\n%s\n", count, stack)
-		} else {
-			Fatal(fmt.Sprintf("%d instances of:\n%s\n", count, stack))
-		}
-	}
 	if len(stackCount) > 0 {
+		for stack, count := range stackCount {
+			if t != nil {
+				t.Logf("%d instances of:\n%s\n", count, stack)
+			} else {
+				Error(fmt.Sprintf("%d instances of:\n%s\n", count, stack))
+			}
+		}
+		Print("Stack-trace of caller: ", Stack())
 		if t != nil {
 			t.Fatalf("Test leaks %d gorountines.", len(stackCount))
 		} else {

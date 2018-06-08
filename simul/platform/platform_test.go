@@ -33,6 +33,7 @@ func TestReadRunfile(t *testing.T) {
 	tmpfile.Close()
 
 	tests := ReadRunFile(tplat, tmpfile.Name())
+	log.ErrFatal(os.Remove(tmpfile.Name()))
 	log.Lvl2(tplat)
 	log.Lvlf2("%+v\n", tests[0])
 	if tplat.App != "sign" {
@@ -65,6 +66,7 @@ func TestReadRunfile2(t *testing.T) {
 	tmpfile.Close()
 
 	ReadRunFile(tplat, tmpfile.Name())
+	log.ErrFatal(os.Remove(tmpfile.Name()))
 	if tplat.App != "sign" {
 		log.Fatal("App should be 'sign'")
 	}

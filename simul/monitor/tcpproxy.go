@@ -85,7 +85,6 @@ func (tp *TCPProxy) Run() error {
 	for _, ep := range tp.Endpoints {
 		eps = append(eps, fmt.Sprintf("%s:%d", ep.Target, ep.Port))
 	}
-	log.Printf("ready to proxy client requests to %+v", eps)
 
 	go tp.runMonitor()
 	for {
@@ -206,7 +205,7 @@ func (tp *TCPProxy) runMonitor() {
 					if err := r.tryReactivate(); err != nil {
 						log.Warn("failed to activate endpoint [%s] due to %v (stay inactive for another %v)", r.addr, err, tp.MonitorInterval)
 					} else {
-						log.Printf("activated %s", r.addr)
+						log.Infof("activated %s", r.addr)
 					}
 				}(rem)
 			}

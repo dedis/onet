@@ -721,7 +721,9 @@ func newTreeNodeCache() *treeNodeCache {
 }
 
 func (tnc *treeNodeCache) stop() {
-	tnc.stopOnce.Do(func() { close(tnc.stopCh) })
+	tnc.stopOnce.Do(func() {
+		close(tnc.stopCh)
+	})
 }
 
 func (tnc *treeNodeCache) cleaner() {

@@ -367,8 +367,9 @@ func testRouterLotsOfConn(t *testing.T, fac routerFactory, nbrRouter int) {
 			}
 			go r.Start()
 			for !r.Listening() {
-				time.Sleep(20 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
+
 			routers[j] = r
 			// expect nbrRouter - 1 messages
 			proc := newNSquareProc(t, r, nbrRouter-1, &wg2)

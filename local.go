@@ -3,10 +3,12 @@ package onet
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,20 @@ import (
 	"gopkg.in/dedis/kyber.v2/util/key"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
+)
+
+// LeakyTestCheck represents an enum to indicate how deep CloseAll needs to
+// check the tests.
+type LeakyTestCheck int
+
+const (
+	// CheckNone will make CloseAll not check anything.
+	CheckNone LeakyTestCheck = iota + 1
+	// CheckGoroutines will only check for leaking goroutines.
+	CheckGoroutines
+	// CheckAll will also check for leaking Overlay.Processors and
+	// ProtocolInstances.
+	CheckAll
 )
 
 // LocalTest represents all that is needed for a local test-run
@@ -28,6 +44,8 @@ type LocalTest struct {
 	Trees map[TreeID]*Tree
 	// All single nodes
 	Nodes []*TreeNodeInstance
+	// How carefully to check for leaking resources at the end of the test.
+	Check LeakyTestCheck
 	// are we running tcp or local layer
 	mode string
 	// TLS certificate if we want TLS for websocket
@@ -66,6 +84,7 @@ func NewLocalTest(s network.Suite) *LocalTest {
 		Services: make(map[network.ServerIdentityID]map[ServiceID]Service),
 		Trees:    make(map[TreeID]*Tree),
 		Nodes:    make([]*TreeNodeInstance, 0, 1),
+		Check:    CheckGoroutines,
 		mode:     Local,
 		ctx:      network.NewLocalManager(),
 		Suite:    s,
@@ -193,26 +212,29 @@ func (l *LocalTest) panicClosed() {
 // the timeout is reached. If all protocolInstances are closed
 // within the timeout, nil is returned.
 func (l *LocalTest) WaitDone(t time.Duration) error {
-	var i int
-	for i = 0; i < 10; i++ {
-		ct := 0
+	var lingering []string
+	for i := 0; i < 10; i++ {
+		lingering = []string{}
 		for _, o := range l.Overlays {
 			o.instancesLock.Lock()
-			for _, pi := range o.protocolInstances {
-				log.Lvl3("Lingering protocol instance: %T", pi)
-				ct++
+			for si, pi := range o.protocolInstances {
+				lingering = append(lingering, fmt.Sprintf("ProtocolInstance type %T on %s with id %s",
+					pi, o.ServerIdentity(), si))
 			}
 			o.instancesLock.Unlock()
 		}
-		if ct == 0 {
-			break
+		for _, s := range l.Servers {
+			disp, ok := s.serviceManager.Dispatcher.(*network.RoutineDispatcher)
+			if ok && disp.GetRoutines() > 0 {
+				lingering = append(lingering, fmt.Sprintf("RoutineDispatcher has %v routines running on %s", disp.GetRoutines(), s.ServerIdentity))
+			}
+		}
+		if len(lingering) == 0 {
+			return nil
 		}
 		time.Sleep(t / 10)
 	}
-	if i == 10 {
-		return errors.New("still have ProtocolInstanes after timeout")
-	}
-	return nil
+	return errors.New("still have things lingering: " + strings.Join(lingering, "\n"))
 }
 
 // CloseAll closes all the servers.
@@ -225,9 +247,25 @@ func (l *LocalTest) CloseAll() {
 		log.OutputToBuf()
 	}
 
-	err := l.WaitDone(time.Second)
-	if l.T != nil && err != nil {
-		l.T.Fatal("Protocols lingering.")
+	if err := l.WaitDone(5 * time.Second); err != nil {
+		switch l.Check {
+		case CheckNone:
+			// Ignore waitDone
+		case CheckGoroutines:
+			// Only print a warning
+			if l.T != nil {
+				l.T.Log("Warning:", err)
+			} else {
+				log.Warn("Warning:", err)
+			}
+		case CheckAll:
+			// Fail if there are leaking processes or protocolInstances
+			if l.T != nil {
+				l.T.Fatal(err.Error())
+			} else {
+				log.Fatal(err.Error())
+			}
+		}
 	}
 
 	l.ctx.Stop()
@@ -254,6 +292,9 @@ func (l *LocalTest) CloseAll() {
 	l.closed = true
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
+	}
+	if l.Check != CheckNone {
+		log.AfterTest(nil)
 	}
 }
 
@@ -422,10 +463,7 @@ func NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	h := newServer(s, dir, localRouter, priv)
-	go h.Start()
-	for !h.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	h.StartInBackground()
 	return h
 }
 
@@ -471,10 +509,7 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 			server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 			server.WebSocket.Unlock()
 		}
-		go server.Start()
-		for !server.Listening() {
-			time.Sleep(10 * time.Millisecond)
-		}
+		server.StartInBackground()
 	default:
 		server = l.NewLocalServer(s, port)
 	}
@@ -503,10 +538,7 @@ func (l *LocalTest) NewLocalServer(s network.Suite, port int) *Server {
 		panic(err)
 	}
 	server := newServer(s, l.path, localRouter, priv)
-	go server.Start()
-	for !server.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	server.StartInBackground()
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services
