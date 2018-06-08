@@ -2,6 +2,9 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/dedis/onet)](https://goreportcard.com/report/github.com/dedis/onet)
 [![Coverage Status](https://coveralls.io/repos/github/dedis/onet/badge.svg)](https://coveralls.io/github/dedis/onet)
 
+Navigation: [DEDIS](https://github.com/dedis/doc/tree/master/README.md) ::
+Onet
+
 # The Cothority Network Library - ONet
 
 The Overlay-network (ONet) is a library for simulation and deployment of
