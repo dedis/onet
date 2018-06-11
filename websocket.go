@@ -87,21 +87,32 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	return w
 }
 
+// Listening returns true if the server has been started and is
+// listening on the ports for incoming connections.
+func (w *WebSocket) Listening() bool {
+	w.Lock()
+	defer w.Unlock()
+	return w.started
+}
+
 // start listening on the port.
 func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
 	w.server.Server.TLSConfig = w.TLSConfig
-	w.Unlock()
 	log.Lvl2("Starting to listen on", w.server.Server.Addr)
+	started := make(chan bool)
 	go func() {
 		// Check if server is configured for TLS
+		started <- true
 		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
 			w.server.ListenAndServeTLS("", "")
 		} else {
 			w.server.ListenAndServe()
 		}
 	}()
+	<-started
+	w.Unlock()
 	w.startstop <- true
 }
 

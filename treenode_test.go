@@ -30,6 +30,8 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 	<-spawnCh
 	// wait once more for the protocol created inside the first one
 	<-spawnCh
+
+	pi.(*spawnProto).Done()
 }
 
 func TestHandlerReturn(t *testing.T) {
@@ -43,6 +45,7 @@ func TestHandlerReturn(t *testing.T) {
 	assert.NotNil(t, p.RegisterHandler(p.HandlerError1))
 	assert.Nil(t, p.RegisterHandler(p.HandlerError2))
 	assert.NotNil(t, p.RegisterHandler(p.HandlerError3))
+	p.Done()
 }
 
 type dummyMsg struct{}
@@ -71,7 +74,7 @@ func TestConfigPropagation(t *testing.T) {
 	const treeSize = 3
 	var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
 	hosts, _, tree := local.GenTree(treeSize, true)
-	_, err := hosts[0].overlay.CreateProtocol(spawnName, tree, NilServiceID)
+	pi, err := hosts[0].overlay.CreateProtocol(spawnName, tree, NilServiceID)
 	log.ErrFatal(err)
 
 	done := make(chan bool)
@@ -106,6 +109,7 @@ func TestConfigPropagation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Didn't receive response in time")
 	}
+	pi.(*spawnProto).Done()
 }
 
 func TestTreeNodeInstance_RegisterChannel(t *testing.T) {
@@ -148,12 +152,14 @@ type spawnProto struct {
 }
 
 func newSpawnProto(tn *TreeNodeInstance) (ProtocolInstance, error) {
-	return &spawnProto{
+	sp := &spawnProto{
 		TreeNodeInstance: tn,
-	}, nil
+	}
+	return sp, nil
 }
 
 func (s *spawnProto) Start() error {
+	defer s.Done()
 	r := s.Roster()
 	tree := r.GenerateBinaryTree()
 	spawnCh <- true
@@ -180,6 +186,7 @@ func (s *spawnProto) HandlerError1(msg spawnMsg) {}
 
 // Valid handler
 func (s *spawnProto) HandlerError2(msg spawnMsg) error {
+	s.Done()
 	return nil
 }
 

@@ -25,6 +25,26 @@ import (
 	"gopkg.in/dedis/onet.v2/log"
 )
 
+// The Life of a simulation:
+//
+// 1. Configure
+//     * read configuration
+//     * compile eventual files
+// 2. Build
+//     * builds all files
+//     * eventually for different platforms
+// 3. Cleanup
+//     * send killall to applications
+// 4. Deploy
+//     * make sure the environment is up and running
+//     * copy files
+// 5. Start
+//     * start all logservers
+//     * start all nodes
+//     * start all clients
+// 6. Wait
+//     * wait for the applications to finish
+
 // Platform interface that has to be implemented to add another simulation-
 // platform.
 type Platform interface {
@@ -124,7 +144,7 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 		}
 	}()
 	if err != nil {
-		log.Fatal("Couldn't open file", file, err)
+		log.Fatal("Couldn't open file", filename, err)
 	}
 
 	// Decoding of the first part of the run config file

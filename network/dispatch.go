@@ -99,6 +99,9 @@ func (d *BlockingDispatcher) Dispatch(packet *Envelope) error {
 // receives.
 type RoutineDispatcher struct {
 	*BlockingDispatcher
+	// routines counts how many routines are running
+	routines      int
+	routinesMutex sync.Mutex
 }
 
 // NewRoutineDispatcher returns a fresh RoutineDispatcher
@@ -117,8 +120,23 @@ func (d *RoutineDispatcher) Dispatch(packet *Envelope) error {
 	if p == nil {
 		return errors.New("no Processor attached to this message type")
 	}
-	go p.Process(packet)
+	go func() {
+		d.routinesMutex.Lock()
+		d.routines++
+		d.routinesMutex.Unlock()
+		p.Process(packet)
+		d.routinesMutex.Lock()
+		d.routines--
+		d.routinesMutex.Unlock()
+	}()
 	return nil
+}
+
+// GetRoutines returns how many routines are waiting.
+func (d *RoutineDispatcher) GetRoutines() int {
+	d.routinesMutex.Lock()
+	defer d.routinesMutex.Unlock()
+	return d.routines
 }
 
 type defaultProcessor struct {

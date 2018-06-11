@@ -44,6 +44,7 @@ func TestFlags(t *testing.T) {
 	lvl := DebugVisible()
 	time := ShowTime()
 	color := UseColors()
+	padding := Padding()
 	SetDebugVisible(1)
 
 	clearEnv()
@@ -55,12 +56,16 @@ func TestFlags(t *testing.T) {
 		t.Fatal("ShowTime should be false")
 	}
 	if UseColors() {
-		t.Fatal("UseColors should be true")
+		t.Fatal("UseColors should be false")
+	}
+	if !Padding() {
+		t.Fatal("Padding should be true")
 	}
 
 	os.Setenv("DEBUG_LVL", "3")
 	os.Setenv("DEBUG_TIME", "true")
 	os.Setenv("DEBUG_COLOR", "false")
+	os.Setenv("DEBUG_PADDING", "false")
 	ParseEnv()
 	if DebugVisible() != 3 {
 		t.Fatal("DebugVisible should be 3")
@@ -71,13 +76,15 @@ func TestFlags(t *testing.T) {
 	if UseColors() {
 		t.Fatal("UseColors should be false")
 	}
+	if Padding() {
+		t.Fatal("Padding should be false")
+	}
 
-	os.Setenv("DEBUG_LVL", "")
-	os.Setenv("DEBUG_TIME", "")
-	os.Setenv("DEBUG_COLOR", "")
+	clearEnv()
 	SetDebugVisible(lvl)
 	SetShowTime(time)
 	SetUseColors(color)
+	SetPadding(padding)
 }
 
 func TestOutputFuncs(t *testing.T) {
@@ -228,4 +235,5 @@ func clearEnv() {
 	os.Setenv("DEBUG_LVL", "")
 	os.Setenv("DEBUG_TIME", "")
 	os.Setenv("DEBUG_COLOR", "")
+	os.Setenv("DEBUG_PADDING", "")
 }

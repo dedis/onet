@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/onet.v2/log"
 )
 
@@ -54,9 +55,7 @@ func TestSimulationBigTree(t *testing.T) {
 	}
 	for i := uint(4); i < 8; i++ {
 		_, _, err := createBFTree(1<<i-1, 2, false, []string{"test1", "test2"})
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	}
 }
 
@@ -104,7 +103,7 @@ func TestSimulationMultipleInstances(t *testing.T) {
 func closeAll(scs []*SimulationConfig) {
 	for _, s := range scs {
 		if err := s.Server.Close(); err != nil {
-			log.Error("Error closing host ", s.Server.ServerIdentity)
+			log.Error("Error closing host", s.Server.ServerIdentity, err)
 		}
 
 		for s.Server.Router.Listening() {

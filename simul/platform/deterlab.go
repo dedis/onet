@@ -86,7 +86,7 @@ type Deterlab struct {
 	// Debugging-level: 0 is none - 5 is everything
 	Debug int
 	// RunWait for long simulations
-	RunWait time.Duration
+	RunWait string
 	// suite used for the simulation
 	Suite string
 	// PreScript defines a script that is run before the simulation
@@ -333,7 +333,10 @@ func (d *Deterlab) Start(args ...string) error {
 
 // Wait for the process to finish
 func (d *Deterlab) Wait() error {
-	wait := d.RunWait
+	wait, err := time.ParseDuration(d.RunWait)
+	if err != nil {
+		return err
+	}
 	if wait == 0 {
 		wait = 600 * time.Second
 	}

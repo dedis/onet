@@ -2,6 +2,7 @@ package onet
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/kyber.v2/suites"
@@ -13,8 +14,12 @@ var tSuite = suites.MustFind("Ed25519")
 
 const clientServiceName = "ClientService"
 
+var clientServiceID ServiceID
+
 func init() {
-	RegisterNewService(clientServiceName, newClientService)
+	var err error
+	clientServiceID, err = RegisterNewService(clientServiceName, newClientService)
+	log.ErrFatal(err)
 }
 
 func Test_panicClose(t *testing.T) {
@@ -46,12 +51,37 @@ func TestNewTCPTest(t *testing.T) {
 	log.ErrFatal(err)
 }
 
+func TestWaitDone(t *testing.T) {
+	l := NewTCPTest(tSuite)
+	servers, ro, _ := l.GenTree(1, true)
+	defer l.CloseAll()
+
+	services := l.GetServices(servers, clientServiceID)
+	service := services[0].(*clientService)
+	require.Nil(t, service.SendRaw(ro.List[0], &RawMessage{}))
+	<-service.click
+	select {
+	case <-service.click:
+		log.Fatal("service is already done")
+	default:
+	}
+	require.Nil(t, l.WaitDone(5*time.Second))
+	select {
+	case <-service.click:
+	default:
+		log.Fatal("service should be done by now")
+	}
+}
+
 type clientService struct {
 	*ServiceProcessor
-	cl *Client
+	cl    *Client
+	click chan bool
 }
 
 type SimpleMessage2 struct{}
+
+type RawMessage struct{}
 
 func (c *clientService) SimpleMessage(msg *SimpleMessage) (network.Message, error) {
 	log.Lvl3("Got request", msg)
@@ -68,7 +98,14 @@ func newClientService(c *Context) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
 		cl:               NewClient(c.server.Suite(), clientServiceName),
+		click:            make(chan bool, 1),
 	}
 	log.ErrFatal(s.RegisterHandlers(s.SimpleMessage, s.SimpleMessage2))
+	s.RegisterProcessorFunc(network.RegisterMessage(RawMessage{}), func(arg1 *network.Envelope) {
+		s.click <- true
+		time.Sleep(100 * time.Millisecond)
+		s.click <- true
+	})
+
 	return s, nil
 }

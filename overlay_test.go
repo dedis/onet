@@ -53,9 +53,6 @@ func (po *ProtocolOverlay) Release() {
 }
 
 func TestOverlayDispatchFailure(t *testing.T) {
-	log.OutputToBuf()
-	defer log.OutputToOs()
-
 	// setup
 	failChan := make(chan bool, 1)
 	fn := func(n *TreeNodeInstance) (ProtocolInstance, error) {
@@ -69,9 +66,14 @@ func TestOverlayDispatchFailure(t *testing.T) {
 	GlobalProtocolRegister("ProtocolOverlay", fn)
 	local := NewLocalTest(tSuite)
 	defer local.CloseAll()
+
+	// Redirect output so we can check for the failure
+	log.OutputToBuf()
+	defer log.OutputToOs()
+
 	h, _, tree := local.GenTree(1, true)
 	h1 := h[0]
-	_, err := h1.CreateProtocol("ProtocolOverlay", tree)
+	pi, err := h1.CreateProtocol("ProtocolOverlay", tree)
 	if err != nil {
 		t.Fatal("error starting new node", err)
 	}
@@ -82,6 +84,7 @@ func TestOverlayDispatchFailure(t *testing.T) {
 	// when using `go test -v`, the error string goes into the stderr buffer
 	// but with `go test`, it goes into the stdout buffer, so we check both
 	assert.Contains(t, log.GetStdOut()+log.GetStdErr(), "Dispatch failed")
+	pi.(*ProtocolOverlay).Done()
 }
 
 func TestOverlayDone(t *testing.T) {

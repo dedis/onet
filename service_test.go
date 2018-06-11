@@ -58,7 +58,7 @@ func TestServiceRegistration(t *testing.T) {
 
 func TestServiceNew(t *testing.T) {
 	ds := &DummyService{
-		link: make(chan bool),
+		link: make(chan bool, 1),
 	}
 	RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
 		ds.c = c
@@ -66,13 +66,17 @@ func TestServiceNew(t *testing.T) {
 		return ds, nil
 	})
 	defer UnregisterService(dummyServiceName)
+	var local *LocalTest
+	servers := make(chan bool)
 	go func() {
-		local := NewLocalTest(tSuite)
+		local = NewLocalTest(tSuite)
 		local.GenServers(1)
-		defer local.CloseAll()
+		servers <- true
 	}()
 
+	<-servers
 	waitOrFatal(ds.link, t)
+	local.CloseAll()
 }
 
 func TestServiceProcessRequest(t *testing.T) {
@@ -100,7 +104,7 @@ func TestServiceProcessRequest(t *testing.T) {
 	require.Error(t, err)
 	// wait for the link
 	if <-link {
-		t.Fatal("was expecting false !")
+		log.Fatal("was expecting false !")
 	}
 }
 
@@ -243,7 +247,8 @@ func TestServiceBackForthProtocol(t *testing.T) {
 	// register service
 	_, err := RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
 		return &simpleService{
-			ctx: c,
+			ctx:      c,
+			newProto: make(chan bool, 10),
 		}, nil
 	})
 	log.ErrFatal(err)
@@ -271,17 +276,19 @@ func TestPanicNewProto(t *testing.T) {
 	defer local.CloseAll()
 
 	name := "panicSvc"
-	_, err := RegisterNewService(name, func(c *Context) (Service, error) {
+	panicID, err := RegisterNewService(name, func(c *Context) (Service, error) {
 		return &simpleService{
-			ctx:   c,
-			panic: true,
+			ctx:      c,
+			panic:    true,
+			newProto: make(chan bool, 1),
 		}, nil
 	})
 	log.ErrFatal(err)
 	defer ServiceFactory.Unregister(name)
 
 	// create servers
-	servers, el, _ := local.GenTree(4, false)
+	servers, el, _ := local.GenTree(2, false)
+	services := local.GetServices(servers, panicID)
 
 	// create client
 	client := local.NewClient(name)
@@ -295,6 +302,7 @@ func TestPanicNewProto(t *testing.T) {
 	err = client.SendProtobuf(servers[0].ServerIdentity, r, sr)
 	require.Nil(t, err)
 	client.Close()
+	<-services[1].(*simpleService).newProto
 }
 
 func TestServiceManager_Service(t *testing.T) {
@@ -440,7 +448,7 @@ func (sp *BackForthProtocol) Shutdown() error {
 	return nil
 }
 
-func (sp *BackForthProtocol) dispatch() {
+func (sp *BackForthProtocol) dispatch() error {
 	for {
 		select {
 		// dispatch the first msg down
@@ -454,7 +462,7 @@ func (sp *BackForthProtocol) dispatch() {
 					log.Error(err)
 				}
 				sp.Done()
-				return
+				return nil
 			}
 		// pass the message up
 		case m := <-sp.backChan:
@@ -468,11 +476,11 @@ func (sp *BackForthProtocol) dispatch() {
 					sp.SendTo(sp.Parent(), &msg)
 				}
 				sp.Done()
-				return
+				return nil
 			}
 		case <-sp.stop:
 			sp.Done()
-			return
+			return nil
 		}
 	}
 }
@@ -490,8 +498,9 @@ type SimpleResponse struct {
 var SimpleResponseType = network.RegisterMessage(SimpleResponse{})
 
 type simpleService struct {
-	ctx   *Context
-	panic bool
+	ctx      *Context
+	panic    bool
+	newProto chan bool
 }
 
 func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
@@ -514,6 +523,7 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 	}
 	proto.Start()
 	if s.panic {
+		proto.(*BackForthProtocol).Done()
 		close(ret)
 	}
 	resp, err := protobuf.Encode(&SimpleResponse{<-ret})
@@ -521,6 +531,10 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 }
 
 func (s *simpleService) NewProtocol(tni *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
+	select {
+	case s.newProto <- true:
+	default:
+	}
 	if s.panic {
 		panic("this is a panic in NewProtocol")
 	}
@@ -563,11 +577,13 @@ func (dm *DummyProtocol) Start() error {
 			}
 		}
 	}
+	dm.Done()
 	return nil
 }
 
 func (dm *DummyProtocol) ProcessProtocolMsg(msg *ProtocolMsg) {
 	dm.link <- true
+	dm.Done()
 }
 
 // legacy reasons
@@ -661,7 +677,9 @@ var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
 
 func (ds *dummyService2) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
 	ds.link <- conf != nil && bytes.Equal(conf.Data, serviceConfig)
-	return newDummyProtocol2(tn)
+	pi, err := newDummyProtocol2(tn)
+	pi.(*DummyProtocol2).finishEarly = true
+	return pi, err
 }
 
 func (ds *dummyService2) Process(env *network.Envelope) {
@@ -691,6 +709,7 @@ type DummyProtocol2 struct {
 	*TreeNodeInstance
 	c                chan WrapDummyMsg
 	startNewProtocol bool
+	finishEarly      bool
 }
 
 type WrapDummyMsg struct {
@@ -714,17 +733,26 @@ func (dp2 *DummyProtocol2) Start() error {
 		}
 		go pi.Start()
 	}
-	return dp2.SendToChildren(&DummyMsg{20})
+	err := dp2.SendToChildren(&DummyMsg{20})
+	dp2.Done()
+	return err
+}
+
+func (dp2 *DummyProtocol2) Dispatch() error {
+	if dp2.finishEarly {
+		dp2.Done()
+	}
+	return nil
 }
 
 func waitOrFatalValue(ch chan bool, v bool, t *testing.T) {
 	select {
 	case b := <-ch:
 		if v != b {
-			t.Fatal("Wrong value returned on channel")
+			log.Fatal("Wrong value returned on channel")
 		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Waited too long")
+	case <-time.After(time.Second):
+		log.Fatal("Waited too long")
 	}
 
 }
@@ -733,7 +761,7 @@ func waitOrFatal(ch chan bool, t *testing.T) {
 	select {
 	case _ = <-ch:
 		return
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Waited too long")
+	case <-time.After(time.Second):
+		log.Fatal("Waited too long")
 	}
 }

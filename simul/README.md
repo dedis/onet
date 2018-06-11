@@ -1,10 +1,15 @@
+Navigation: [DEDIS](https://github.com/dedis/doc/tree/master/README.md) ::
+[Onet](../README.md) ::
+Simulation
+
 # Simulation
 
 The simulation can be used to run the protocol or service in
 different settings:
 
 - localhost - for up to 100 nodes
-- deterlab - for up to 50'000 nodes
+- [Mininet](platform/MININET.md) - for up to 3000 nodes
+- [Deterlab](platform/DETERLAB.md) - for up to 50'000 nodes
 
 Refer to the simulation-examples in simul/manage/simulation and
 https://github.com/dedis/cothority_template
@@ -82,6 +87,8 @@ set them up for each line in the experiment.
 
 - `SingleHost` - which will reduce the tree to use only one host per server, and
 thus speeding up connections again
+- `Tags` - build-tags that will be called when building the binaries for the
+simulation
 
 ### Example
 

@@ -328,8 +328,9 @@ func (n *TreeNodeInstance) closeDispatch() error {
 	log.Lvl3("Closing node", n.Info())
 	n.msgDispatchQueueMutex.Lock()
 	n.closing = true
-	n.notifyDispatch()
+	close(n.msgDispatchQueueWait)
 	n.msgDispatchQueueMutex.Unlock()
+	log.Lvl3("Closed node", n.Info())
 	pni := n.ProtocolInstance()
 	if pni == nil {
 		return errors.New("Can't shutdown empty ProtocolInstance")
@@ -432,13 +433,13 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 func (n *TreeNodeInstance) ProcessProtocolMsg(msg *ProtocolMsg) {
 	log.Lvl4(n.Info(), "Received message")
 	n.msgDispatchQueueMutex.Lock()
+	defer n.msgDispatchQueueMutex.Unlock()
+	if n.closing {
+		log.Lvl3("Received message for closed protocol")
+		return
+	}
 	n.msgDispatchQueue = append(n.msgDispatchQueue, msg)
 	n.notifyDispatch()
-	n.msgDispatchQueueMutex.Unlock()
-}
-
-func (n *TreeNodeInstance) waitDispatch() {
-	<-n.msgDispatchQueueWait
 }
 
 func (n *TreeNodeInstance) notifyDispatch() {
@@ -474,7 +475,10 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 		} else {
 			n.msgDispatchQueueMutex.Unlock()
 			log.Lvl4(n.Info(), "Waiting for message")
-			n.waitDispatch()
+			// Allow for closing of the channel
+			select {
+			case <-n.msgDispatchQueueWait:
+			}
 		}
 	}
 }

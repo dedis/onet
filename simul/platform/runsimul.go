@@ -80,10 +80,9 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		scTmp := sc
 		server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) {
 			err = sim.Node(scTmp)
-			if err != nil {
-				log.Error(err)
-			}
-			scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
+			log.ErrFatal(err)
+			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
+			log.ErrFatal(err)
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) {
 			wgSimulInit.Done()
@@ -131,7 +130,10 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		syncWait := monitor.NewTimeMeasure("SimulSyncWait")
 		wgSimulInit.Add(len(rootSC.Tree.Roster.List))
 		for _, conode := range rootSC.Tree.Roster.List {
-			go rootSC.Server.Send(conode, &simulInit{})
+			go func(si *network.ServerIdentity) {
+				_, err := rootSC.Server.Send(si, &simulInit{})
+				log.ErrFatal(err, "Couldn't send to conode:")
+			}(conode)
 		}
 		wgSimulInit.Wait()
 		syncWait.Record()

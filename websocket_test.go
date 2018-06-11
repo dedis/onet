@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/dedis/protobuf"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/websocket"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
 	"gopkg.in/satori/go.uuid.v1"
@@ -137,28 +135,19 @@ func TestNewWebSocket(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
-	go c.Start()
-	for !c.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	c.StartInBackground()
 
 	defer c.Close()
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
-	url, err := getWebAddress(c.ServerIdentity, false)
-	require.Nil(t, err)
-	ws, err := websocket.Dial(fmt.Sprintf("ws://%s/WebSocket/SimpleResponse", url),
-		"", "http://something_else")
-	log.ErrFatal(err)
+	cl := NewClientKeep(tSuite, "WebSocket")
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
 	buf, err := protobuf.Encode(req)
 	require.Nil(t, err)
-	require.Nil(t, websocket.Message.Send(ws, buf))
+	rcv, err := cl.Send(c.ServerIdentity, "SimpleResponse", buf)
+	require.Nil(t, err)
 
-	log.Lvl1("Waiting for reply")
-	var rcv []byte
-	require.Nil(t, websocket.Message.Receive(ws, &rcv))
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
@@ -183,34 +172,19 @@ func TestNewWebSocketTLS(t *testing.T) {
 	c.WebSocket.Lock()
 	c.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certToAdd}}
 	c.WebSocket.Unlock()
-	go c.Start()
-	for !c.Listening() {
-		time.Sleep(10 * time.Millisecond)
-	}
+	c.StartInBackground()
 	defer c.Close()
 
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
-	url, err := getWebAddress(c.ServerIdentity, false)
-	require.Nil(t, err)
 
-	serverURL := fmt.Sprintf("wss://%s/WebSocket/SimpleResponse", url)
-	origin := "https://127.0.0.1"
-	config, err := websocket.NewConfig(serverURL, origin)
-	require.Nil(t, err)
-	config.TlsConfig = &tls.Config{RootCAs: CAPool}
-	ws, err := websocket.DialConfig(config)
-	require.Nil(t, err)
-
+	cl := NewClientKeep(tSuite, "WebSocket")
+	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
 	buf, err := protobuf.Encode(req)
 	require.Nil(t, err)
-	require.Nil(t, websocket.Message.Send(ws, buf))
-
-	log.Lvl1("Waiting for reply")
-	var rcv []byte
-	require.Nil(t, websocket.Message.Receive(ws, &rcv))
+	rcv, err := cl.Send(c.ServerIdentity, "SimpleResponse", buf)
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
@@ -326,7 +300,8 @@ func TestClient_Parallel(t *testing.T) {
 			}
 			client := local.NewClient(backForthServiceName)
 			sr := &SimpleResponse{}
-			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+			err := client.SendProtobuf(servers[0].ServerIdentity, r, sr)
+			require.Nil(t, err)
 			require.Equal(t, 10*i, sr.Val)
 			log.Lvl1("Done with message", i)
 			wg.Done()
