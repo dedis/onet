@@ -69,6 +69,9 @@ type Localhost struct {
 
 	// PreScript is run before the simulation is started
 	PreScript string
+
+	// RunWait for long simulations
+	RunWait string
 }
 
 // Configure various internal variables
@@ -215,7 +218,12 @@ func (d *Localhost) Wait() error {
 	defer d.Unlock()
 	log.Lvl3("Waiting for processes to finish")
 
-	var err error
+	wait, err := time.ParseDuration(d.RunWait)
+	if err != nil || wait == 0 {
+		log.Error("Couldn't parse RunWait - using 600s as default value")
+		wait = 600 * time.Second
+	}
+
 	go func() {
 		d.wgRun.Wait()
 		log.Lvl3("WaitGroup is 0")
@@ -234,6 +242,8 @@ func (d *Localhost) Wait() error {
 			}
 			err = e
 		}
+	case <-time.After(wait):
+		log.Lvl1("Quitting after waiting", wait)
 	}
 	monitor.EndAndCleanup()
 	log.Lvl2("Processes finished")
