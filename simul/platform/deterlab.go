@@ -346,10 +346,8 @@ func (d *Deterlab) Start(args ...string) error {
 // Wait for the process to finish
 func (d *Deterlab) Wait() error {
 	wait, err := time.ParseDuration(d.RunWait)
-	if err != nil {
-		return err
-	}
-	if wait == 0 {
+	if err != nil || wait == 0 {
+		log.Error("Couldn't parse RunWait - using 600s as default value")
 		wait = 600 * time.Second
 	}
 	if d.started {
