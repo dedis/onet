@@ -127,7 +127,7 @@ as follows:
     15
     31
 
-It can also be set for each individual experiment:
+Alternatively, it can be set for each individual experiment:
 
     Simulation = "ExampleHandlers"
     Servers = 16
