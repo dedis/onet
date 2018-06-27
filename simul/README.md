@@ -81,7 +81,7 @@ the double of this
 for each host
 
 You can put these variables either globally at the top of the .toml file or
-set them up for each line in the experiment.
+set them up for each line in the experiment (see the exapmles below).
 
 ### Experimental
 
@@ -103,7 +103,6 @@ simulation
     7
     15
     31
-
 This will run the `ExampleHandlers`-simulation on 16 servers with a branching
 factor of 2 and 10 rounds. The `SingleHost`-argument is commented out, so it
 will use as many hosts as described.
@@ -111,3 +110,34 @@ will use as many hosts as described.
 In the second part, 4 experiments are defined, each only changing the number
 of `Hosts`. First 3, then 7, 15, and finally 31 hosts are run on the 16
 servers. For each experiment 10 rounds are started.
+
+Assuming the simulation runs on MiniNet, the network delay can be set globally
+as follows:
+
+    Simulation = "ExampleHandlers"
+	Delay = 100
+    Servers = 16
+    BF = 2
+    Rounds = 10
+    #SingleHost = true
+
+    Hosts
+    3
+    7
+    15
+    31
+
+Alternatively, it can be set for each individual experiment:
+
+    Simulation = "ExampleHandlers"
+    Servers = 16
+    BF = 2
+    Rounds = 10
+    #SingleHost = true
+
+    Hosts,Delay
+    3,50
+    7,100
+    15,200
+    31,400
+
