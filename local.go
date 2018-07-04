@@ -92,6 +92,13 @@ func NewLocalTest(s network.Suite) *LocalTest {
 	}
 }
 
+// NewLocalTestT is like NewLocalTest but also stores the testing.T variable.
+func NewLocalTestT(s network.Suite, t *testing.T) *LocalTest {
+	l := NewLocalTest(s)
+	l.T = t
+	return l
+}
+
 // NewTCPTest returns a LocalTest but using a TCPRouter as the underlying
 // communication layer.
 func NewTCPTest(s network.Suite) *LocalTest {
@@ -245,6 +252,9 @@ func (l *LocalTest) CloseAll() {
 		// called in a `defer` statement, and we don't want to show leaking
 		// go-routines or hanging protocolInstances if a panic occurs.
 		panic(r)
+	}
+	if l.T != nil && l.T.Failed() {
+		return
 	}
 
 	InformAllServersStopped()

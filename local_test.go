@@ -42,6 +42,24 @@ func Test_showPanic(t *testing.T) {
 	panic("this should be caught")
 }
 
+func Test_showFail(t *testing.T) {
+	t.Skip("I have no idea how I can have this test passing... It tests that CloseAll doesn't test goroutines when a test fails.")
+	l := NewLocalTest(tSuite)
+	c := make(chan bool)
+	go func() {
+		<-c
+	}()
+	defer l.CloseAll()
+	defer func() {
+		if !t.Failed() {
+			t.Fail()
+		}
+		c <- true
+	}()
+	l.T = t
+	require.Nil(t, "not nil")
+}
+
 func TestGenLocalHost(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	hosts := l.genLocalHosts(2)
