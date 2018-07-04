@@ -28,6 +28,20 @@ func Test_panicClose(t *testing.T) {
 	require.Panics(t, func() { l.genLocalHosts(2) })
 }
 
+func Test_showPanic(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	c := make(chan bool)
+	go func() {
+		<-c
+	}()
+	defer func() {
+		require.NotNil(t, recover())
+		c <- true
+	}()
+	defer l.CloseAll()
+	panic("this should be caught")
+}
+
 func TestGenLocalHost(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	hosts := l.genLocalHosts(2)
