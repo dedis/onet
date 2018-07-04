@@ -240,6 +240,13 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
+	if r := recover(); r != nil {
+		// Make sure that a panic is correctly caught, as CloseAll is most often
+		// called in a `defer` statement, and we don't want to show leaking
+		// go-routines or hanging protocolInstances if a panic occurs.
+		panic(r)
+	}
+
 	InformAllServersStopped()
 	// If the debug-level is 0, we copy all errors to a buffer that
 	// will be discarded at the end.
