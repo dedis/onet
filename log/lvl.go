@@ -101,7 +101,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 				NamePadding = len(name)
 			}
 			if len(lineStr) > LinePadding && LinePadding > 0 {
-				LinePadding = len(name)
+				LinePadding = len(lineStr)
 			}
 		}
 
