@@ -83,6 +83,26 @@ func TestNewTCPTest(t *testing.T) {
 	log.ErrFatal(err)
 }
 
+// Tests whether TestClose is called in the service.
+func TestTestClose(t *testing.T) {
+	l := NewTCPTest(tSuite)
+	servers, _, _ := l.GenTree(1, true)
+	services := l.GetServices(servers, clientServiceID)
+	pingpong := make(chan bool, 1)
+	go func() {
+		pingpong <- true
+		for _, s := range services {
+			<-s.(*clientService).closed
+		}
+		pingpong <- true
+	}()
+	// Wait for the go-routine to be started
+	<-pingpong
+	l.CloseAll()
+	// Wait for all services to be clsoed
+	<-pingpong
+}
+
 func TestWaitDone(t *testing.T) {
 	l := NewTCPTest(tSuite)
 	servers, ro, _ := l.GenTree(1, true)
@@ -107,8 +127,9 @@ func TestWaitDone(t *testing.T) {
 
 type clientService struct {
 	*ServiceProcessor
-	cl    *Client
-	click chan bool
+	cl     *Client
+	click  chan bool
+	closed chan bool
 }
 
 type SimpleMessage2 struct{}
@@ -126,11 +147,16 @@ func (c *clientService) SimpleMessage2(msg *SimpleMessage2) (network.Message, er
 	return nil, nil
 }
 
+func (c *clientService) TestClose() {
+	c.closed <- true
+}
+
 func newClientService(c *Context) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
 		cl:               NewClient(c.server.Suite(), clientServiceName),
 		click:            make(chan bool, 1),
+		closed:           make(chan bool, 1),
 	}
 	log.ErrFatal(s.RegisterHandlers(s.SimpleMessage, s.SimpleMessage2))
 	s.RegisterProcessorFunc(network.RegisterMessage(RawMessage{}), func(arg1 *network.Envelope) {

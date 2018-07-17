@@ -151,6 +151,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			log.Error("The tree doesn't use all ServerIdentities from the list!\n" +
 				"This means that the CloseAll will fail and the experiment never ends!")
 		}
+
 		// Recreate a tree out of the original roster, to be sure all nodes are included and
 		// that the tree is easy to close.
 		closeTree := rootSC.Roster.GenerateBinaryTree()
