@@ -32,6 +32,13 @@ const (
 	CheckAll
 )
 
+// TestClose interface allows a service to clean up for the tests. It will only
+// be called when a test calls `LocalTest.CloseAll()`.
+type TestClose interface {
+	// TestClose can clean up things needed in the service.
+	TestClose()
+}
+
 // LocalTest represents all that is needed for a local test-run
 type LocalTest struct {
 	// A map of ServerIdentity.Id to Servers
@@ -258,6 +265,7 @@ func (l *LocalTest) CloseAll() {
 	}
 
 	InformAllServersStopped()
+
 	// If the debug-level is 0, we copy all errors to a buffer that
 	// will be discarded at the end.
 	if log.DebugVisible() == 0 {
