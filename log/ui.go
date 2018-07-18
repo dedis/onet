@@ -12,24 +12,23 @@ import (
 
 const (
 	Ldate  = 1 << iota
-        Ltime
-        Lmicroseconds
-        Llongfile
-        Lshortfile
-        LUTC
-        LstdFlags     = Ldate | Ltime
+	Ltime
+	Lmicroseconds
+	Llongfile
+	Lshortfile
+	LUTC
+	LstdFlags = Ldate | Ltime
 )
 
 type LoggerPanic struct {
-        mu     sync.Mutex
-        prefix string
-        flag   int
-        out    io.Writer
-        buf    []byte
+	mu     sync.Mutex
+	prefix string
+	flag   int
+	out    io.Writer
+	buf    []byte
 }
 
-// New creates a new Logger. The out variable sets the
-// destination to which log data will be written.
+// New creates a new Logger
 func New(out io.Writer, prefix string, flag int) *LoggerPanic {
         return &LoggerPanic{out: out, prefix: prefix, flag: flag}
 }
@@ -101,9 +100,7 @@ func (l *LoggerPanic) formatHeader(buf *[]byte, t time.Time, file string, line i
 	}
 }
 
-// Ouput writes the logging event. The string s is
-// the text to be printed after the prefix specified by the flags of the
-// Logger.
+// Ouput writes the logging event.
 func (l *LoggerPanic) Output(calldepth int, s string) error {
 	now := time.Now() // get this early.
 	var file string
@@ -241,4 +238,4 @@ func print(lvl int, args ...interface{}) {
 		}
 	}
 	fmt.Fprint(stdOut, "\n")
-	}
+}
