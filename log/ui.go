@@ -111,7 +111,7 @@ func (l *LoggerPanic) formatHeader(buf *[]byte, t time.Time, file string, line i
 	}
 }
 
-// Ouput writes the logging event.
+// "Ouput writes the logging event."
 func (l *LoggerPanic) Output(calldepth int, s string) error {
 	now := time.Now() // get this early.
 	var file string
