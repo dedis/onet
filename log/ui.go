@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-
 	"runtime"
 	"time"
 	"io"
@@ -12,21 +11,21 @@ import (
 )
 
 const (
-        Ldate         = 1 << iota    
-        Ltime                         
-        Lmicroseconds                 
-        Llongfile                     
-        Lshortfile                   
-        LUTC                          
-        LstdFlags     = Ldate | Ltime 
+	Ldate  = 1 << iota
+        Ltime
+        Lmicroseconds
+        Llongfile
+        Lshortfile
+        LUTC
+        LstdFlags     = Ldate | Ltime
 )
 
 type LoggerPanic struct {
-        mu     sync.Mutex 
-        prefix string     
-        flag   int        
-        out    io.Writer  
-        buf    []byte     
+        mu     sync.Mutex
+        prefix string
+        flag   int
+        out    io.Writer
+        buf    []byte
 }
 
 // New creates a new Logger. The out variable sets the
