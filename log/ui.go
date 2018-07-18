@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"runtime"
 	"time"
 	"io"
 	"sync"
+	"runtime"
+
 )
 
 const (
@@ -26,6 +27,14 @@ type LoggerPanic struct {
 	flag   int
 	out    io.Writer
 	buf    []byte
+}
+
+func lvlUI(l int, args ...interface{}) {
+	if DebugVisible() > 0 {
+		lvl(l, 3, args...)
+	} else {
+		print(l, args...)
+	}
 }
 
 // New creates a new Logger
@@ -126,14 +135,6 @@ func (l *LoggerPanic) Output(calldepth int, s string) error {
 	}
 	_, err := l.out.Write(l.buf)
 	return err
-}
-
-func lvlUI(l int, args ...interface{}) {
-	if DebugVisible() > 0 {
-		lvl(l, 3, args...)
-	} else {
-		print(l, args...)
-	}
 }
 
 // Info prints the arguments given with a 'info'-format
