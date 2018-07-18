@@ -12,21 +12,21 @@ import (
 )
 
 const (
-        Ldate         = 1 << iota     // the date in the local time zone: 2009/01/23
-        Ltime                         // the time in the local time zone: 01:23:23
-        Lmicroseconds                 // microsecond resolution: 01:23:23.123123.  assumes Ltime.
-        Llongfile                     // full file name and line number: /a/b/c/d.go:23
-        Lshortfile                    // final file name element and line number: d.go:23. overrides Llongfile
-        LUTC                          // if Ldate or Ltime is set, use UTC rather than the local time zone
-        LstdFlags     = Ldate | Ltime // initial values for the standard logger
+        Ldate         = 1 << iota    
+        Ltime                         
+        Lmicroseconds                 
+        Llongfile                     
+        Lshortfile                   
+        LUTC                          
+        LstdFlags     = Ldate | Ltime 
 )
 
 type LoggerPanic struct {
-        mu     sync.Mutex // ensures atomic writes; protects the following fields
-        prefix string     // prefix to write at beginning of each line
-        flag   int        // properties
-        out    io.Writer  // destination for output
-        buf    []byte     // for accumulating text to write
+        mu     sync.Mutex 
+        prefix string     
+        flag   int        
+        out    io.Writer  
+        buf    []byte     
 }
 
 // New creates a new Logger. The out variable sets the
@@ -34,7 +34,6 @@ type LoggerPanic struct {
 func New(out io.Writer, prefix string, flag int) *LoggerPanic {
         return &LoggerPanic{out: out, prefix: prefix, flag: flag}
 }
-
 
 var std = New(os.Stderr, "", LstdFlags)
 
@@ -54,7 +53,6 @@ func itoa(buf *[]byte, i int, wid int) {
         b[bp] = byte('0' + i)
         *buf = append(*buf, b[bp:]...)
 }
-
 
 // formatHeader writes log header to buf.
 func (l *LoggerPanic) formatHeader(buf *[]byte, t time.Time, file string, line int) {
@@ -133,9 +131,6 @@ func (l *LoggerPanic) Output(calldepth int, s string) error {
 	_, err := l.out.Write(l.buf)
 	return err
 }
-
-
-
 
 func lvlUI(l int, args ...interface{}) {
 	if DebugVisible() > 0 {
