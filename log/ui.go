@@ -2,17 +2,16 @@ package log
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"time"
 	"io"
-	"sync"
+	"os"
 	"runtime"
-
+	"strconv"
+	"sync"
+	"time"
 )
 
 const (
-	Ldate  = 1 << iota
+	Ldate = 1 << iota
 	Ltime
 	Lmicroseconds
 	Llongfile
@@ -39,26 +38,26 @@ func lvlUI(l int, args ...interface{}) {
 
 // New creates a new Logger
 func New(out io.Writer, prefix string, flag int) *LoggerPanic {
-        return &LoggerPanic{out: out, prefix: prefix, flag: flag}
+	return &LoggerPanic{out: out, prefix: prefix, flag: flag}
 }
 
 var std = New(os.Stderr, "", LstdFlags)
 
 // integer to fixed-width decimal ASCII. Give a negative width to avoid zero-padding.
 func itoa(buf *[]byte, i int, wid int) {
-        // Assemble decimal in reverse order.
-        var b [20]byte
-        bp := len(b) - 1
-        for i >= 10 || wid > 1 {
-                wid--
-                q := i / 10
-                b[bp] = byte('0' + i - q*10)
-                bp--
-                i = q
-        }
-        // i < 10
-        b[bp] = byte('0' + i)
-        *buf = append(*buf, b[bp:]...)
+	// Assemble decimal in reverse order.
+	var b [20]byte
+	bp := len(b) - 1
+	for i >= 10 || wid > 1 {
+		wid--
+		q := i / 10
+		b[bp] = byte('0' + i - q*10)
+		bp--
+		i = q
+	}
+	// i < 10
+	b[bp] = byte('0' + i)
+	*buf = append(*buf, b[bp:]...)
 }
 
 // formatHeader writes log header to buf.
@@ -161,7 +160,7 @@ func Error(args ...interface{}) {
 func Panic(args ...interface{}) {
 	lvlUI(lvlPanic, args...)
 	s := fmt.Sprint(args...)
-	std.Output(2,s)
+	std.Output(2, s)
 	panic(s)
 }
 
