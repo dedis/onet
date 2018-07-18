@@ -37,7 +37,9 @@ func Error(args ...interface{}) {
 // Panic prints out the panic message and panics
 func Panic(args ...interface{}) {
 	lvlUI(lvlPanic, args...)
-	panic(args)
+	s := fmt.Sprint(args...)
+	std.Output(2,s)
+	panic(s)
 }
 
 // Fatal prints out the fatal message and quits
