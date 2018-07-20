@@ -32,3 +32,15 @@ func TestLvl(t *testing.T) {
 	Warn("TestLvl")
 	assert.True(t, containsStdErr("W : (                             log.TestLvl:   0) - TestLvl\n"))
 }
+
+func TestPanic(t *testing.T) {
+	assert.PanicsWithValue(t, "", func() {
+		Panic()
+	})
+	assert.PanicsWithValue(t, "the number is 22", func() {
+		Panic("the number is 22")
+	})
+	assert.PanicsWithValue(t, "the number is 1", func() {
+		Panic("the number is %d", 1)
+	})
+}
