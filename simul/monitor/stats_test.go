@@ -240,10 +240,10 @@ func TestStructParsedWithString(t *testing.T) {
 		stat.Collect()
 		stat.WriteHeader(str)
 		stat.WriteValues(str)
-		time.Sleep(120 * time.Millisecond)
-		time.Sleep(120 * time.Millisecond)
-		EndAndCleanup()
 
 	}
+
+	EndAndCleanup()
+	time.Sleep(120 * time.Millisecond)
 
 }
