@@ -645,6 +645,41 @@ func (ro *Roster) RandomSubset(root *network.ServerIdentity, n int) *Roster {
 	return NewRoster(out)
 }
 
+// IsRotation returns true if the target is a rotated (the same roster but with
+// shifted server identities) version of the receiver.
+func (ro Roster) IsRotation(target *Roster) bool {
+	if target == nil {
+		return false
+	}
+	n := len(ro.List)
+	if n < 2 {
+		return false
+	}
+	if n != len(target.List) {
+		return false
+	}
+
+	// find the first element of ro in target
+	var offset int
+	for _, sid := range target.List {
+		if sid.Equal(ro.List[0]) {
+			break
+		}
+		offset++
+	}
+	if offset == 0 || offset >= n {
+		return false
+	}
+
+	// check that the identities are the same, starting at the offset
+	for i, sid := range ro.List {
+		if !sid.Equal(target.List[(i+offset)%n]) {
+			return false
+		}
+	}
+	return true
+}
+
 // addNary is a recursive function to create the binary tree.
 func (ro *Roster) addNary(parent *TreeNode, N, start, end int) *TreeNode {
 	if !(start <= end && end < len(ro.List)) {
