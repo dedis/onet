@@ -211,3 +211,41 @@ func TestStatsString(t *testing.T) {
 		t.Fatal("The measurement should contain 0.1:", rs.String())
 	}
 }
+
+
+
+func TestStructParsedWithString(t *testing.T) {
+	testRange := [3]int{1, 2, 3}
+	for testCount, _ := range testRange {
+		mon, _ := setupMonitorStringTest(t, testCount)
+		//mon := monStatValues.m
+		dm := &DummyCounterIO{0, 0}
+		// create the counter measure
+		cm := NewCounterIOMeasure("dummy", dm)
+		if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+			t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d", cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
+			t.Fatal("Tx() / Rx() not working ?")
+
+		}
+
+		//bread, bwritten := cm.baseRx, cm.baseTx
+		cm.Record()
+		// check the values again
+		if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+			t.Fatal("Record() not working for CounterIOMeasure")
+		}
+
+		// Important otherwise data don't get written down to the monitor yet.
+		time.Sleep(100 * time.Millisecond)
+		str := new(bytes.Buffer)
+		stat := mon.stats
+		stat.Collect()
+		stat.WriteHeader(str)
+		stat.WriteValues(str)
+		time.Sleep(120 * time.Millisecond)
+		time.Sleep(120 * time.Millisecond)
+		EndAndCleanup()
+
+	}
+
+}

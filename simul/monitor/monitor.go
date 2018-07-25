@@ -34,7 +34,6 @@ const Sink = "0.0.0.0"
 // DefaultSinkPort is the default port where a monitor will listen and a proxy
 // will contact the monitor.
 const DefaultSinkPort = 10000
-
 // Monitor struct is used to collect measures and make the statistics about
 // them. It takes a stats object so it update that in a concurrent-safe manner
 // for each new measure it receives.
