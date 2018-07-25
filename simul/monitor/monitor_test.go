@@ -105,7 +105,7 @@ func setupMonitorStringTest(t *testing.T, testCount int) (*Monitor, *Stats) {
 
 	var myMapSlice []testStringInput // for storing an array for maps. To be use for testing
 
-	m1 := testStringInput{"server1": "crazyString"}
+	m1 := testStringInput{"server1": "crazyStrings"}
 	m2 := testStringInput{"server2": ""}
 	m3 := testStringInput{"server3": "123456789"}
 
