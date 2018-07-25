@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"bytes"
+	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -212,37 +213,44 @@ func TestStatsString(t *testing.T) {
 	}
 }
 
+// this function generates random number for this simulation
+func random(min, max int) int {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return rand.Intn((max-min)+1) + min
+}
+
 func TestStructParsedWithString(t *testing.T) {
-	testRange := [3]int{1, 2, 3}
-	for testCount, _ := range testRange {
-		mon, _ := setupMonitorStringTest(t, testCount)
-		//mon := monStatValues.m
-		dm := &DummyCounterIO{0, 0}
-		// create the counter measure
-		cm := NewCounterIOMeasure("dummy", dm)
-		if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
-			t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d", cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
-			t.Fatal("Tx() / Rx() not working ?")
+	testRange := [5]int{1, 2, 3, 4, 5}
 
-		}
+	rand.Seed(time.Now().UTC().UnixNano())
+	testCount := random(0, len(testRange)-1)
 
-		//bread, bwritten := cm.baseRx, cm.baseTx
-		cm.Record()
-		// check the values again
-		if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
-			t.Fatal("Record() not working for CounterIOMeasure")
-		}
-
-		// Important otherwise data don't get written down to the monitor yet.
-		time.Sleep(100 * time.Millisecond)
-		str := new(bytes.Buffer)
-		stat := mon.stats
-		stat.Collect()
-		stat.WriteHeader(str)
-		stat.WriteValues(str)
-		EndAndCleanup()
-		time.Sleep(120 * time.Millisecond)
+	mon, _ := setupMonitorStringTest(t, testCount)
+	//mon := monStatValues.m
+	dm := &DummyCounterIO{0, 0}
+	// create the counter measure
+	cm := NewCounterIOMeasure("dummy", dm)
+	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+		t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d", cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
+		t.Fatal("Tx() / Rx() not working ?")
 
 	}
+
+	//bread, bwritten := cm.baseRx, cm.baseTx
+	cm.Record()
+	// check the values again
+	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+		t.Fatal("Record() not working for CounterIOMeasure")
+	}
+
+	// Important otherwise data don't get written down to the monitor yet.
+	time.Sleep(100 * time.Millisecond)
+	str := new(bytes.Buffer)
+	stat := mon.stats
+	stat.Collect()
+	stat.WriteHeader(str)
+	stat.WriteValues(str)
+	EndAndCleanup()
+	time.Sleep(120 * time.Millisecond)
 
 }

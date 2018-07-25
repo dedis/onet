@@ -108,8 +108,10 @@ func setupMonitorStringTest(t *testing.T, testCount int) (*Monitor, *Stats) {
 	m1 := testStringInput{"server1": "crazyStrings"}
 	m2 := testStringInput{"server2": ""}
 	m3 := testStringInput{"server3": "123456789"}
+	m4 := testStringInput{"server3": "crazyString098765432"}
+	m5 := testStringInput{"server3": "456712309crazyString"}
 
-	myMapSlice = append(myMapSlice, m1, m2, m3)
+	myMapSlice = append(myMapSlice, m1, m2, m3, m4, m5)
 
 	if testCount > len(myMapSlice) {
 
