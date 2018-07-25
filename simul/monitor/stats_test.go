@@ -212,8 +212,6 @@ func TestStatsString(t *testing.T) {
 	}
 }
 
-
-
 func TestStructParsedWithString(t *testing.T) {
 	testRange := [3]int{1, 2, 3}
 	for testCount, _ := range testRange {
