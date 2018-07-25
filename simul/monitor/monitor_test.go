@@ -111,11 +111,7 @@ func setupMonitorStringTest(t *testing.T, testCount int) (*Monitor, *Stats) {
 
 	myMapSlice = append(myMapSlice, m1, m2, m3)
 
-	if testCount < len(myMapSlice) {
-
-		testCount = testCount
-
-	} else {
+	if testCount > len(myMapSlice) {
 
 		testCount = len(myMapSlice) - 1
 
