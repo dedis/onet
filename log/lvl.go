@@ -101,7 +101,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 				NamePadding = len(name)
 			}
 			if len(lineStr) > LinePadding && LinePadding > 0 {
-				LinePadding = len(name)
+				LinePadding = len(lineStr)
 			}
 		}
 
@@ -341,7 +341,9 @@ func MainTest(m *testing.M, ls ...int) {
 	}()
 	select {
 	case code := <-done:
-		AfterTest(nil)
+		if code == 0 {
+			AfterTest(nil)
+		}
 		os.Exit(code)
 	case <-time.After(interpretWait()):
 		Error("Didn't finish in time")

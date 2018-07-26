@@ -162,6 +162,15 @@ func (c *Server) Close() error {
 		c.IsStarted = false
 	}
 	c.Unlock()
+
+	// For all services that have `TestClose` defined, call it to make
+	// sure they are able to clean up. This should only be used for tests!
+	for _, serv := range c.serviceManager.services {
+		s, ok := serv.(TestClose)
+		if ok {
+			s.TestClose()
+		}
+	}
 	c.overlay.stop()
 	c.WebSocket.stop()
 	c.overlay.Close()

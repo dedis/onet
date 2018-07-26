@@ -176,12 +176,15 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 	}
 
 	for scanner.Scan() {
-		if scanner.Text() != "" {
+		if scanner.Text() != "" && scanner.Text()[0] != '#' {
 			break
 		}
 	}
 	args := strings.Split(scanner.Text(), ",")
 	for scanner.Scan() {
+		if scanner.Text()[0] == '#' {
+			continue
+		}
 		rc := masterConfig.Clone()
 		// put each individual test configs
 		for i, value := range strings.Split(scanner.Text(), ",") {

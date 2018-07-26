@@ -91,6 +91,8 @@ type Deterlab struct {
 	Suite string
 	// PreScript defines a script that is run before the simulation
 	PreScript string
+	// Tags to use when compiling
+	Tags string
 }
 
 var simulConfig *onet.SimulationConfig
@@ -154,6 +156,10 @@ func (d *Deterlab) Build(build string, arg ...string) error {
 	if build == "" {
 		build = "simul,users"
 	}
+	var tags []string
+	if d.Tags != "" {
+		tags = append([]string{"-tags"}, strings.Split(d.Tags, " ")...)
+	}
 	log.Lvl3("Starting to build all executables", packages)
 	for _, p := range packages {
 		if !strings.Contains(build, p.name) {
@@ -168,8 +174,14 @@ func (d *Deterlab) Build(build string, arg ...string) error {
 			path, err := filepath.Rel(d.simulDir, p.path)
 			log.ErrFatal(err)
 			// deter has an amd64, linux architecture
-			out, err := Build(path, dst,
-				p.processor, p.system, arg...)
+			var out string
+			if p.name == "simul" {
+				out, err = Build(path, dst,
+					p.processor, p.system, append(arg, tags...)...)
+			} else {
+				out, err = Build(path, dst,
+					p.processor, p.system, arg...)
+			}
 			if err != nil {
 				KillGo()
 				log.Lvl1(out)
@@ -334,10 +346,10 @@ func (d *Deterlab) Start(args ...string) error {
 // Wait for the process to finish
 func (d *Deterlab) Wait() error {
 	wait, err := time.ParseDuration(d.RunWait)
-	if err != nil {
-		return err
-	}
-	if wait == 0 {
+	if err != nil || wait == 0 {
+		if d.RunWait != "" {
+			log.Error("Couldn't parse RunWait - using 600s as default value")
+		}
 		wait = 600 * time.Second
 	}
 	if d.started {

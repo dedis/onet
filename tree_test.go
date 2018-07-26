@@ -513,6 +513,26 @@ func TestRoster_Publics(t *testing.T) {
 	}
 }
 
+func TestRoster_IsRotation(t *testing.T) {
+	n := 5
+	_, tmpRoster := genLocalTree(n, 2000)
+	roster := NewRoster(tmpRoster.List)
+
+	// a roster that is missing an element is not a valid rotation
+	rosterShort := NewRoster(roster.List[1:])
+	// a roster with the final two elements swapped is not a valid rotation
+	rosterSwapped := NewRoster(append(roster.List[0:n-2], roster.List[n-1], roster.List[n-2]))
+	// the following are valid rotations
+	rosterRotated0 := NewRoster(append(roster.List[1:], roster.List[0]))
+	rosterRotated1 := NewRoster(append(rosterRotated0.List[1:], rosterRotated0.List[0]))
+
+	assert.False(t, roster.IsRotation(nil))
+	assert.False(t, roster.IsRotation(rosterShort))
+	assert.False(t, roster.IsRotation(rosterSwapped))
+	assert.True(t, roster.IsRotation(rosterRotated0))
+	assert.True(t, roster.IsRotation(rosterRotated1))
+}
+
 func TestTreeNode_AggregatePublic(t *testing.T) {
 	tree, el := genLocalTree(7, 2000)
 	agg := el.Aggregate

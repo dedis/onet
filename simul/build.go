@@ -17,8 +17,6 @@ import (
 )
 
 // Configuration-variables
-var deployP platform.Platform
-
 var platformDst = "localhost"
 var nobuild = false
 var clean = true
@@ -47,7 +45,7 @@ func init() {
 // Reads in the platform that we want to use and prepares for the tests
 func startBuild() {
 	flag.Parse()
-	deployP = platform.NewPlatform(platformDst)
+	deployP := platform.NewPlatform(platformDst)
 	if deployP == nil {
 		log.Fatal("Platform not recognized.", platformDst)
 	}
@@ -86,7 +84,7 @@ func startBuild() {
 				log.Fatal("ExperimentWait:", err)
 			}
 			go func() {
-				RunTests(logname, runconfigs)
+				RunTests(deployP, logname, runconfigs)
 				testsDone <- true
 			}()
 			select {
@@ -101,7 +99,7 @@ func startBuild() {
 
 // RunTests the given tests and puts the output into the
 // given file name. It outputs RunStats in a CSV format.
-func RunTests(name string, runconfigs []*platform.RunConfig) {
+func RunTests(deployP platform.Platform, name string, runconfigs []*platform.RunConfig) {
 
 	if nobuild == false {
 		if race {
@@ -148,7 +146,7 @@ func RunTests(name string, runconfigs []*platform.RunConfig) {
 
 		// run test t nTimes times
 		// take the average of all successful runs
-		stats, err := RunTest(rc)
+		stats, err := RunTest(deployP, rc)
 		if err != nil {
 			log.Error("Error running test:", err)
 			continue
@@ -172,7 +170,7 @@ func RunTests(name string, runconfigs []*platform.RunConfig) {
 
 // RunTest a single test - takes a test-file as a string that will be copied
 // to the deterlab-server
-func RunTest(rc *platform.RunConfig) (*monitor.Stats, error) {
+func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats, error) {
 	CheckHosts(rc)
 	rc.Delete("simulation")
 	rs := monitor.NewStats(rc.Map(), "hosts", "bf")

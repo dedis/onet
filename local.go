@@ -32,6 +32,13 @@ const (
 	CheckAll
 )
 
+// TestClose interface allows a service to clean up for the tests. It will only
+// be called when a test calls `LocalTest.CloseAll()`.
+type TestClose interface {
+	// TestClose can clean up things needed in the service.
+	TestClose()
+}
+
 // LocalTest represents all that is needed for a local test-run
 type LocalTest struct {
 	// A map of ServerIdentity.Id to Servers
@@ -90,6 +97,13 @@ func NewLocalTest(s network.Suite) *LocalTest {
 		Suite:    s,
 		path:     dir,
 	}
+}
+
+// NewLocalTestT is like NewLocalTest but also stores the testing.T variable.
+func NewLocalTestT(s network.Suite, t *testing.T) *LocalTest {
+	l := NewLocalTest(s)
+	l.T = t
+	return l
 }
 
 // NewTCPTest returns a LocalTest but using a TCPRouter as the underlying
@@ -240,7 +254,18 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
+	if r := recover(); r != nil {
+		// Make sure that a panic is correctly caught, as CloseAll is most often
+		// called in a `defer` statement, and we don't want to show leaking
+		// go-routines or hanging protocolInstances if a panic occurs.
+		panic(r)
+	}
+	if l.T != nil && l.T.Failed() {
+		return
+	}
+
 	InformAllServersStopped()
+
 	// If the debug-level is 0, we copy all errors to a buffer that
 	// will be discarded at the end.
 	if log.DebugVisible() == 0 {

@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -28,6 +29,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 	if monitorAddress != "" {
 		if err := monitor.ConnectSink(monitorAddress); err != nil {
 			log.Error("Couldn't connect monitor to sink:", err)
+			return errors.New("couldn't connect monitor to sink: " + err.Error())
 		}
 	}
 	sims := make([]onet.Simulation, len(scs))
@@ -43,7 +45,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		cfg := &conf{}
 		_, err := toml.Decode(scs[0].Config, cfg)
 		if err != nil {
-			return err
+			return errors.New("error while decoding config: " + err.Error())
 		}
 		measureNodeBW = cfg.IndividualStats == ""
 	}
@@ -72,7 +74,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 
 		sim, err := onet.NewSimulation(simul, sc.Config)
 		if err != nil {
-			return err
+			return errors.New("couldn't create new simulation: " + err.Error())
 		}
 		sims[i] = sim
 		// Need to store sc in a tmp-variable so it's correctly passed
@@ -107,7 +109,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		for wait {
 			p, err := rootSC.Overlay.CreateProtocol("Count", rootSC.Tree, onet.NilServiceID)
 			if err != nil {
-				return err
+				return errors.New("couldn't create protocol: " + err.Error())
 			}
 			proto := p.(*manage.ProtocolCount)
 			proto.SetTimeout(timeout)
@@ -141,7 +143,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
 		err := rootSim.Run(rootSC)
 		if err != nil {
-			return err
+			return errors.New("error from simulation run: " + err.Error())
 		}
 		measureNet.Record()
 
@@ -151,12 +153,13 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			log.Error("The tree doesn't use all ServerIdentities from the list!\n" +
 				"This means that the CloseAll will fail and the experiment never ends!")
 		}
+
 		// Recreate a tree out of the original roster, to be sure all nodes are included and
 		// that the tree is easy to close.
 		closeTree := rootSC.Roster.GenerateBinaryTree()
 		pi, err := rootSC.Overlay.CreateProtocol("CloseAll", closeTree, onet.NilServiceID)
 		if err != nil {
-			return err
+			return errors.New("couldn't create closeAll protocol: " + err.Error())
 		}
 		pi.Start()
 	}

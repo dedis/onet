@@ -28,6 +28,38 @@ func Test_panicClose(t *testing.T) {
 	require.Panics(t, func() { l.genLocalHosts(2) })
 }
 
+func Test_showPanic(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	c := make(chan bool)
+	go func() {
+		<-c
+	}()
+	defer func() {
+		require.NotNil(t, recover())
+		c <- true
+	}()
+	defer l.CloseAll()
+	panic("this should be caught")
+}
+
+func Test_showFail(t *testing.T) {
+	t.Skip("I have no idea how I can have this test passing... It tests that CloseAll doesn't test goroutines when a test fails.")
+	l := NewLocalTest(tSuite)
+	c := make(chan bool)
+	go func() {
+		<-c
+	}()
+	defer l.CloseAll()
+	defer func() {
+		if !t.Failed() {
+			t.Fail()
+		}
+		c <- true
+	}()
+	l.T = t
+	require.Nil(t, "not nil")
+}
+
 func TestGenLocalHost(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	hosts := l.genLocalHosts(2)
@@ -49,6 +81,26 @@ func TestNewTCPTest(t *testing.T) {
 	c1 := NewClient(tSuite, clientServiceName)
 	err := c1.SendProtobuf(el.List[0], &SimpleMessage{}, nil)
 	log.ErrFatal(err)
+}
+
+// Tests whether TestClose is called in the service.
+func TestTestClose(t *testing.T) {
+	l := NewTCPTest(tSuite)
+	servers, _, _ := l.GenTree(1, true)
+	services := l.GetServices(servers, clientServiceID)
+	pingpong := make(chan bool, 1)
+	go func() {
+		pingpong <- true
+		for _, s := range services {
+			<-s.(*clientService).closed
+		}
+		pingpong <- true
+	}()
+	// Wait for the go-routine to be started
+	<-pingpong
+	l.CloseAll()
+	// Wait for all services to be clsoed
+	<-pingpong
 }
 
 func TestWaitDone(t *testing.T) {
@@ -75,8 +127,9 @@ func TestWaitDone(t *testing.T) {
 
 type clientService struct {
 	*ServiceProcessor
-	cl    *Client
-	click chan bool
+	cl     *Client
+	click  chan bool
+	closed chan bool
 }
 
 type SimpleMessage2 struct{}
@@ -94,11 +147,16 @@ func (c *clientService) SimpleMessage2(msg *SimpleMessage2) (network.Message, er
 	return nil, nil
 }
 
+func (c *clientService) TestClose() {
+	c.closed <- true
+}
+
 func newClientService(c *Context) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
 		cl:               NewClient(c.server.Suite(), clientServiceName),
 		click:            make(chan bool, 1),
+		closed:           make(chan bool, 1),
 	}
 	log.ErrFatal(s.RegisterHandlers(s.SimpleMessage, s.SimpleMessage2))
 	s.RegisterProcessorFunc(network.RegisterMessage(RawMessage{}), func(arg1 *network.Envelope) {
