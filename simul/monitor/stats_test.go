@@ -245,11 +245,11 @@ func StructParsedWithString(t *testing.T, testCount int) *Stats {
 
 	// Important otherwise data don't get written down to the monitor yet.
 	time.Sleep(100 * time.Millisecond)
-	//str := new(bytes.Buffer)
+	str := new(bytes.Buffer)
 	stat := mon.stats
 	stat.Collect()
-	//stat.WriteHeader(str)
-	//stat.WriteValues(str)
+	stat.WriteHeader(str)
+	stat.WriteValues(str)
 	EndAndCleanup()
 	time.Sleep(120 * time.Millisecond)
 	return stat
