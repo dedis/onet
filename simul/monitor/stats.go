@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os" // me
+	//"os" // me
 	"regexp"
 	"sort"
 	"strconv"
@@ -110,10 +110,10 @@ func (s *Stats) WriteValues(w io.Writer) {
 		values = append(values, v.Values()...)
 	}
 
-	file, _ := os.Create("file.csv") // this is experimental
+	//file, _ := os.Create("file.csv") // this is experimental
 	//w := w.NewWriter(f)
-	file.Write([]byte(strings.Join(values, ","))) // experimental: write values to .csv file
-	defer file.Close()
+	//file.Write([]byte(strings.Join(values, ","))) // experimental: write values to .csv file
+	//defer file.Close()
 	fmt.Println(strings.Join(values, ","))
 	fmt.Fprintf(w, "%s", strings.Join(values, ","))
 	fmt.Fprintf(w, "\n")
