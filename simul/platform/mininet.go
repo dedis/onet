@@ -311,10 +311,9 @@ func (m *MiniNet) Start(args ...string) error {
 func (m *MiniNet) Wait() error {
 	wait, err := time.ParseDuration(m.RunWait)
 	if wait == 0 || err != nil {
-		if m.RunWait != "" {
-			log.Error("Couldn't parse RunWait - using 600s as default value")
-		}
+		log.Warn("Couldn't parse RunWait or it is set to 0 - using 600s as default value")
 		wait = 600 * time.Second
+		err = nil
 	}
 	if m.started {
 		log.Lvl3("Simulation is started")
