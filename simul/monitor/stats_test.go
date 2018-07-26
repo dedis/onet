@@ -219,11 +219,11 @@ func random(min, max int) int {
 	return rand.Intn((max-min)+1) + min
 }
 
-func TestStructParsedWithString(t *testing.T) {
-	testRange := [5]int{1, 2, 3, 4, 5}
+func StructParsedWithString(t *testing.T, testCount int) *Stats {
+	//testRange := [5]int{1, 2, 3, 4, 5}
 
-	rand.Seed(time.Now().UTC().UnixNano())
-	testCount := random(0, len(testRange)-1)
+	//rand.Seed(time.Now().UTC().UnixNano())
+	//testCount := random(0, len(testRange)-1)
 
 	mon, _ := setupMonitorStringTest(t, testCount)
 	//mon := monStatValues.m
@@ -245,12 +245,43 @@ func TestStructParsedWithString(t *testing.T) {
 
 	// Important otherwise data don't get written down to the monitor yet.
 	time.Sleep(100 * time.Millisecond)
-	str := new(bytes.Buffer)
+	//str := new(bytes.Buffer)
 	stat := mon.stats
 	stat.Collect()
-	stat.WriteHeader(str)
-	stat.WriteValues(str)
+	//stat.WriteHeader(str)
+	//stat.WriteValues(str)
 	EndAndCleanup()
 	time.Sleep(120 * time.Millisecond)
+	return stat
+
+}
+
+func TestStructParsedWithString(t *testing.T) {
+
+	m1 := StructParsedWithString(t, 0)
+	m2 := StructParsedWithString(t, 1)
+	m3 := StructParsedWithString(t, 2)
+	m4 := StructParsedWithString(t, 3)
+	m5 := StructParsedWithString(t, 4)
+
+	if m1.static["server1"] != "crazyStrings" {
+		t.Errorf("correct static string ,  %s , was not  returned or handled  ", m1.static["server1"])
+	}
+
+	if m2.static["server2"] != "" {
+		t.Errorf("correct static string ,  %s , was not  returned or handled  ", m2.static["server2"])
+	}
+
+	if m3.static["server3"] != "123456789" {
+		t.Errorf("correct static string ,  %s , was not  returned or handled  ", m3.static["server3"])
+	}
+
+	if m4.static["server4"] != "crazyString098765432" {
+		t.Errorf("correct static string ,  %s , was not  returned or handled  ", m4.static["server4"])
+	}
+
+	if m5.static["server5"] != "456712309crazyString" {
+		t.Errorf("correct static string ,  %s , was not  returned or handled  ", m5.static["server5"])
+	}
 
 }

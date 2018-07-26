@@ -114,7 +114,7 @@ func (s *Stats) WriteValues(w io.Writer) {
 	//w := w.NewWriter(f)
 	//file.Write([]byte(strings.Join(values, ","))) // experimental: write values to .csv file
 	//defer file.Close()
-	fmt.Println(strings.Join(values, ","))
+	//fmt.Println(strings.Join(values, ","))
 	fmt.Fprintf(w, "%s", strings.Join(values, ","))
 	fmt.Fprintf(w, "\n")
 }
