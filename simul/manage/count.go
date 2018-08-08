@@ -74,13 +74,8 @@ func NewCount(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 		timeout:          1 * time.Second,
 	}
 	p.Count = make(chan int, 1)
-	if err := p.RegisterChannel(&p.CountChan); err != nil {
-		log.Error("Couldn't reister channel:", err)
-	}
-	if err := p.RegisterChannel(&p.PrepareCountChan); err != nil {
-		log.Error("Couldn't reister channel:", err)
-	}
-	if err := p.RegisterChannel(&p.NodeIsUpChan); err != nil {
+	if err := p.RegisterChannelsLength(len(n.Tree().List()),
+		&p.CountChan, &p.PrepareCountChan, &p.NodeIsUpChan); err != nil {
 		log.Error("Couldn't reister channel:", err)
 	}
 	return p, nil

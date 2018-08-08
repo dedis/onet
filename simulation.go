@@ -122,6 +122,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 				e.SetPrivate(scf.PrivateKeys[e.Address])
 				server := NewServerTCP(e, suite)
 				server.UnauthOk = true
+				server.Quiet = true
 				scNew := *sc
 				scNew.Server = server
 				scNew.Overlay = server.overlay

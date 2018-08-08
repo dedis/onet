@@ -1,0 +1,14 @@
+Servers = 16
+Simulation = "CountTest"
+BF = 2
+Rounds = 4
+Suite = "Ed25519"
+
+Hosts
+3
+7
+15
+31
+255
+511
+1023
