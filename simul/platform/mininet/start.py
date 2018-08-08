@@ -13,7 +13,7 @@ router for the net, and ".2"..".nbr+1" will be the nodes.
 """
 
 from __future__ import print_function
-import sys, time, threading, os, datetime, contextlib, errno, platform, shutil
+import sys, time, threading, os, datetime, contextlib, errno, platform, shutil, re
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.cli import CLI
@@ -45,6 +45,11 @@ socatRcv = "udp4-listen"
 socatDirect = True
 # If we want to end up in the CLI
 startCLI = False
+# 10.internalNet.x.y will be used for the ip2ip tunnels. ICCluster uses
+# 10.0/16 for it's own internal network, and 10.90/16 for access to the machines.
+# So we take 10.89/16 for our ip2ip tunnels, limiting the total number of
+# servers (not conodes) to 88
+internalNet = 89
 
 def dbg(lvl, *str):
     if lvl <= debugLvl:
@@ -58,10 +63,41 @@ class BaseRouter(Node):
     """"A Node with IP forwarding enabled."""
     def config( self, rootLog=None, **params ):
         super(BaseRouter, self).config(**params)
-        dbg( 2, "Starting router %s at %s" %( self.IP(), rootLog) )
+        dbg(3, "mynet", myNet)
+        ourIP = myNet[0][0]
+        localIndex = myNet[1] + 1
+        dbg( 2, "Starting router %s at %s, IP=%s, index %d" %( self.IP(), rootLog, ourIP, localIndex) )
+
+        remoteIndex = 0
         for (gw, n, i) in otherNets:
-            dbg( 3, "Adding route for", n, gw )
-            self.cmd( 'route add -net %s gw %s' % (n, gw) )
+            # First of alll we create a ip2ip tunnel using the `ip` command to
+            # create a network for all servers to communicate. This is needed so
+            # that the different nodes can communicate with each other over this
+            # network. Every server1-server2 pair gets two new IPs:
+            #   10.internalNet.localIndex.remoteIndex on the local computer
+            # and
+            #   10.internalNet.remoteIndex.localIndex on the remote computer
+            # these tunnels are then used to route the traffic from the different
+            # nodes in mininet to each other, always going through a bandwidht
+            # and latency restricted network of mininet.
+            remoteIndex += 1
+            if remoteIndex == localIndex:
+                remoteIndex += 1
+
+            dbg(3, self.cmd('hostname'))
+            tun = 'ipip%d' % remoteIndex
+            if not re.search(r'does not exist', self.cmd('ip a show dev %s', tun)):
+                dbg(3, 'removing device %s' % tun)
+                self.cmd('ip tun del %s' % tun)
+            tunLocal = '10.%d.%d.%d' %(internalNet, localIndex, remoteIndex)
+            tunRemote = '10.%d.%d.%d' %(internalNet, remoteIndex, localIndex)
+            dbg(3, "Adding tunnel %s with ips %s<->%s" % (tun, tunLocal, tunRemote))
+            self.cmd('ip tun add %s mode ipip local %s remote %s' % (tun, ourIP, gw))
+            self.cmd('ip address add dev %s %s peer %s/32' % (tun, tunLocal, tunRemote))
+            self.cmd('ip link set dev %s up' % tun)
+
+            dbg( 3, "Adding route for %s through %s" % (n, tunRemote) )
+            self.cmd( 'route add -net %s gw %s' % (n, tunRemote) )
         if runSSHD:
             self.cmd('/usr/sbin/sshd -D &')
 
@@ -269,6 +305,7 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     list_file = sys.argv[1]
+    global global_root, myNet, otherNets
     global_root, myNet, otherNets = GetNetworks(list_file)
 
     if myNet:
@@ -280,6 +317,10 @@ if __name__ == '__main__':
     threads = []
     if len(sys.argv) > 2:
         if len(otherNets) > 0:
+            if len(otherNets) +1 >= internalNet:
+                dbg(0, "Cannot have more than %d servers!" % internalNet - 1)
+                sys.exit(-1)
+
             dbg( 2, "Starting remotely on nets", otherNets)
         for (server, mn, nbr) in otherNets:
             dbg( 3, "Cleaning up", server )

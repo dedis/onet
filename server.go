@@ -219,9 +219,11 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
-	log.Lvlf1("Starting server at %s on address %s with public key %s",
-		c.started.Format("2006-01-02 15:04:05"),
-		c.ServerIdentity.Address, c.ServerIdentity.Public)
+	if !c.Quiet {
+		log.Lvlf1("Starting server at %s on address %s with public key %s",
+			c.started.Format("2006-01-02 15:04:05"),
+			c.ServerIdentity.Address, c.ServerIdentity.Public)
+	}
 	go c.Router.Start()
 	go c.WebSocket.start()
 	for !c.Router.Listening() || !c.WebSocket.Listening() {

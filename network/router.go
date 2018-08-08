@@ -57,6 +57,8 @@ type Router struct {
 	// This field should only be set during testing. It disables an important
 	// log message meant to discourage TCP connections.
 	UnauthOk bool
+	// Quiets the startup of the server if set to true.
+	Quiet bool
 }
 
 // NewRouter returns a new Router attached to a ServerIdentity and the host we want to
@@ -70,7 +72,6 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
-	log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
 	return r
 }
 
@@ -98,6 +99,10 @@ func (r *Router) Unpause() {
 // Start the listening routine of the underlying Host. This is a
 // blocking call until r.Stop() is called.
 func (r *Router) Start() {
+	if !r.Quiet {
+		log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
+	}
+
 	// Any incoming connection waits for the remote server identity
 	// and will create a new handling routine.
 	err := r.host.Listen(func(c Conn) {
