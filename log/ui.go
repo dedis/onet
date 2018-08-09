@@ -37,14 +37,7 @@ func Error(args ...interface{}) {
 // Panic prints out the panic message and panics
 func Panic(args ...interface{}) {
 	lvlUI(lvlPanic, args...)
-	switch len(args) {
-	case 0:
-		panic("")
-	case 1:
-		panic(args[0])
-	default:
-		panic(fmt.Sprintf(args[0].(string), args[1:]...))
-	}
+	panic(fmt.Sprint(args...))
 }
 
 // Fatal prints out the fatal message and quits
