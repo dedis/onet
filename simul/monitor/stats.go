@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	//"os" // me
 	"regexp"
 	"sort"
 	"strconv"
@@ -24,7 +25,7 @@ import (
 type Stats struct {
 	// The static fields are created when creating the stats out of a
 	// running config.
-	static     map[string]int
+	static     map[string]string
 	staticKeys []string
 
 	// The received measures we have and the keys ordered
@@ -48,7 +49,7 @@ func NewStats(rc map[string]string, defaults ...string) *Stats {
 func (s *Stats) init() *Stats {
 	s.values = make(map[string]*Value)
 	s.keys = make([]string, 0)
-	s.static = make(map[string]int)
+	s.static = make(map[string]string)
 	s.staticKeys = make([]string, 0)
 	return s
 }
@@ -100,7 +101,7 @@ func (s *Stats) WriteValues(w io.Writer) {
 	var values []string
 	for _, k := range s.staticKeys {
 		if v, ok := s.static[k]; ok {
-			values = append(values, fmt.Sprintf("%d", v))
+			values = append(values, fmt.Sprintf("%v", v))
 		}
 	}
 	// write the values
@@ -108,6 +109,7 @@ func (s *Stats) WriteValues(w io.Writer) {
 		v := s.values[k]
 		values = append(values, v.Values()...)
 	}
+
 	fmt.Fprintf(w, "%s", strings.Join(values, ","))
 	fmt.Fprintf(w, "\n")
 }
@@ -138,7 +140,7 @@ func (s *Stats) WriteIndividualStats(w io.Writer) error {
 	var static []string
 	for _, k := range s.staticKeys {
 		if v, ok := s.static[k]; ok {
-			static = append(static, fmt.Sprintf("%d", v))
+			static = append(static, fmt.Sprintf("%v", v))
 		}
 	}
 
@@ -297,7 +299,7 @@ func (s *Stats) String() string {
 	defer s.Unlock()
 	var str string
 	for _, k := range s.staticKeys {
-		str += fmt.Sprintf("%s = %d ", k, s.static[k])
+		str += fmt.Sprintf("%s = %s", k, s.static[k])
 	}
 	for _, v := range s.values {
 		str += fmt.Sprintf("%v ", v.Values())
@@ -313,13 +315,10 @@ func (s *Stats) readRunConfig(rc map[string]string, defaults ...string) {
 		if !ok {
 			log.Fatal("Could not find the default value", def, "in the RunConfig")
 		}
-		if i, err := strconv.Atoi(valStr); err != nil {
-			log.Fatal("Could not parse to integer value", def)
-		} else {
-			// registers the static value
-			s.static[def] = i
-			s.staticKeys = append(s.staticKeys, def)
-		}
+
+		s.static[def] = valStr
+		s.staticKeys = append(s.staticKeys, def)
+
 	}
 	// Then parse the others keys
 	var statics []string
@@ -335,14 +334,10 @@ func (s *Stats) readRunConfig(rc map[string]string, defaults ...string) {
 		if alreadyRegistered {
 			continue
 		}
-		// store it
-		if i, err := strconv.Atoi(v); err != nil {
-			log.Lvl3("Could not parse the value", k, "from runconfig (v=", v, ")")
-			continue
-		} else {
-			s.static[k] = i
-			statics = append(statics, k)
-		}
+
+		s.static[k] = v
+		statics = append(statics, k)
+
 	}
 	// sort them so it's always the same order
 	sort.Strings(statics)

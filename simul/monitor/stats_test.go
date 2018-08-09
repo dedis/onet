@@ -211,3 +211,76 @@ func TestStatsString(t *testing.T) {
 		t.Fatal("The measurement should contain 0.1:", rs.String())
 	}
 }
+
+// setupMonitor launches a basic monitor with a created Stats object
+// When finished with the monitor, just call `End()`.
+func StructParsedWithString(t *testing.T, testCount int) *Stats {
+
+	mon, _ := setupMonitorStringTest(t, testCount)
+	//mon := monStatValues.m
+	dm := &DummyCounterIO{0, 0}
+	// create the counter measure
+	cm := NewCounterIOMeasure("dummy", dm)
+	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+		t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d", cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
+		t.Fatal("Tx() / Rx() not working ?")
+
+	}
+	//bread, bwritten := cm.baseRx, cm.baseTx
+	cm.Record()
+	// check the values again
+	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+		t.Fatal("Record() not working for CounterIOMeasure")
+	}
+	// Important otherwise data don't get written down to the monitor yet.
+	time.Sleep(100 * time.Millisecond)
+	str := new(bytes.Buffer)
+	stat := mon.stats
+	stat.Collect()
+	stat.WriteHeader(str)
+	stat.WriteValues(str)
+	EndAndCleanup()
+	time.Sleep(120 * time.Millisecond)
+	return stat
+
+}
+
+// TestStructParsedWithString uses StructParsedWithString to test for different
+// cases of string input .
+func TestStructParsedWithString(t *testing.T) {
+
+	// test to be conducted onmultiple strings returned
+	// from stats
+	m1 := StructParsedWithString(t, 0)
+	m2 := StructParsedWithString(t, 1)
+	m3 := StructParsedWithString(t, 2)
+	m4 := StructParsedWithString(t, 3)
+	m5 := StructParsedWithString(t, 4)
+
+	// stats has variable called static which is a map
+	// The key and value of the map is a string
+	// We test the string values here making sure they correspond to the
+	// used in the set up ( in the the monitor_test.go file)
+	// If the string is same and the one returned the test passes
+	// otherwise return an error
+	if m1.static["server1"] != "crazyStrings" {
+		t.Errorf("The correct string value,  %s , was not  returned", m1.static["server1"])
+	}
+
+	if m2.static["server2"] != "" {
+		t.Errorf("The correct string value,  %s , was not  returned", m2.static["server2"])
+	}
+
+	if m3.static["server3"] != "123456789" {
+		t.Errorf("The correct string value,  %s , was not  returned", m3.static["server3"])
+	}
+
+	if m4.static["server4"] != "crazyString098765432" {
+		t.Errorf("The correct string value,  %s , was not  returned", m4.static["server4"])
+	}
+
+	if m5.static["server5"] != "456712309crazyString" {
+		t.Errorf("The correct string value,  %s , was not  returned", m5.static["server5"])
+	}
+
+}
