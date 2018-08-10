@@ -292,18 +292,3 @@ func (r *RunConfig) Clone() *RunConfig {
 	}
 	return rc
 }
-
-// String prints out the current status-line
-func (r *RunConfig) String() string {
-	r.RLock()
-	defer r.RUnlock()
-	fields := []string{"simulation", "servers", "hosts", "bf", "depth", "rounds", "suite"}
-	var ret string
-	for _, f := range fields {
-		v := r.Get(f)
-		if v != "" {
-			ret = fmt.Sprintf("%s%s:%s ", ret, f, v)
-		}
-	}
-	return ret
-}

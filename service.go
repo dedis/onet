@@ -248,7 +248,7 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		cont := newContext(svr, o, id, s)
 		s, err := ServiceFactory.start(name, cont)
 		if err != nil {
-			log.Panic("Trying to instantiate service", name, ":", err)
+			log.Panic("Trying to instantiate service", name, ": error=", err)
 		}
 		log.Lvl3("Started Service", name)
 		services[id] = s

@@ -23,6 +23,8 @@ func init() {
 // Simulation only holds the BFTree simulation
 type simulation struct {
 	onet.SimulationBFTree
+	Other  string
+	Ration float64
 }
 
 // NewSimulation returns the new simulation, where all fields are
