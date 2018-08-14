@@ -19,6 +19,11 @@ COLOG=conode
 
 RUNOUT=$( mktemp )
 
+# cleans the test-directory and builds the CLI binary
+# Globals:
+#   CLEANBUILD
+#   APPDIR
+#   APP
 startTest(){
   set +m
   if [ "$CLEANBUILD" ]; then
@@ -27,6 +32,10 @@ startTest(){
   build $APPDIR
 }
 
+# Prints `Name`, cleans up build-directory, deletes all databases from services
+# in previous run, and calls `testName`.
+# Arguments:
+#   `Name` - name of the test to run
 test(){
   cleanup
   echo -e "\n* Testing $1"
@@ -34,6 +43,9 @@ test(){
   test$1
 }
 
+# Asserts that the exit-code of running `$@` using `dbgRun` is `0`.
+# Arguments:
+#   $@ - used to run the command
 testOK(){
   testOut "Assert OK for '$@'"
   if ! dbgRun "$@"; then
@@ -41,6 +53,9 @@ testOK(){
   fi
 }
 
+# Asserts that the exit-code of running `$@` using `dbgRun` is NOT `0`.
+# Arguments:
+#   $@ - used to run the command
 testFail(){
   testOut "Assert FAIL for '$@'"
   if dbgRun "$@"; then
@@ -48,26 +63,44 @@ testFail(){
   fi
 }
 
+# Asserts `File` exists and is a file.
+# Arguments:
+#   `File` - path to the file to test
 testFile(){
+  testOut "Assert file $1 exists"
   if [ ! -f $1 ]; then
     fail "file $1 is not here"
   fi
 }
 
+# Asserts `File` DOES NOT exist.
+# Arguments:
+#   `File` - path to the file to test
 testNFile(){
+  testOut "Assert file $1 DOESN'T exist"
   if [ -f $1 ]; then
     fail "file $1 IS here"
   fi
 }
 
+# Asserts that `String` exists in `File`.
+# Arguments:
+#   `String` - what to search for
+#   `File` - in which file to search
 testFileGrep(){
   local G="$1" F="$2"
   testFile "$F"
+  testOut "Assert file $F contains --$G--"
   if ! pcregrep -M -q "$G" $F; then
     fail "Didn't find '$G' in file '$F': $(cat $F)"
   fi
 }
 
+# Asserts that `String` is in the output of the command being run by `dbgRun`
+# and all but the first input argument. Ignores the exit-code of the command.
+# Arguments:
+#   `String` - what to search for
+#   `$@[1..]` - command to run
 testGrep(){
   S="$1"
   shift
@@ -79,6 +112,11 @@ testGrep(){
   fi
 }
 
+# Asserts that `String` is NOT in the output of the command being run by `dbgRun`
+# and all but the first input argument. Ignores the exit-code of the command.
+# Arguments:
+#   `String` - what to search for
+#   `$@[1..]` - command to run
 testNGrep(){
   G="$1"
   shift
@@ -90,6 +128,10 @@ testNGrep(){
   fi
 }
 
+# Asserts `String` is part of the last command being run by `testGrep` or
+# `testNGrep`.
+# Arguments:
+#   `String` - what to search for
 testReGrep(){
   G="$1"
   testOut "Assert grepping again '$G' in same output as before"
@@ -99,6 +141,10 @@ testReGrep(){
   fi
 }
 
+# Asserts `String` is NOT part of the last command being run by `testGrep` or
+# `testNGrep`.
+# Arguments:
+#   `String` - what to search for
 testReNGrep(){
   G="$1"
   testOut "Assert grepping again NOT '$G' in same output as before"
@@ -108,6 +154,7 @@ testReNGrep(){
   fi
 }
 
+# used in test*Grep methods.
 doGrep(){
   # echo "grepping in $RUNOUT"
   # cat $RUNOUT
@@ -115,6 +162,12 @@ doGrep(){
   EGREP=$( cat $RUNOUT | egrep "$1" )
 }
 
+# Asserts that `String` exists exactly `Count` times in the output of the
+# command being run by `dbgRun` and all but the first two arguments.
+# Arguments:
+#   `Count` - number of occurences
+#   `String` - what to search for
+#   `$@[2..]` - command to run
 testCount(){
   C="$1"
   G="$2"
@@ -127,18 +180,30 @@ testCount(){
   fi
 }
 
+
+# Outputs all arguments if `DBT_TEST -ge 1`
+# Globals:
+#   DBG_TEST - determines debug-level
 testOut(){
   if [ "$DBG_TEST" -ge 1 ]; then
     echo -e "$@"
   fi
 }
 
+# Outputs all arguments if `DBT_TEST -ge 2`
+# Globals:
+#   DBG_TEST - determines debug-level
 dbgOut(){
   if [ "$DBG_TEST" -ge 2 ]; then
     echo -e "$@"
   fi
 }
 
+# Runs `$@` and outputs the result of `$@` if `DBG_TEST -ge 2`. Redirects the
+# output in all cases if `OUTFILE` is set.
+# Globals:
+#   DBG_TEST - determines debug-level
+#   OUTFILE - if set, used to write output
 dbgRun(){
   if [ "$DBG_TEST" -ge 2 ]; then
     OUT=/dev/stdout
@@ -179,6 +244,12 @@ backg(){
   ( "$@" 2>&1 & )
 }
 
+# Builds the app stored in the directory given in the first argument.
+# Globals:
+#   CLEANBUILD - if set, forces build of app, even if it exists.
+#   TAGS - what tags to use when calling go build
+# Arguments:
+#   builddir - where to search for the app to build
 build(){
   local builddir=$1
   local app=$( basename $builddir )
@@ -199,6 +270,16 @@ buildDir(){
   cd $BUILDDIR
 }
 
+# Magical method that tries very hard to build a conode. If no arguments given,
+# it will search for a service first in the `./service` directory, and if not
+# found, in the `../service` directory.
+# If a directory is given as an argument, the service will be taken from that
+# directory.
+# Globals:
+#   APPDIR - where the app is stored
+# Arguments:
+#   [serviceDir, ...] - if given, used as directory to be included. More than one
+#                       argument can be given.
 buildConode(){
   local incl="$@"
   gopath=`go env GOPATH`

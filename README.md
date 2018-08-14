@@ -42,6 +42,8 @@ yourself. Here is a list of places that can help you:
 * [Database](Database-backup-and-recovery.md) gives indications how to handle
 the database used by onet
 * [GoDoc](https://godoc.org/github.com/dedis/onet) entry point to the go-documentation
+* [App support](app/README.md) useful libraries if you want to create a CLI app
+for the cothority
 
 ## Directories
 
