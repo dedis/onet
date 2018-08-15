@@ -135,11 +135,11 @@ func (c *Context) Save(key []byte, data interface{}) error {
 	})
 }
 
-// Load takes an key and returns the network.Unmarshaled data.
+// Load takes a key and returns the network.Unmarshaled data.
 // Returns a nil value if the key does not exist.
 func (c *Context) Load(key []byte) (interface{}, error) {
 	var buf []byte
-	c.manager.db.View(func(tx *bolt.Tx) error {
+	err := c.manager.db.View(func(tx *bolt.Tx) error {
 		v := tx.Bucket(c.bucketName).Get(key)
 		if v == nil {
 			return nil
@@ -149,6 +149,9 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 		copy(buf, v)
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	if buf == nil {
 		return nil, nil
@@ -156,6 +159,23 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 
 	_, ret, err := network.Unmarshal(buf, c.server.suite)
 	return ret, err
+}
+
+// LoadRaw takes a key and returns the raw, unmarshalled data.
+// Returns a nil value if the key does not exist.
+func (c *Context) LoadRaw(key []byte) ([]byte, error) {
+	var buf []byte
+	err := c.manager.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(c.bucketName).Get(key)
+		if v == nil {
+			return nil
+		}
+
+		buf = make([]byte, len(v))
+		copy(buf, v)
+		return nil
+	})
+	return buf, err
 }
 
 // GetAdditionalBucket makes sure that a bucket with the given name
