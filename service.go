@@ -240,12 +240,8 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		name := ServiceFactory.Name(id)
 		log.Lvl3("Starting service", name)
 
-		err = createBucketForService(s.db, name)
-		if err != nil {
-			log.Panic("Failed to create bucket: " + err.Error())
-		}
-
 		cont := newContext(svr, o, id, s)
+
 		s, err := ServiceFactory.start(name, cont)
 		if err != nil {
 			log.Panic("Trying to instantiate service", name, ": error=", err)
@@ -267,14 +263,6 @@ func openDb(path string) (*bolt.DB, error) {
 		return nil, err
 	}
 	return db, nil
-}
-
-// createBucketForService creates a bucket in the database `db` named `bucketName`.
-func createBucketForService(db *bolt.DB, bucketName string) error {
-	return db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
-		return err
-	})
 }
 
 func (s *serviceManager) dbFileNameOld() string {
