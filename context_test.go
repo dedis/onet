@@ -51,6 +51,15 @@ func TestContextSaveLoad(t *testing.T) {
 	require.False(t, files[0].IsDir())
 	require.True(t, files[0].Mode().IsRegular())
 	require.True(t, strings.HasSuffix(files[0].Name(), ".db"))
+
+	v, err := c[0].LoadVersion()
+	require.Nil(t, err)
+	require.Equal(t, 0, v)
+	err = c[0].SaveVersion(1)
+	require.Nil(t, err)
+	v, err = c[0].LoadVersion()
+	require.Nil(t, err)
+	require.Equal(t, 1, v)
 }
 
 func testLoadSave(t *testing.T, c *Context) {
