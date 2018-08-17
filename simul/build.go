@@ -146,11 +146,13 @@ func RunTests(deployP platform.Platform, name string, runconfigs []*platform.Run
 
 		// run test t nTimes times
 		// take the average of all successful runs
+		log.Lvl1("Running test", rc)
 		stats, err := RunTest(deployP, rc)
 		if err != nil {
 			log.Error("Error running test:", err)
 			continue
 		}
+		log.Lvl1("Test results:", stats)
 
 		if i == 0 {
 			stats.WriteHeader(f)
@@ -174,41 +176,43 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats,
 	CheckHosts(rc)
 	rc.Delete("simulation")
 	rs := monitor.NewStats(rc.Map(), "hosts", "bf")
-	monitor := monitor.NewMonitor(rs)
+
+	if err := deployP.Cleanup(); err != nil {
+		log.Error(err)
+		return rs, err
+	}
 
 	if err := deployP.Deploy(rc); err != nil {
 		log.Error(err)
 		return rs, err
 	}
 
-	monitor.SinkPort = uint16(monitorPort)
-	if err := deployP.Cleanup(); err != nil {
-		log.Error(err)
-		return rs, err
-	}
+	monitor := monitor.NewMonitor(rs)
 	monitor.SinkPort = uint16(monitorPort)
 	done := make(chan error)
 	go func() {
-		done <- monitor.Listen()
+		if err := monitor.Listen(); err != nil {
+			log.Error("error while closing monitor: " + err.Error())
+		}
 	}()
-	// Start monitor before so ssh tunnel can connect to the monitor
-	// in case of deterlab.
-	err := deployP.Start()
-	if err != nil {
-		log.Error(err)
-		return rs, err
-	}
 
 	go func() {
-		var err error
+		// Start monitor before so ssh tunnel can connect to the monitor
+		// in case of deterlab.
+		err := deployP.Start()
+		if err != nil {
+			done <- err
+		}
+
 		if err = deployP.Wait(); err != nil {
 			log.Error("Test failed:", err)
 			if err := deployP.Cleanup(); err != nil {
 				log.Lvl3("Couldn't cleanup platform:", err)
 			}
 			monitor.Stop()
+			done <- err
 		}
-		log.Lvl1("Test complete:", rs)
+		done <- nil
 	}()
 
 	timeout, err := getRunWait(rc)

@@ -347,10 +347,8 @@ func (d *Deterlab) Start(args ...string) error {
 func (d *Deterlab) Wait() error {
 	wait, err := time.ParseDuration(d.RunWait)
 	if err != nil || wait == 0 {
-		if d.RunWait != "" {
-			log.Error("Couldn't parse RunWait - using 600s as default value")
-		}
 		wait = 600 * time.Second
+		err = nil
 	}
 	if d.started {
 		log.Lvl3("Simulation is started")
