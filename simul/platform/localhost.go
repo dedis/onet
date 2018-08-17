@@ -220,10 +220,8 @@ func (d *Localhost) Wait() error {
 
 	wait, err := time.ParseDuration(d.RunWait)
 	if err != nil || wait == 0 {
-		if d.RunWait != "" {
-			log.Error("Couldn't parse RunWait - using 600s as default value")
-		}
 		wait = 600 * time.Second
+		err = nil
 	}
 
 	go func() {

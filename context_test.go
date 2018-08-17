@@ -51,6 +51,15 @@ func TestContextSaveLoad(t *testing.T) {
 	require.False(t, files[0].IsDir())
 	require.True(t, files[0].Mode().IsRegular())
 	require.True(t, strings.HasSuffix(files[0].Name(), ".db"))
+
+	v, err := c[0].LoadVersion()
+	require.Nil(t, err)
+	require.Equal(t, 0, v)
+	err = c[0].SaveVersion(1)
+	require.Nil(t, err)
+	v, err = c[0].LoadVersion()
+	require.Nil(t, err)
+	require.Equal(t, 1, v)
 }
 
 func testLoadSave(t *testing.T, c *Context) {
@@ -69,6 +78,12 @@ func testLoadSave(t *testing.T, c *Context) {
 	if !ok {
 		log.Fatal("contextData should exist")
 	}
+
+	cdBuf, err := c.LoadRaw(key)
+	require.Nil(t, err)
+	cdBuf2, err := network.Marshal(cd)
+	require.EqualValues(t, cdBuf, cdBuf2)
+
 	if cd.I != cd2.I || cd.S != cd2.S {
 		log.Fatal("stored and loaded data should be equal", cd, cd2)
 	}

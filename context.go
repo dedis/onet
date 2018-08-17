@@ -1,32 +1,49 @@
 package onet
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
+	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
 )
 
 // Context represents the methods that are available to a service.
 type Context struct {
-	overlay    *Overlay
-	server     *Server
-	serviceID  ServiceID
-	manager    *serviceManager
-	bucketName []byte
+	overlay           *Overlay
+	server            *Server
+	serviceID         ServiceID
+	manager           *serviceManager
+	bucketName        []byte
+	bucketVersionName []byte
 }
 
 // defaultContext is the implementation of the Context interface. It is
 // instantiated for each Service.
 func newContext(c *Server, o *Overlay, servID ServiceID, manager *serviceManager) *Context {
-	return &Context{
-		overlay:    o,
-		server:     c,
-		serviceID:  servID,
-		manager:    manager,
-		bucketName: []byte(ServiceFactory.Name(servID)),
+	ctx := &Context{
+		overlay:           o,
+		server:            c,
+		serviceID:         servID,
+		manager:           manager,
+		bucketName:        []byte(ServiceFactory.Name(servID)),
+		bucketVersionName: []byte(ServiceFactory.Name(servID) + "version"),
 	}
+	err := manager.db.Update(func(tx *bolt.Tx) error {
+		_, err := tx.CreateBucketIfNotExists(ctx.bucketName)
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists(ctx.bucketVersionName)
+		return err
+	})
+	if err != nil {
+		log.Panic("Failed to create bucket: " + err.Error())
+	}
+	return ctx
 }
 
 // NewTreeNodeInstance creates a TreeNodeInstance that is bound to a
@@ -120,6 +137,14 @@ var testContextData = struct {
 	sync.Mutex
 }{service: make(map[string][]byte, 0)}
 
+// The ContextDB interface allows for easy testing in the services.
+type ContextDB interface {
+	Load(key []byte) (interface{}, error)
+	LoadRaw(key []byte) ([]byte, error)
+	LoadVersion() (int, error)
+	SaveVersion(version int) error
+}
+
 // Save takes a key and an interface. The interface will be network.Marshal'ed
 // and saved in the database under the bucket named after the service name.
 //
@@ -135,11 +160,11 @@ func (c *Context) Save(key []byte, data interface{}) error {
 	})
 }
 
-// Load takes an key and returns the network.Unmarshaled data.
+// Load takes a key and returns the network.Unmarshaled data.
 // Returns a nil value if the key does not exist.
 func (c *Context) Load(key []byte) (interface{}, error) {
 	var buf []byte
-	c.manager.db.View(func(tx *bolt.Tx) error {
+	err := c.manager.db.View(func(tx *bolt.Tx) error {
 		v := tx.Bucket(c.bucketName).Get(key)
 		if v == nil {
 			return nil
@@ -149,6 +174,9 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 		copy(buf, v)
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	if buf == nil {
 		return nil, nil
@@ -156,6 +184,65 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 
 	_, ret, err := network.Unmarshal(buf, c.server.suite)
 	return ret, err
+}
+
+// LoadRaw takes a key and returns the raw, unmarshalled data.
+// Returns a nil value if the key does not exist.
+func (c *Context) LoadRaw(key []byte) ([]byte, error) {
+	var buf []byte
+	err := c.manager.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(c.bucketName).Get(key)
+		if v == nil {
+			return nil
+		}
+
+		buf = make([]byte, len(v))
+		copy(buf, v)
+		return nil
+	})
+	return buf, err
+}
+
+var dbVersion = []byte("dbVersion")
+
+// LoadVersion returns the version of the database, or 0 if
+// no version has been found.
+func (c *Context) LoadVersion() (int, error) {
+	var buf []byte
+	err := c.manager.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(c.bucketVersionName).Get(dbVersion)
+		if v == nil {
+			return nil
+		}
+
+		buf = make([]byte, len(v))
+		copy(buf, v)
+		return nil
+	})
+
+	if err != nil {
+		return -1, err
+	}
+
+	if len(buf) == 0 {
+		return 0, nil
+	}
+	var version int32
+	err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &version)
+	return int(version), err
+}
+
+// SaveVersion stores the given version as the current database version.
+func (c *Context) SaveVersion(version int) error {
+	buf := bytes.NewBuffer(nil)
+	err := binary.Write(buf, binary.LittleEndian, int32(version))
+	if err != nil {
+		return err
+	}
+	return c.manager.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(c.bucketVersionName)
+		return b.Put(dbVersion, buf.Bytes())
+	})
 }
 
 // GetAdditionalBucket makes sure that a bucket with the given name

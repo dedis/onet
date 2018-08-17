@@ -5,6 +5,7 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -296,7 +297,6 @@ func (m *MiniNet) Start(args ...string) error {
 	go func() {
 		config := strings.Split(m.config, "\n")
 		sort.Strings(config)
-		log.Lvlf1("Starting simulation %s over mininet", strings.Join(config, " :: "))
 		err := SSHRunStdout(m.Login, m.External, "cd mininet_run; ./start.py list go")
 		if err != nil {
 			log.Lvl3(err)
@@ -311,10 +311,8 @@ func (m *MiniNet) Start(args ...string) error {
 func (m *MiniNet) Wait() error {
 	wait, err := time.ParseDuration(m.RunWait)
 	if wait == 0 || err != nil {
-		if m.RunWait != "" {
-			log.Error("Couldn't parse RunWait - using 600s as default value")
-		}
 		wait = 600 * time.Second
+		err = nil
 	}
 	if m.started {
 		log.Lvl3("Simulation is started")
@@ -348,7 +346,10 @@ func (m *MiniNet) parseServers() error {
 		if len(h) > 0 {
 			ips, err := net.LookupIP(h)
 			if err != nil {
-				return err
+				if err2 := CheckOutOfFileDescriptors(); err2 != nil {
+					return errors.New("couldn't look up hostname: " + err2.Error())
+				}
+				return errors.New("error while looking up hostname: " + err.Error())
 			}
 			log.Lvl3("Found IP for", h, ":", ips[0])
 			m.HostIPs = append(m.HostIPs, ips[0].String())

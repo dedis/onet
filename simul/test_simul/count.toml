@@ -5,8 +5,8 @@ Rounds = 4
 Suite = "Ed25519"
 PreScript = "show_date.sh"
 
-Hosts
-3
-7
-15
-31
+Hosts,	  Delay,	Ratio,	Other
+3,		  50,		0.1,	"Other kinds of data"
+7,		  50,		0.001,	"can go here as well."
+15,		  50,		1e-5,	"But if they are not ints or floats"
+31,		  50,		-1,		"put them in quotes!"

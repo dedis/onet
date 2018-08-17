@@ -14,9 +14,9 @@ var testfile = `Machines = 8
 RunWait = "33s"
 App = "sign"
 
-Ppm, Rounds
-2, 30
-4, 30`
+Ppm, Rounds, Other
+2, 30,string 1
+4, 30,	string 2`
 
 var testfile2 = `Machines = 8
 App = "sign"`
@@ -44,6 +44,9 @@ func TestReadRunfile(t *testing.T) {
 	}
 	if tests[0].Get("machines") != "8" {
 		log.Fatal("Machines = 8 has not been copied into RunConfig")
+	}
+	if tests[0].Get("other") != "string 1" {
+		log.Fatal("other copied into RunConfig")
 	}
 	dt, err := tests[0].GetDuration("runwait")
 	if err != nil {
