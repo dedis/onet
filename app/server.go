@@ -33,7 +33,7 @@ const DefaultPort = 6879
 const DefaultAddress = "127.0.0.1"
 
 // Service used to get the public IP-address.
-const portscan = "https://dedis.ch/portscan.php"
+const portscan = "https://api.ipify.org?format=text"
 
 // InteractiveConfig uses stdin to get the [address:]PORT of the server.
 // If no address is given, portscan is used to find the public IP. In case
