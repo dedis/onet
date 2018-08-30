@@ -571,7 +571,8 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	go func() {
 		err := pi.Dispatch()
 		if err != nil {
-			log.Error(err)
+			log.Errorf("%s.Dispatch() created in service %s returned error %s",
+				name, ServiceFactory.Name(sid), err)
 		}
 	}()
 	return pi, err
