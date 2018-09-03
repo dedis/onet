@@ -270,7 +270,7 @@ func (lc *LocalConn) start(wg *sync.WaitGroup) {
 // Send takes a context (that is not used in any way) and a message that
 // will be sent to the remote endpoint.
 // If there is an error in the connection, it will be returned.
-func (lc *LocalConn) Send(msg Message) (uint64, error) {
+func (lc *LocalConn) Send(msg Message, opt ...Option) (uint64, error) {
 	buff, err := Marshal(msg)
 	if err != nil {
 		return 0, err
@@ -472,7 +472,7 @@ func NewLocalHostWithManager(lm *LocalManager, addr Address, s Suite) (*LocalHos
 // Connect sets up a connection to addr. It retries up to
 // MaxRetryConnect while waiting between each try.
 // In case of an error, it will return a nil Conn.
-func (lh *LocalHost) Connect(si *ServerIdentity) (Conn, error) {
+func (lh *LocalHost) Connect(si *ServerIdentity, opts ...Option) (Conn, error) {
 	if si.Address.ConnType() != Local {
 		return nil, errors.New("Can't connect to non-Local address")
 	}

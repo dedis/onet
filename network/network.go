@@ -6,7 +6,7 @@ type Conn interface {
 	// obj should be a POINTER to the actual struct to send, or an interface.
 	// It should not be a Golang type.
 	// Returns the number of bytes sent and an error if any.
-	Send(Message) (uint64, error)
+	Send(Message, ...Option) (uint64, error)
 	// Receive any message through the connection. It is a blocking call that
 	// returns either when a message arrived or when Close() has been called, or
 	// when a network error occurred.
@@ -60,5 +60,5 @@ type Listener interface {
 type Host interface {
 	Listener
 
-	Connect(si *ServerIdentity) (Conn, error)
+	Connect(si *ServerIdentity, opts ...Option) (Conn, error)
 }

@@ -40,7 +40,7 @@ var ErrTimeout = errors.New("Timeout Error")
 // ErrUnknown is an unknown error.
 var ErrUnknown = errors.New("Unknown Error")
 
-// Size is a type to reprensent the size that is sent before every packet to
+// Size is a type to represent the size that is sent before every packet to
 // correctly decode it.
 type Size uint32
 
@@ -216,4 +216,27 @@ func (c *counterSafe) updateTx(delta uint64) {
 	c.Lock()
 	c.tx += delta
 	c.Unlock()
+}
+
+// Option is a type that can be optionally passed to some calls in this library
+// in order to modify their behaviour.
+type Option interface {
+	IsOption() bool
+}
+
+// Timeout is a kind of Option that holds a timeout.
+type Timeout time.Duration
+
+// IsOption marks Timeout as an Option.
+func (Timeout) IsOption() bool { return true }
+
+const noTimeout = time.Duration(0)
+
+func findTimeout(opts []Option, dfl time.Duration) time.Duration {
+	for _, t := range opts {
+		if to, ok := t.(Timeout); ok {
+			return time.Duration(to)
+		}
+	}
+	return dfl
 }

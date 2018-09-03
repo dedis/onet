@@ -71,12 +71,14 @@ type TCPConn struct {
 }
 
 // NewTCPConn will open a TCPConn to the given address.
-// In case of an error it returns a nil TCPConn and the error.
-func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
+func NewTCPConn(addr Address, suite Suite, opts ...Option) (conn *TCPConn, err error) {
+	// Use a default timeout of 5 seconds for connection establishment.
+	to := findTimeout(opts, 5*time.Second)
+
 	netAddr := addr.NetworkAddress()
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
-		c, err = net.Dial("tcp", netAddr)
+		c, err = net.DialTimeout("tcp", netAddr, to)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,
@@ -162,7 +164,7 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 // Send converts the NetworkMessage into an ApplicationMessage
 // and sends it using send().
 // It returns the number of bytes sent and an error if anything was wrong.
-func (c *TCPConn) Send(msg Message) (uint64, error) {
+func (c *TCPConn) Send(msg Message, opts ...Option) (uint64, error) {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
 
@@ -170,13 +172,18 @@ func (c *TCPConn) Send(msg Message) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("Error marshaling  message: %s", err.Error())
 	}
-	return c.sendRaw(b)
+	return c.sendRaw(b, findTimeout(opts, noTimeout))
 }
 
 // sendRaw writes the number of bytes of the message to the network then the
 // whole message b in slices of size maxChunkSize.
 // In case of an error it aborts.
-func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
+func (c *TCPConn) sendRaw(b []byte, tmout time.Duration) (uint64, error) {
+	if tmout != 0 {
+		c.conn.SetWriteDeadline(time.Now().Add(tmout))
+		defer c.conn.SetWriteDeadline(time.Time{})
+	}
+
 	// First write the size
 	packetSize := Size(len(b))
 	if err := binary.Write(c.conn, globalOrder, packetSize); err != nil {
@@ -483,15 +490,14 @@ func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
 	return h, err
 }
 
-// Connect can only connect to PlainTCP connections.
-// It will return an error if it is not a PlainTCP-connection-type.
-func (t *TCPHost) Connect(si *ServerIdentity) (Conn, error) {
+// Connect makes a connection to a TCP or TLS server.
+func (t *TCPHost) Connect(si *ServerIdentity, opts ...Option) (Conn, error) {
 	switch si.Address.ConnType() {
 	case PlainTCP:
-		c, err := NewTCPConn(si.Address, t.suite)
+		c, err := NewTCPConn(si.Address, t.suite, opts...)
 		return c, err
 	case TLS:
-		return NewTLSConn(t.sid, si, t.suite)
+		return NewTLSConn(t.sid, si, t.suite, opts...)
 	case InvalidConnType:
 		return nil, errors.New("This address is not correctly formatted: " + si.Address.String())
 	}

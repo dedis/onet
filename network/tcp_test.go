@@ -109,7 +109,7 @@ func TestTCPsendRaw(t *testing.T) {
 		tcp := &TCPConn{
 			conn: test.conn,
 		}
-		_, err := tcp.sendRaw(test.msg)
+		_, err := tcp.sendRaw(test.msg, noTimeout)
 		if test.errExpected {
 			if err == nil {
 				t.Error("Should have had an error here")
