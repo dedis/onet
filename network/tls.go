@@ -365,7 +365,10 @@ func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config, error) {
 // It will check that the remote server has proven
 // it holds the given Public key by self-signing a certificate
 // linked to that key.
-func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TCPConn, err error) {
+func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite, opts ...Option) (conn *TCPConn, err error) {
+	// Use a default timeout of 5 seconds for connection establishment.
+	to := findTimeout(opts, 5*time.Second)
+
 	log.Lvl2("NewTLSConn to:", them)
 	if them.Address.ConnType() != TLS {
 		return nil, errors.New("not a tls server")
@@ -386,7 +389,8 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
 		cfg.ServerName = string(nonce)
-		c, err = tls.Dial("tcp", netAddr, cfg)
+		d := &net.Dialer{Timeout: to}
+		c, err = tls.DialWithDialer(d, "tcp", netAddr, cfg)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,

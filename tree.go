@@ -393,8 +393,7 @@ func (roID RosterID) IsNil() bool {
 // RosterTypeID of Roster message as registered in network
 var RosterTypeID = network.RegisterMessage(Roster{})
 
-// NewRoster creates a new roster from a list of entities. It also
-// adds a UUID which is randomly chosen.
+// NewRoster creates a new roster from a list of entities.
 func NewRoster(ids []*network.ServerIdentity) *Roster {
 	// Don't allow a crash if things are not as expected.
 	if len(ids) < 1 || ids[0].Public == nil {
