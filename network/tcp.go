@@ -14,14 +14,14 @@ import (
 	"github.com/dedis/onet/log"
 )
 
-// a connection will return an io.EOF after readTimeout if nothing has been
-// sent.
-var readTimeout = 1 * time.Minute
+// a connection will return an io.EOF after networkTimeout if nothing has been
+// received. sends and connects will timeout using this timeout as well.
+var timeout = 1 * time.Minute
 
-// Global lock for 'readTimeout' (because also used in 'tcp_test.go')
+// Global lock for 'timeout' (because also used in 'tcp_test.go')
 // Using a 'RWMutex' to be as efficient as possible, because it will be used
 // quite a lot in 'Receive()'.
-var readTimeoutLock = sync.RWMutex{}
+var timeoutLock = sync.RWMutex{}
 
 // MaxPacketSize limits the amount of memory that is allocated before a packet
 // is checked and thrown away if it's not legit. If you need more than 10MB
@@ -68,6 +68,9 @@ type TCPConn struct {
 	sendMutex sync.Mutex
 
 	counterSafe
+
+	// a hook to let us test dead servers
+	receiveRawTest func() ([]byte, error)
 }
 
 // NewTCPConn will open a TCPConn to the given address.
@@ -76,7 +79,7 @@ func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
 	netAddr := addr.NetworkAddress()
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
-		c, err = net.Dial("tcp", netAddr)
+		c, err = net.DialTimeout("tcp", netAddr, timeout)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,
@@ -110,17 +113,24 @@ func (c *TCPConn) Receive() (env *Envelope, e error) {
 	}, err
 }
 
-// receiveRaw reads the size of the message, then the
+func (c *TCPConn) receiveRaw() ([]byte, error) {
+	if c.receiveRawTest != nil {
+		return c.receiveRawTest()
+	}
+	return c.receiveRawProd()
+}
+
+// receiveRawProd reads the size of the message, then the
 // whole message. It returns the raw message as slice of bytes.
 // If there is no message available, it blocks until one becomes
 // available.
 // In case of an error it returns a nil slice and the error.
-func (c *TCPConn) receiveRaw() ([]byte, error) {
+func (c *TCPConn) receiveRawProd() ([]byte, error) {
 	c.receiveMutex.Lock()
 	defer c.receiveMutex.Unlock()
-	readTimeoutLock.RLock()
-	c.conn.SetReadDeadline(time.Now().Add(readTimeout))
-	readTimeoutLock.RUnlock()
+	timeoutLock.RLock()
+	c.conn.SetReadDeadline(time.Now().Add(timeout))
+	timeoutLock.RUnlock()
 	// First read the size
 	var total Size
 	if err := binary.Read(c.conn, globalOrder, &total); err != nil {
@@ -136,9 +146,9 @@ func (c *TCPConn) receiveRaw() ([]byte, error) {
 	var buffer bytes.Buffer
 	for read < total {
 		// Read the size of the next packet.
-		readTimeoutLock.RLock()
-		c.conn.SetReadDeadline(time.Now().Add(readTimeout))
-		readTimeoutLock.RUnlock()
+		timeoutLock.RLock()
+		c.conn.SetReadDeadline(time.Now().Add(timeout))
+		timeoutLock.RUnlock()
 		n, err := c.conn.Read(b)
 		// Quit if there is an error.
 		if err != nil {
@@ -177,6 +187,8 @@ func (c *TCPConn) Send(msg Message) (uint64, error) {
 // whole message b in slices of size maxChunkSize.
 // In case of an error it aborts.
 func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
+	c.conn.SetWriteDeadline(time.Now().Add(timeout))
+
 	// First write the size
 	packetSize := Size(len(b))
 	if err := binary.Write(c.conn, globalOrder, packetSize); err != nil {
