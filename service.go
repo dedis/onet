@@ -217,11 +217,11 @@ type serviceManager struct {
 }
 
 // newServiceManager will create a serviceStore out of all the registered Service
-func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
+func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
 	services := make(map[ServiceID]Service)
 	s := &serviceManager{
 		services:   services,
-		server:     svr,
+		server:     srv,
 		dbPath:     dbPath,
 		delDb:      delDb,
 		Dispatcher: network.NewRoutineDispatcher(),
@@ -235,12 +235,17 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 	}
 	s.db = db
 
+	for name, inst := range protocols.instantiators {
+		log.Lvl4("Registering global protocol", name)
+		srv.ProtocolRegister(name, inst)
+	}
+
 	ids := ServiceFactory.registeredServiceIDs()
 	for _, id := range ids {
 		name := ServiceFactory.Name(id)
 		log.Lvl3("Starting service", name)
 
-		cont := newContext(svr, o, id, s)
+		cont := newContext(srv, o, id, s)
 
 		s, err := ServiceFactory.start(name, cont)
 		if err != nil {
@@ -248,10 +253,10 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 		}
 		log.Lvl3("Started Service", name)
 		services[id] = s
-		svr.WebSocket.registerService(name, s)
+		srv.WebSocket.registerService(name, s)
 	}
-	log.Lvl3(svr.Address(), "instantiated all services")
-	svr.statusReporterStruct.RegisterStatusReporter("Db", s)
+	log.Lvl3(srv.Address(), "instantiated all services")
+	srv.statusReporterStruct.RegisterStatusReporter("Db", s)
 	return s
 }
 

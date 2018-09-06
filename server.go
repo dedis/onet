@@ -78,10 +78,6 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 	c.WebSocket = NewWebSocket(r.ServerIdentity)
 	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
 	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
-	for name, inst := range protocols.instantiators {
-		log.Lvl4("Registering global protocol", name)
-		c.ProtocolRegister(name, inst)
-	}
 	return c
 }
 
