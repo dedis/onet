@@ -205,6 +205,8 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 type serviceManager struct {
 	// the actual services
 	services map[ServiceID]Service
+	// making sure we're not racing for services
+	servicesMutex sync.Mutex
 	// the onet host
 	server *Server
 	// a bbolt database for all services
@@ -247,13 +249,15 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 
 		cont := newContext(srv, o, id, s)
 
-		s, err := ServiceFactory.start(name, cont)
+		srvc, err := ServiceFactory.start(name, cont)
 		if err != nil {
 			log.Panic("Trying to instantiate service", name, ": error=", err)
 		}
 		log.Lvl3("Started Service", name)
-		services[id] = s
-		srv.WebSocket.registerService(name, s)
+		s.servicesMutex.Lock()
+		services[id] = srvc
+		s.servicesMutex.Unlock()
+		srv.WebSocket.registerService(name, srvc)
 	}
 	log.Lvl3(srv.Address(), "instantiated all services")
 	srv.statusReporterStruct.RegisterStatusReporter("Db", s)
@@ -374,6 +378,8 @@ func (s *serviceManager) registerProcessorFunc(msgType network.MessageTypeID, fn
 // availableServices returns a list of all services available to the serviceManager.
 // If no services are instantiated, it returns an empty list.
 func (s *serviceManager) availableServices() (ret []string) {
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
 	for id := range s.services {
 		ret = append(ret, ServiceFactory.Name(id))
 	}
@@ -387,12 +393,16 @@ func (s *serviceManager) service(name string) Service {
 	if id.Equal(NilServiceID) {
 		return nil
 	}
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
 	return s.services[id]
 }
 
 func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 	var serv Service
 	var ok bool
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
 	if serv, ok = s.services[id]; !ok {
 		return nil, false
 	}
