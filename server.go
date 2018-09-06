@@ -161,12 +161,14 @@ func (c *Server) Close() error {
 
 	// For all services that have `TestClose` defined, call it to make
 	// sure they are able to clean up. This should only be used for tests!
+	c.serviceManager.servicesMutex.Lock()
 	for _, serv := range c.serviceManager.services {
 		s, ok := serv.(TestClose)
 		if ok {
 			s.TestClose()
 		}
 	}
+	c.serviceManager.servicesMutex.Unlock()
 	c.overlay.stop()
 	c.WebSocket.stop()
 	c.overlay.Close()
