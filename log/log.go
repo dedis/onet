@@ -57,6 +57,7 @@ var bufStdOut bytes.Buffer
 var bufStdErr bytes.Buffer
 
 func init() {
+	setNonblock()
 	stdOut = os.Stdout
 	stdErr = os.Stderr
 }
