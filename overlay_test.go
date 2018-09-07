@@ -2,6 +2,7 @@ package onet
 
 import (
 	"testing"
+	"time"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -80,6 +81,11 @@ func TestOverlayDispatchFailure(t *testing.T) {
 
 	// wait for the error message to get formatted by overlay.go
 	<-dispFailErr.ch
+
+	// This test was apparently always a bit fragile, and commit 5931349
+	// seems to have made it worse. Adding this tiny sleep makes
+	// 2000 iterations pass where before I could see errors about 1 in 20 times.
+	time.Sleep(5 * time.Millisecond)
 
 	// when using `go test -v`, the error string goes into the stderr buffer
 	// but with `go test`, it goes into the stdout buffer, so we check both
