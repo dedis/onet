@@ -6,6 +6,7 @@ import (
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/satori/go.uuid.v1"
 )
 
@@ -157,8 +158,10 @@ func TestTreeNodeProtocolHandlers(t *testing.T) {
 	go p.Start()
 	log.Lvl2("Waiting for response from child 1/2")
 	child1 := <-IncomingHandlers
+	defer child1.Done()
 	log.Lvl2("Waiting for response from child 2/2")
 	child2 := <-IncomingHandlers
+	defer child2.Done()
 
 	if child1.ServerIdentity().ID.Equal(child2.ServerIdentity().ID) {
 		t.Fatal("Both entities should be different")
@@ -167,11 +170,11 @@ func TestTreeNodeProtocolHandlers(t *testing.T) {
 	log.Lvl2("Sending to parent")
 
 	tni := p.(*ProtocolHandlers).TreeNodeInstance
-	child1.SendTo(tni.TreeNode(), &NodeTestAggMsg{})
+	require.Nil(t, child1.SendTo(tni.TreeNode(), &NodeTestAggMsg{}))
 	if len(IncomingHandlers) > 0 {
 		t.Fatal("This should not trigger yet")
 	}
-	child2.SendTo(tni.TreeNode(), &NodeTestAggMsg{})
+	require.Nil(t, child2.SendTo(tni.TreeNode(), &NodeTestAggMsg{}))
 	final := <-IncomingHandlers
 	if !final.ServerIdentity().ID.Equal(tni.ServerIdentity().ID) {
 		t.Fatal("This should be the same ID")
@@ -330,7 +333,6 @@ func (p *ProtocolHandlers) HandleMessageOne(msg struct {
 	NodeTestMsg
 }) error {
 	IncomingHandlers <- p.TreeNodeInstance
-	p.Done()
 	return nil
 }
 

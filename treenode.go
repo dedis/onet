@@ -148,6 +148,12 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	if to == nil {
 		return errors.New("Sent to a nil TreeNode")
 	}
+	n.msgDispatchQueueMutex.Lock()
+	if n.closing {
+		n.msgDispatchQueueMutex.Unlock()
+		return errors.New("is closing")
+	}
+	n.msgDispatchQueueMutex.Unlock()
 	var c *GenericConfig
 	// only sends the config once
 	n.configMut.Lock()
@@ -457,7 +463,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
-		if n.closing == true {
+		if n.closing {
 			log.Lvl3("Closing reader")
 			n.msgDispatchQueueMutex.Unlock()
 			return
