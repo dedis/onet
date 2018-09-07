@@ -293,6 +293,12 @@ func (l *LocalTest) CloseAll() {
 		}
 	}
 
+	for _, node := range l.Nodes {
+		log.Lvl3("Closing node", node)
+		node.closeDispatch()
+	}
+	l.Nodes = make([]*TreeNodeInstance, 0)
+
 	for _, server := range l.Servers {
 		log.Lvl3("Closing server", server.ServerIdentity.Address)
 		err := server.Close()
@@ -308,13 +314,10 @@ func (l *LocalTest) CloseAll() {
 		delete(l.Servers, server.ServerIdentity.ID)
 	}
 	l.ctx.Stop()
-	for _, node := range l.Nodes {
-		log.Lvl3("Closing node", node)
-		node.closeDispatch()
-	}
-	l.Nodes = make([]*TreeNodeInstance, 0)
+
 	os.RemoveAll(l.path)
 	l.closed = true
+
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
 	}

@@ -165,7 +165,7 @@ func (c *Server) Close() error {
 	var wg sync.WaitGroup
 	for _, serv := range c.serviceManager.services {
 		wg.Add(1)
-		func(s Service) {
+		go func(s Service) {
 			defer wg.Done()
 			c, ok := s.(TestClose)
 			if ok {
