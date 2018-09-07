@@ -343,7 +343,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	select {
 	case err := <-connStat:
 		assert.Equal(t, ErrTimeout, err)
-	case <-time.After(2 * timeoutForTest):
+	case <-time.After(10 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
 

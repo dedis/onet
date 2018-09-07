@@ -187,7 +187,9 @@ func (c *TCPConn) Send(msg Message) (uint64, error) {
 // whole message b in slices of size maxChunkSize.
 // In case of an error it aborts.
 func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
+	timeoutLock.RLock()
 	c.conn.SetWriteDeadline(time.Now().Add(timeout))
+	timeoutLock.RUnlock()
 
 	// First write the size
 	packetSize := Size(len(b))
