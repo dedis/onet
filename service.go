@@ -395,7 +395,12 @@ func (s *serviceManager) service(name string) Service {
 	}
 	s.servicesMutex.Lock()
 	defer s.servicesMutex.Unlock()
-	return s.services[id]
+	ser, ok := s.services[id]
+	if !ok {
+		log.Error("this service is not instantiated")
+		return nil
+	}
+	return ser
 }
 
 func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {

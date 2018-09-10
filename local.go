@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -299,20 +300,26 @@ func (l *LocalTest) CloseAll() {
 	}
 	l.Nodes = make([]*TreeNodeInstance, 0)
 
-	for _, server := range l.Servers {
-		log.Lvl3("Closing server", server.ServerIdentity.Address)
-		err := server.Close()
-		if err != nil {
-			log.Error("Closing server", server.ServerIdentity.Address,
-				"gives error", err)
-		}
+	sd := sync.WaitGroup{}
+	for _, srv := range l.Servers {
+		sd.Add(1)
+		go func(server *Server) {
+			log.Lvl3("Closing server", server.ServerIdentity.Address)
+			err := server.Close()
+			if err != nil {
+				log.Error("Closing server", server.ServerIdentity.Address,
+					"gives error", err)
+			}
 
-		for server.Listening() {
-			log.Lvl1("Sleeping while waiting to close...")
-			time.Sleep(10 * time.Millisecond)
-		}
-		delete(l.Servers, server.ServerIdentity.ID)
+			for server.Listening() {
+				log.Lvl1("Sleeping while waiting to close...")
+				time.Sleep(10 * time.Millisecond)
+			}
+			sd.Done()
+		}(srv)
 	}
+	sd.Wait()
+	l.Servers = map[network.ServerIdentityID]*Server{}
 	l.ctx.Stop()
 
 	os.RemoveAll(l.path)
