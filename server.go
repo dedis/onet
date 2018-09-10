@@ -173,8 +173,8 @@ func (c *Server) Close() error {
 			}
 		}(serv)
 	}
-	wg.Wait()
 	c.serviceManager.servicesMutex.Unlock()
+	wg.Wait()
 	c.overlay.stop()
 	c.WebSocket.stop()
 	c.overlay.Close()
