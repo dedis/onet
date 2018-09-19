@@ -503,11 +503,11 @@ type simpleService struct {
 	newProto chan bool
 }
 
-func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
+func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
 	msg := &SimpleRequest{}
 	err := protobuf.DecodeWithConstructors(buf, msg, network.DefaultConstructors(tSuite))
 	if err != nil {
-		return nil, errors.New("")
+		return nil, nil, errors.New("")
 	}
 	tree := msg.ServerIdentities.GenerateBinaryTree()
 	tni := s.ctx.NewTreeNodeInstance(tree, tree.Root, backForthServiceName)
@@ -516,10 +516,10 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 		ret <- n
 	})
 	if err != nil {
-		return nil, errors.New("")
+		return nil, nil, errors.New("")
 	}
 	if err = s.ctx.RegisterProtocolInstance(proto); err != nil {
-		return nil, errors.New("")
+		return nil, nil, errors.New("")
 	}
 	proto.Start()
 	if s.panic {
@@ -527,7 +527,7 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 		close(ret)
 	}
 	resp, err := protobuf.Encode(&SimpleResponse{<-ret})
-	return resp, err
+	return resp, nil, err
 }
 
 func (s *simpleService) NewProtocol(tni *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
@@ -599,13 +599,13 @@ type DummyService struct {
 	Config   DummyConfig
 }
 
-func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
+func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
 	log.Lvl2("Got called with path", path, buf)
 	msg := &DummyMsg{}
 	err := protobuf.Decode(buf, msg)
 	if err != nil {
 		ds.link <- false
-		return nil, errors.New("wrong message")
+		return nil, nil, errors.New("wrong message")
 	}
 	if ds.firstTni == nil {
 		ds.firstTni = ds.c.NewTreeNodeInstance(ds.fakeTree, ds.fakeTree.Root, dummyServiceName)
@@ -615,13 +615,13 @@ func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf
 
 	if err := ds.c.RegisterProtocolInstance(dp); err != nil {
 		ds.link <- false
-		return nil, errors.New("")
+		return nil, nil, errors.New("")
 	}
 	log.Lvl2("Starting protocol")
 	go func() {
 		log.ErrFatal(dp.Start())
 	}()
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (ds *DummyService) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
@@ -669,7 +669,7 @@ func newDummyService2(c *Context) (Service, error) {
 	return &dummyService2{Context: c}, nil
 }
 
-func (ds *dummyService2) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
+func (ds *dummyService2) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
 	panic("should not be called")
 }
 

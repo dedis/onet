@@ -9,7 +9,6 @@ import (
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/protobuf"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +24,13 @@ func TestProcessor_AddMessage(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	log.ErrFatal(p.RegisterHandler(procMsg))
+	require.Nil(t, p.RegisterHandler(procMsg))
 	if len(p.handlers) != 1 {
-		t.Fatal("Should have registered one function")
+		require.Fail(t, "Should have registered one function")
 	}
 	mt := network.MessageType(&testMsg{})
 	if mt.Equal(network.ErrorType) {
-		t.Fatal("Didn't register message-type correctly")
+		require.Fail(t, "Didn't register message-type correctly")
 	}
 	var wrongFunctions = []interface{}{
 		procMsgWrong1,
@@ -45,7 +44,7 @@ func TestProcessor_AddMessage(t *testing.T) {
 	for _, f := range wrongFunctions {
 		fsig := reflect.TypeOf(f).String()
 		log.Lvl2("Checking function", fsig)
-		assert.Error(t, p.RegisterHandler(f),
+		require.Error(t, p.RegisterHandler(f),
 			"Could register wrong function: "+fsig)
 	}
 }
@@ -54,47 +53,93 @@ func TestProcessor_RegisterMessages(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	log.ErrFatal(p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
-	assert.Error(t, p.RegisterHandlers(procMsg3, procMsgWrong4))
+	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
+	require.Error(t, p.RegisterHandlers(procMsg3, procMsgWrong4))
+}
+
+func TestProcessor_RegisterStreamingMessage(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+	defer h1.Close()
+	p := NewServiceProcessor(&Context{server: h1})
+	f1 := func(m *testMsg) (chan int, error) {
+		return make(chan int), nil
+	}
+	f2 := func(m *testMsg) (chan testMsg, error) {
+		return make(chan testMsg), nil
+	}
+	require.Nil(t, p.RegisterStreamingHandlers(f1, f2))
 }
 
 func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	log.ErrFatal(p.RegisterHandlers(procMsg, procMsg2))
+	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2))
 
 	buf, err := protobuf.Encode(&testMsg{11})
-	log.ErrFatal(err)
-	rep, err := p.ProcessClientRequest(nil, "testMsg", buf)
-	require.Equal(t, nil, err)
+	require.Nil(t, err)
+	rep, repChan, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	require.Nil(t, repChan)
+	require.NoError(t, err)
 	val := &testMsg{}
-	log.ErrFatal(protobuf.Decode(rep, val))
+	require.Nil(t, protobuf.Decode(rep, val))
 	if val.I != 11 {
-		t.Fatal("Value got lost - should be 11")
+		require.Fail(t, "Value got lost - should be 11")
 	}
 
 	buf, err = protobuf.Encode(&testMsg{42})
-	log.ErrFatal(err)
-	_, err = p.ProcessClientRequest(nil, "testMsg", buf)
-	assert.NotNil(t, err)
+	require.Nil(t, err)
+	_, _, err = p.ProcessClientRequest(nil, "testMsg", buf)
+	require.NotNil(t, err)
 
 	buf, err = protobuf.Encode(&testMsg2{42})
-	log.ErrFatal(err)
-	_, err = p.ProcessClientRequest(nil, "testMsg2", buf)
-	assert.NotNil(t, err)
+	require.Nil(t, err)
+	_, _, err = p.ProcessClientRequest(nil, "testMsg2", buf)
+	require.NotNil(t, err)
 
 	// Test non-existing endpoint
 	buf, err = protobuf.Encode(&testMsg2{42})
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	lvl := log.DebugVisible()
 	log.SetDebugVisible(0)
 	log.OutputToBuf()
-	_, err = p.ProcessClientRequest(nil, "testMsgNotAvailable", buf)
+	_, _, err = p.ProcessClientRequest(nil, "testMsgNotAvailable", buf)
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
-	assert.NotNil(t, err)
-	assert.NotEqual(t, "", log.GetStdOut())
+	require.NotNil(t, err)
+	require.NotEqual(t, "", log.GetStdOut())
+}
+
+func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+	defer h1.Close()
+
+	p := NewServiceProcessor(&Context{server: h1})
+	f := func(m *testMsg) (chan network.Message, error) {
+		c := make(chan network.Message)
+		go func() {
+			for i := 0; i < m.I; i++ {
+				c <- m
+			}
+			close(c)
+		}()
+		return c, nil
+	}
+	require.Nil(t, p.RegisterStreamingHandler(f))
+
+	n := 5
+	buf, err := protobuf.Encode(&testMsg{n})
+	require.NoError(t, err)
+	rep, repChan, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	require.Nil(t, rep)
+	require.NoError(t, err)
+
+	for i := 0; i < n; i++ {
+		buf := <-repChan
+		val := &testMsg{}
+		require.Nil(t, protobuf.Decode(buf, val))
+		require.Equal(t, val.I, n)
+	}
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {
@@ -107,12 +152,12 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 	client := local.NewClient(testServiceName)
 	msg := &testMsg{}
 	err := client.SendProtobuf(h.ServerIdentity, &testMsg{12}, msg)
-	log.ErrFatal(err)
+	require.Nil(t, err)
 	if msg == nil {
-		t.Fatal("Msg should not be nil")
+		require.Fail(t, "Msg should not be nil")
 	}
 	if msg.I != 12 {
-		t.Fatal("Didn't send 12")
+		require.Fail(t, "Didn't send 12")
 	}
 }
 
@@ -183,7 +228,9 @@ func newTestService(c *Context) (Service, error) {
 	ts := &testService{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
-	log.ErrFatal(ts.RegisterHandler(ts.ProcessMsg))
+	if err := ts.RegisterHandler(ts.ProcessMsg); err != nil {
+		panic(err.Error())
+	}
 	return ts, nil
 }
 

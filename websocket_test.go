@@ -458,6 +458,74 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	require.NotEqual(t, "", log.GetStdOut())
 }
 
+// TestWebSocket_Streaming first tries to start a streaming request with one
+// client. Then it'll try to do it with 10 clients in parallel.
+func TestWebSocket_Streaming(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	serName := "streamingService"
+	_, err := RegisterNewService(serName, newStreamingService)
+	require.NoError(t, err)
+	defer UnregisterService(serName)
+
+	servers, el, _ := local.GenTree(4, false)
+	client := local.NewClientKeep(serName)
+
+	n := 5
+	r := &SimpleRequest{
+		ServerIdentities: el,
+		Val:              n,
+	}
+	conn, err := client.Stream(servers[0].ServerIdentity, r)
+	require.NoError(t, err)
+
+	for i := 0; i < n; i++ {
+		sr := &SimpleResponse{}
+		require.NoError(t, conn.ReadMessage(sr))
+		require.Equal(t, sr.Val, n)
+	}
+
+	// Using the same client (connection) to repeat the same request should
+	// fail because the connection should be closed by the service when
+	// there are no more messages.
+	// TODO maybe it shouldn't?
+	sr := &SimpleResponse{}
+	require.Error(t, conn.ReadMessage(sr))
+	require.NoError(t, client.Close())
+
+	// If one client is ok, we try to do it with 10.
+
+	clients := make([]*Client, 10)
+	for i := range clients {
+		clients[i] = local.NewClientKeep(serName)
+	}
+	var wg sync.WaitGroup
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			n := 5
+			r := &SimpleRequest{
+				ServerIdentities: el,
+				Val:              n,
+			}
+			conn, err := c.Stream(servers[0].ServerIdentity, r)
+			require.NoError(t, err)
+
+			for i := 0; i < n; i++ {
+				sr := &SimpleResponse{}
+				require.NoError(t, conn.ReadMessage(sr))
+				require.Equal(t, sr.Val, n)
+			}
+		}(client)
+	}
+	wg.Wait()
+	for i := range clients {
+		require.NoError(t, clients[i].Close())
+	}
+}
+
 const serviceWebSocket = "WebSocket"
 
 type ServiceWebSocket struct {
@@ -481,9 +549,9 @@ const dummyService3Name = "dummyService3"
 type DummyService3 struct {
 }
 
-func (ds *DummyService3) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
+func (ds *DummyService3) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
 	log.Lvl2("Got called with path", path, buf)
-	return []byte(path), nil
+	return []byte(path), nil, nil
 }
 
 func (ds *DummyService3) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
@@ -491,4 +559,29 @@ func (ds *DummyService3) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) 
 }
 
 func (ds *DummyService3) Process(env *network.Envelope) {
+}
+
+type StreamingService struct {
+	*ServiceProcessor
+}
+
+func newStreamingService(c *Context) (Service, error) {
+	s := &StreamingService{
+		ServiceProcessor: NewServiceProcessor(c),
+	}
+	if err := s.RegisterStreamingHandler(s.StreamValues); err != nil {
+		panic(err.Error())
+	}
+	return s, nil
+}
+
+func (ss *StreamingService) StreamValues(msg *SimpleRequest) (chan *SimpleResponse, error) {
+	c := make(chan *SimpleResponse)
+	go func() {
+		for i := 0; i < msg.Val; i++ {
+			c <- &SimpleResponse{msg.Val}
+		}
+		close(c)
+	}()
+	return c, nil
 }
