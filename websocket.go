@@ -193,12 +193,12 @@ outerReadLoop:
 
 		s := t.service
 		var reply []byte
-		var replyChan chan []byte
+		var tun *StreamingTunnel
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
 		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
-		reply, replyChan, err = s.ProcessClientRequest(r, path, buf)
+		reply, tun, err = s.ProcessClientRequest(r, path, buf)
 		if err == nil {
-			if replyChan == nil {
+			if tun == nil {
 				tx += len(reply)
 				err := ws.WriteMessage(mt, reply)
 				if err != nil {
@@ -206,26 +206,19 @@ outerReadLoop:
 					break
 				}
 			} else {
-				// innerReadLoop:
-				// TODO some design discussion is needed here. ServeHTTP is per client.
-				// The client may decide to keep connection open for different requests.
-				// If the server stops streaming, should it close the connection?
-				// We don't have a suitable control-message for this type of notification.
 				for {
 					select {
-					case reply, ok := <-replyChan:
+					case reply, ok := <-tun.out:
 						if !ok {
-							/*
-								log.LLvl4("service (publisher) closed, finished streaming, going back to read loop")
-								break innerReadLoop
-							*/
-							err = errors.New("service (publisher) closed, finished streaming")
+							err = errors.New("service finished streaming")
+							close(tun.close)
 							break outerReadLoop
 						}
 						tx += len(reply)
-						err := ws.WriteMessage(mt, reply)
+						err = ws.WriteMessage(mt, reply)
 						if err != nil {
 							log.Error(err)
+							close(tun.close)
 							break outerReadLoop
 						}
 					}
@@ -328,7 +321,6 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			if err == nil {
 				break
 			}
-			panic(err.Error())
 			time.Sleep(network.WaitRetry)
 		}
 		if err != nil {
@@ -399,7 +391,8 @@ type StreamingConn struct {
 // no messages.
 func (c *StreamingConn) ReadMessage(ret interface{}) error {
 	_, buf, err := c.conn.ReadMessage()
-	// TODO no counter here
+	// No need to add bytes to counter here because this function is only
+	// called by the client.
 	if err != nil {
 		return err
 	}

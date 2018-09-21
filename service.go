@@ -33,14 +33,18 @@ type Service interface {
 	// the ProtocolInstance it is using. If a Service returns (nil,nil), that
 	// means this Service lets Onet handle the protocol instance.
 	NewProtocol(*TreeNodeInstance, *GenericConfig) (ProtocolInstance, error)
-	// ProcessClientRequest is called when a message from an
-	// external client is received by the websocket for this
-	// service. It returns a message that will be sent back to the
-	// client. The returned error will be formatted as a websocket
+	// ProcessClientRequest is called when a message from an external
+	// client is received by the websocket for this service. The message is
+	// forwarded to the corresponding handler keyed by the path. If the
+	// handler is a normal one, i.e., a request-response handler, it
+	// returns a message in the first return value and the second
+	// (StreamingTunnel) will be set to nil. If the handler is a streaming
+	// handler, the first return value is set to nil but the second
+	// (StreamingTunnel) will exist. It should be used to stream messages
+	// to the client. See the StreamingTunnel documentation on how it
+	// should be used. The returned error will be formatted as a websocket
 	// error code 4000, using the string form of the error as the message.
-	// TODO update docs
-	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, replies chan []byte, err error)
-	// ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, stream bool, err error)
+	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, tunnel *StreamingTunnel, err error)
 	// Processor makes a Service being able to handle any kind of packets
 	// directly from the network. It is used for inter service communications,
 	// which are mostly single packets with no or little interactions needed. If

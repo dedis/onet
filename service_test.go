@@ -503,7 +503,7 @@ type simpleService struct {
 	newProto chan bool
 }
 
-func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
+func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	msg := &SimpleRequest{}
 	err := protobuf.DecodeWithConstructors(buf, msg, network.DefaultConstructors(tSuite))
 	if err != nil {
@@ -599,7 +599,7 @@ type DummyService struct {
 	Config   DummyConfig
 }
 
-func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
+func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	log.Lvl2("Got called with path", path, buf)
 	msg := &DummyMsg{}
 	err := protobuf.Decode(buf, msg)
@@ -669,7 +669,7 @@ func newDummyService2(c *Context) (Service, error) {
 	return &dummyService2{Context: c}, nil
 }
 
-func (ds *dummyService2) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, chan []byte, error) {
+func (ds *dummyService2) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	panic("should not be called")
 }
 

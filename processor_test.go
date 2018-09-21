@@ -61,13 +61,49 @@ func TestProcessor_RegisterStreamingMessage(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	f1 := func(m *testMsg) (chan int, error) {
-		return make(chan int), nil
+
+	// correct registration
+	f1 := func(m *testMsg) (chan network.Message, chan bool, error) {
+		return make(chan network.Message), make(chan bool), nil
 	}
-	f2 := func(m *testMsg) (chan testMsg, error) {
-		return make(chan testMsg), nil
+	f2 := func(m *testMsg) (chan *testMsg, chan bool, error) {
+		return make(chan *testMsg), make(chan bool), nil
 	}
 	require.Nil(t, p.RegisterStreamingHandlers(f1, f2))
+
+	// wrong registrations
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m int) (chan network.Message, chan bool, error) {
+			return nil, nil, nil
+		}), "input must be a pointer to struct")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m testMsg) (chan network.Message, chan bool, error) {
+			return nil, nil, nil
+		}), "input must be a pointer to struct")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan int, chan bool, error) {
+			return nil, nil, nil
+		}), "first return must be a pointer or interface")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan testMsg, chan bool, error) {
+			return nil, nil, nil
+		}), "first return must be a pointer or interface")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan testMsg, error) {
+			return nil, nil
+		}), "must have three return values")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan testMsg, chan int, error) {
+			return nil, nil, nil
+		}), "second return must be a boolean channel")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan testMsg, []int, error) {
+			return nil, nil, nil
+		}), "second return must be a boolean channel")
+	require.Error(t, p.RegisterStreamingHandler(
+		func(m *testMsg) (chan testMsg, chan int, []byte) {
+			return nil, nil, nil
+		}), "must return an error")
 }
 
 func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
@@ -115,30 +151,35 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	defer h1.Close()
 
 	p := NewServiceProcessor(&Context{server: h1})
-	f := func(m *testMsg) (chan network.Message, error) {
-		c := make(chan network.Message)
+	h := func(m *testMsg) (chan network.Message, chan bool, error) {
+		outChan := make(chan network.Message)
 		go func() {
 			for i := 0; i < m.I; i++ {
-				c <- m
+				outChan <- m
 			}
-			close(c)
+			close(outChan)
 		}()
-		return c, nil
+		return outChan, nil, nil
 	}
-	require.Nil(t, p.RegisterStreamingHandler(f))
+	require.Nil(t, p.RegisterStreamingHandler(h))
 
 	n := 5
 	buf, err := protobuf.Encode(&testMsg{n})
 	require.NoError(t, err)
-	rep, repChan, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	rep, tun, err := p.ProcessClientRequest(nil, "testMsg", buf)
 	require.Nil(t, rep)
 	require.NoError(t, err)
 
-	for i := 0; i < n; i++ {
-		buf := <-repChan
-		val := &testMsg{}
-		require.Nil(t, protobuf.Decode(buf, val))
-		require.Equal(t, val.I, n)
+	for i := 0; i < n+1; i++ {
+		if i >= n {
+			_, ok := <-tun.out
+			require.False(t, ok)
+		} else {
+			buf := <-tun.out
+			val := &testMsg{}
+			require.Nil(t, protobuf.Decode(buf, val))
+			require.Equal(t, val.I, n)
+		}
 	}
 }
 
