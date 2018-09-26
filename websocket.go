@@ -200,8 +200,11 @@ outerReadLoop:
 		if err == nil {
 			if tun == nil {
 				tx += len(reply)
-				err := ws.WriteMessage(mt, reply)
-				if err != nil {
+				if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+					log.Error(err)
+					break
+				}
+				if err := ws.WriteMessage(mt, reply); err != nil {
 					log.Error(err)
 					break
 				}
@@ -215,8 +218,12 @@ outerReadLoop:
 							break outerReadLoop
 						}
 						tx += len(reply)
-						err = ws.WriteMessage(mt, reply)
-						if err != nil {
+						if err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+							log.Error(err)
+							close(tun.close)
+							break outerReadLoop
+						}
+						if err = ws.WriteMessage(mt, reply); err != nil {
 							log.Error(err)
 							close(tun.close)
 							break outerReadLoop
@@ -348,6 +355,9 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 	}
 	c.tx += uint64(len(buf))
 
+	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+		return nil, err
+	}
 	_, rcv, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -390,9 +400,12 @@ type StreamingConn struct {
 // ReadMessage read more data from the connection, it will block if there are
 // no messages.
 func (c *StreamingConn) ReadMessage(ret interface{}) error {
-	_, buf, err := c.conn.ReadMessage()
+	if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+		return err
+	}
 	// No need to add bytes to counter here because this function is only
 	// called by the client.
+	_, buf, err := c.conn.ReadMessage()
 	if err != nil {
 		return err
 	}
