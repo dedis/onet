@@ -535,6 +535,8 @@ func TestWebSocket_Streaming(t *testing.T) {
 	require.NoError(t, client.Close())
 }
 
+// TestWebSocket_Streaming_Parallel is essentially the same as
+// TestWebSocket_Streaming, except we do it in parallel.
 func TestWebSocket_Streaming_Parallel(t *testing.T) {
 	local := NewTCPTest(tSuite)
 	defer local.CloseAll()

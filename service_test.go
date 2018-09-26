@@ -507,7 +507,7 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 	msg := &SimpleRequest{}
 	err := protobuf.DecodeWithConstructors(buf, msg, network.DefaultConstructors(tSuite))
 	if err != nil {
-		return nil, nil, errors.New("")
+		return nil, nil, err
 	}
 	tree := msg.ServerIdentities.GenerateBinaryTree()
 	tni := s.ctx.NewTreeNodeInstance(tree, tree.Root, backForthServiceName)
@@ -516,10 +516,10 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 		ret <- n
 	})
 	if err != nil {
-		return nil, nil, errors.New("")
+		return nil, nil, err
 	}
 	if err = s.ctx.RegisterProtocolInstance(proto); err != nil {
-		return nil, nil, errors.New("")
+		return nil, nil, err
 	}
 	proto.Start()
 	if s.panic {
@@ -615,7 +615,7 @@ func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf
 
 	if err := ds.c.RegisterProtocolInstance(dp); err != nil {
 		ds.link <- false
-		return nil, nil, errors.New("")
+		return nil, nil, err
 	}
 	log.Lvl2("Starting protocol")
 	go func() {

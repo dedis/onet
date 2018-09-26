@@ -94,7 +94,7 @@ func (p *ServiceProcessor) RegisterHandler(f interface{}) error {
 //    channel will be forwarded to the client, if there are no more messages,
 //    the service should close retChan.
 //  * closeChan is a boolean channel, upon receiving a message on this channel,
-//    the handler should stop sending messages and close retChan.
+//    the handler must stop sending messages and close retChan.
 //  * err is an error, it can be nil, or any type that implements error.
 //
 // struct_name is stripped of its package-name, so a structure like
@@ -255,9 +255,11 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 		outChan := make(chan []byte, 100)
 		go func() {
 			inChan := reflect.ValueOf(reply)
-			case0 := reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan}
+			cases := []reflect.SelectCase{
+				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
+			}
 			for {
-				chosen, v, ok := reflect.Select([]reflect.SelectCase{case0})
+				chosen, v, ok := reflect.Select(cases)
 				if !ok {
 					log.Lvlf4("publisher is closed for %s, closing outgoing channel", path)
 					close(outChan)
