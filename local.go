@@ -514,6 +514,18 @@ func (l *LocalTest) NewClient(serviceName string) *Client {
 	}
 }
 
+// NewClientKeep returns *Client for which the types depend on the mode of the
+// LocalContext, the connection is not closed after sending requests.
+func (l *LocalTest) NewClientKeep(serviceName string) *Client {
+	switch l.mode {
+	case TCP:
+		return NewClientKeep(l.Suite, serviceName)
+	default:
+		log.Fatal("Can't make local client")
+		return nil
+	}
+}
+
 // genLocalHosts returns n servers created with a localRouter
 func (l *LocalTest) genLocalHosts(n int) []*Server {
 	l.panicClosed()
