@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"testing"
@@ -178,6 +179,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 
+	// Test the traditional host:port+1 way of specifying the websocket server.
 	cl := NewClientKeep(tSuite, "WebSocket")
 	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
@@ -189,17 +191,30 @@ func TestNewWebSocketTLS(t *testing.T) {
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
 	require.Equal(t, 1, rcvMsg.Val)
+	cl.Close()
+
+	// Set c.ServerIdentity.URL, in order to test the other way of triggering wss:// connection.
+	hp, err := getWSHostPort(c.ServerIdentity, false)
+	require.NoError(t, err)
+	u := &url.URL{Scheme: "https", Host: hp}
+	c.ServerIdentity.URL = u.String()
+
+	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	rcv, err = cl.Send(c.ServerIdentity, "SimpleResponse", buf)
+	log.Lvlf1("Received reply: %x", rcv)
+	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
+	require.Equal(t, 1, rcvMsg.Val)
 }
 
 func TestGetWebHost(t *testing.T) {
-	url, err := getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
+	url, err := getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
 	require.NotNil(t, err)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
 	require.NotNil(t, err)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
 	require.Nil(t, err)
 	require.Equal(t, "0.0.0.0:7771", url)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
 	require.Nil(t, err)
 	require.Equal(t, "8.8.8.8:7771", url)
 }

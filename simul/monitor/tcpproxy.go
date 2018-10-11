@@ -203,7 +203,7 @@ func (tp *TCPProxy) runMonitor() {
 				}
 				go func(r *remote) {
 					if err := r.tryReactivate(); err != nil {
-						log.Warn("failed to activate endpoint [%s] due to %v (stay inactive for another %v)", r.addr, err, tp.MonitorInterval)
+						log.Warnf("failed to activate endpoint [%s] due to %v (stay inactive for another %v)", r.addr, err, tp.MonitorInterval)
 					} else {
 						log.Infof("activated %s", r.addr)
 					}

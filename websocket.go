@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		services:  make(map[string]Service),
 		startstop: make(chan bool),
 	}
-	webHost, err := getWebAddress(si, true)
+	webHost, err := getWSHostPort(si, true)
 	log.ErrFatal(err)
 	w.mux = http.NewServeMux()
 	w.mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
@@ -298,33 +299,65 @@ func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
 }
 
 func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, error) {
+	var err error
+
+	// TODO we are opening a new connection for every new path?
+	// not possible to use an existing connection for the same service?
 	dest := destination{dst, path}
 	conn, ok := c.connections[dest]
+
 	if !ok {
-		// TODO we are opening a new connection for every new path?
-		// not possible to use an existing connection for the same service?
-		// Open connection to service.
-		url, err := getWebAddress(dst, false)
-		if err != nil {
-			return nil, err
-		}
 		d := &websocket.Dialer{}
 		d.TLSClientConfig = c.TLSClientConfig
 
-		var wsProtocol string
-		var protocol string
-		if c.TLSClientConfig != nil {
-			wsProtocol = "wss"
-			protocol = "https"
+		var serverURL string
+		var header http.Header
+
+		// If the URL is in the dst, then use it.
+		if dst.URL != "" {
+			u, err := url.Parse(dst.URL)
+			if err != nil {
+				return nil, err
+			}
+			header = http.Header{"Origin": []string{dst.URL}}
+			if u.Scheme == "https" {
+				u.Scheme = "wss"
+			} else {
+				u.Scheme = "ws"
+			}
+			u.Path += "/"
+			u.Path += c.service
+			u.Path += "/"
+			u.Path += path
+			serverURL = u.String()
+			println("sending to url", serverURL)
 		} else {
-			wsProtocol = "ws"
-			protocol = "http"
+			// Open connection to service.
+			hp, err := getWSHostPort(dst, false)
+			if err != nil {
+				return nil, err
+			}
+
+			var wsProtocol string
+			var protocol string
+
+			// The old hacky way of deciding if this server has HTTPS or not:
+			// the client somehow magically knows and tells onet by setting
+			// c.TLSClientConfig to a non-nil value.
+			if c.TLSClientConfig != nil {
+				wsProtocol = "wss"
+				protocol = "https"
+			} else {
+				wsProtocol = "ws"
+				protocol = "http"
+			}
+			serverURL = fmt.Sprintf("%s://%s/%s/%s", wsProtocol, hp, c.service, path)
+			header = http.Header{"Origin": []string{protocol + "://" + hp}}
 		}
-		serverURL := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
-		headers := http.Header{"Origin": []string{protocol + "://" + url}}
+
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
-			conn, _, err = d.Dial(serverURL, headers)
+			conn, _, err = d.Dial(serverURL, header)
 			if err == nil {
 				break
 			}
@@ -500,9 +533,9 @@ func (c *Client) Rx() uint64 {
 	return c.rx
 }
 
-// getWebAddress returns the host:port+1 of the serverIdentity. If
+// getWSHostPort returns the host:port+1 of the serverIdentity. If
 // global is true, the address is set to the unspecified 0.0.0.0-address.
-func getWebAddress(si *network.ServerIdentity, global bool) (string, error) {
+func getWSHostPort(si *network.ServerIdentity, global bool) (string, error) {
 	p, err := strconv.Atoi(si.Address.Port())
 	if err != nil {
 		return "", err
