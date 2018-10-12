@@ -70,13 +70,16 @@ type ServerIdentity struct {
 	Public kyber.Point
 	// The ServerIdentityID corresponding to that public key
 	ID ServerIdentityID
-	// A slice of addresses of where that Id might be found
+	// The address where that Id might be found
 	Address Address
 	// Description of the server
 	Description string
 	// This is the private key, may be nil. It is not exported so that it will never
 	// be marshalled.
 	private kyber.Scalar
+	// The URL where the WebSocket interface can be found. (If not set, then default is http, on port+1.)
+	// optional
+	URL string
 }
 
 // ServerIdentityID uniquely identifies an ServerIdentity struct

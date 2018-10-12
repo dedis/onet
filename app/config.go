@@ -132,6 +132,7 @@ type ServerToml struct {
 	Suite       string
 	Public      string
 	Description string
+	URL         string `toml:"URL,omitempty"`
 }
 
 // Group holds the Roster and the server-description.
@@ -214,7 +215,9 @@ func (s *ServerToml) toServerIdentity() (*network.ServerIdentity, error) {
 	if err != nil {
 		return nil, err
 	}
-	return network.NewServerIdentity(public, s.Address), nil
+	si := network.NewServerIdentity(public, s.Address)
+	si.URL = s.URL
+	return si, nil
 }
 
 // NewServerToml takes a public key and an address and returns
