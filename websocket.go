@@ -319,18 +319,14 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			if err != nil {
 				return nil, err
 			}
-			header = http.Header{"Origin": []string{dst.URL}}
 			if u.Scheme == "https" {
 				u.Scheme = "wss"
 			} else {
 				u.Scheme = "ws"
 			}
-			u.Path += "/"
-			u.Path += c.service
-			u.Path += "/"
-			u.Path += path
+			u.Path += "/" + c.service + "/" + path
 			serverURL = u.String()
-			println("sending to url", serverURL)
+			header = http.Header{"Origin": []string{dst.URL}}
 		} else {
 			// Open connection to service.
 			hp, err := getWSHostPort(dst, false)
