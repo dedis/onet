@@ -82,8 +82,9 @@ func (c *cacheTTL) get(key uuid.UUID) interface{} {
 	c.Lock()
 	defer c.Unlock()
 
-	entry := c.entries[key]
-	if entry != nil {
+	entry, ok := c.entries[key]
+	if ok && time.Now().Before(entry.expiration) {
+		entry.expiration = time.Now().Add(c.entryExpiration)
 		return entry.item
 	}
 
@@ -102,13 +103,13 @@ func newTreeCache(interval, expiration time.Duration) *treeCacheTTL {
 
 // Set stores the given tree in the cache
 func (c *treeCacheTTL) Set(tree *Tree) {
-	c.cacheTTL.set(uuid.UUID(tree.ID), tree)
+	c.set(uuid.UUID(tree.ID), tree)
 }
 
 // Get retrieves the tree with the given ID if it exists
 // or returns nil
 func (c *treeCacheTTL) Get(id TreeID) *Tree {
-	tree := c.cacheTTL.get(uuid.UUID(id))
+	tree := c.get(uuid.UUID(id))
 	if tree != nil {
 		return tree.(*Tree)
 	}
@@ -133,13 +134,13 @@ func newRosterCache(interval, expiration time.Duration) *rosterCacheTTL {
 
 // Set stores the roster in the cache
 func (c *rosterCacheTTL) Set(roster *Roster) {
-	c.cacheTTL.set(uuid.UUID(roster.ID), roster)
+	c.set(uuid.UUID(roster.ID), roster)
 }
 
 // Get retrieves the Roster with the given ID if it exists
 // or it returns nil
 func (c *rosterCacheTTL) Get(id RosterID) *Roster {
-	roster := c.cacheTTL.get(uuid.UUID(id))
+	roster := c.get(uuid.UUID(id))
 	if roster != nil {
 		return roster.(*Roster)
 	}
@@ -150,4 +151,65 @@ func (c *rosterCacheTTL) Get(id RosterID) *Roster {
 // GetFromToken does the same as Get but with a token
 func (c *rosterCacheTTL) GetFromToken(token *Token) *Roster {
 	return c.Get(token.RosterID)
+}
+
+// treeNodeCacheTTL is a cache that maps from token to treeNode. Since
+// the mapping is not 1-1 (many Tokens can point to one TreeNode, but
+// one token leads to one TreeNode), we have to do certain lookup, but
+// that's better than searching the tree each time.
+type treeNodeCacheTTL struct {
+	*cacheTTL
+}
+
+func newTreeNodeCache(interval, expiration time.Duration) *treeNodeCacheTTL {
+	return &treeNodeCacheTTL{
+		cacheTTL: newCacheTTL(interval, expiration),
+	}
+}
+
+func (c *treeNodeCacheTTL) Set(tree *Tree, treeNode *TreeNode) {
+	c.Lock()
+	ce, ok := c.entries[uuid.UUID(tree.ID)]
+	if !ok {
+		ce = &cacheTTLEntry{
+			item:       make(map[TreeNodeID]*TreeNode),
+			expiration: time.Now().Add(c.entryExpiration),
+		}
+	}
+	treeNodeMap := ce.item.(map[TreeNodeID]*TreeNode)
+	// add treenode
+	treeNodeMap[treeNode.ID] = treeNode
+	// add parent if not root
+	if treeNode.Parent != nil {
+		treeNodeMap[treeNode.Parent.ID] = treeNode.Parent
+	}
+	// add children
+	for _, c := range treeNode.Children {
+		treeNodeMap[c.ID] = c
+	}
+	// add cache
+	c.entries[uuid.UUID(tree.ID)] = ce
+	c.Unlock()
+}
+
+func (c *treeNodeCacheTTL) GetFromToken(tok *Token) *TreeNode {
+	c.Lock()
+	defer c.Unlock()
+	if tok == nil {
+		return nil
+	}
+	ce, ok := c.entries[uuid.UUID(tok.TreeID)]
+	if !ok || time.Now().After(ce.expiration) {
+		// no tree cached for this token
+		return nil
+	}
+	ce.expiration = time.Now().Add(c.entryExpiration)
+
+	treeNodeMap := ce.item.(map[TreeNodeID]*TreeNode)
+	tn, ok := treeNodeMap[tok.TreeNodeID]
+	if !ok {
+		// no treeNode cached for this token
+		return nil
+	}
+	return tn
 }

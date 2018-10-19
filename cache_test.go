@@ -34,6 +34,8 @@ func TestTreeCache(t *testing.T) {
 			cache.Set(tree)
 			require.NotNil(t, cache.Get(tree.ID))
 			time.Sleep(10 * time.Millisecond)
+			// test if it persists with the Get request
+			cache.Get(trees[0].ID)
 		}
 		wg.Done()
 	}
@@ -45,10 +47,13 @@ func TestTreeCache(t *testing.T) {
 	wg.Wait()
 
 	token := &Token{}
-	for _, tree := range trees[nbrOfItems-5:] {
+	for _, tree := range trees[nbrOfItems-8:] {
 		token.TreeID = tree.ID
 		require.Equal(t, tree, cache.GetFromToken(token))
 	}
+
+	require.Equal(t, trees[0], cache.Get(trees[0].ID))
+	require.Nil(t, cache.Get(trees[1].ID))
 
 	time.Sleep(125 * time.Millisecond)
 
@@ -59,7 +64,7 @@ func TestTreeCache(t *testing.T) {
 }
 
 func TestRosterCache(t *testing.T) {
-	cache := newRosterCache(25*time.Millisecond, 100*time.Millisecond)
+	cache := newRosterCache(1*time.Minute, 50*time.Millisecond)
 	defer cache.stop()
 
 	r := &Roster{}
@@ -71,6 +76,40 @@ func TestRosterCache(t *testing.T) {
 	token := &Token{}
 	token.RosterID = r.ID
 	require.Equal(t, r, cache.GetFromToken(token))
+
+	// test that get ignore expired item
+	time.Sleep(100 * time.Millisecond)
+	require.Nil(t, cache.GetFromToken(token))
+}
+
+func generateID() uuid.UUID {
+	id, _ := uuid.NewV1()
+	return id
+}
+
+func TestTreeNodeCache(t *testing.T) {
+	cache := newTreeNodeCache(1*time.Minute, 50*time.Millisecond)
+	defer cache.stop()
+
+	tree := &Tree{ID: TreeID(generateID())}
+	tn1 := &TreeNode{ID: TreeNodeID(generateID())}
+	tn2 := &TreeNode{ID: TreeNodeID(generateID())}
+
+	cache.Set(tree, tn1)
+	cache.Set(tree, tn2)
+
+	tok := &Token{TreeID: tree.ID, TreeNodeID: tn1.ID}
+	require.Equal(t, tn1, cache.GetFromToken(tok))
+	tok.TreeNodeID = tn2.ID
+	require.Equal(t, tn2, cache.GetFromToken(tok))
+	tok.TreeNodeID = TreeNodeID(generateID())
+	require.Nil(t, cache.GetFromToken(tok))
+
+	require.Nil(t, cache.GetFromToken(&Token{}))
+
+	// test that get ignore expired item
+	time.Sleep(100 * time.Millisecond)
+	require.Nil(t, cache.GetFromToken(tok))
 }
 
 func TestExpirationAndCleaning(t *testing.T) {

@@ -22,7 +22,7 @@ type Overlay struct {
 	treeCache   *treeCacheTTL
 	rosterCache *rosterCacheTTL
 	// cache for relating token(~Node) to TreeNode
-	cache *treeNodeCache
+	treeNodeCache *treeNodeCacheTTL
 
 	// TreeNodeInstance part
 	instances         map[TokenID]*TreeNodeInstance
@@ -58,7 +58,7 @@ func NewOverlay(c *Server) *Overlay {
 		server:             c,
 		treeCache:          newTreeCache(cleanInterval, expirationTime),
 		rosterCache:        newRosterCache(cleanInterval, expirationTime),
-		cache:              newTreeNodeCache(),
+		treeNodeCache:      newTreeNodeCache(cleanInterval, expirationTime),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
 		protocolInstances:  make(map[TokenID]ProtocolInstance),
@@ -79,7 +79,7 @@ func NewOverlay(c *Server) *Overlay {
 
 // stop stops goroutines associated with this overlay.
 func (o *Overlay) stop() {
-	o.cache.stop()
+	o.treeNodeCache.stop()
 	o.treeCache.stop()
 	o.rosterCache.stop()
 }
@@ -292,7 +292,7 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 		return nil, errors.New("didn't find tree-node: No token given")
 	}
 	// First, check the cache
-	if tn := o.cache.GetFromToken(t); tn != nil {
+	if tn := o.treeNodeCache.GetFromToken(t); tn != nil {
 		return tn, nil
 	}
 	// If cache has not, then search the tree
@@ -305,7 +305,7 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 		return nil, errors.New("didn't find treenode")
 	}
 	// Since we found treeNode, cache it.
-	o.cache.Set(tree, tn)
+	o.treeNodeCache.Set(tree, tn)
 	return tn, nil
 }
 
@@ -663,112 +663,6 @@ func (o *Overlay) RegisterMessageProxy(m MessageProxy) {
 type pendingMsg struct {
 	*ProtocolMsg
 	MessageProxy
-}
-
-// treeNodeCache is a cache that maps from token to treeNode. Since
-// the mapping is not 1-1 (many Tokens can point to one TreeNode, but
-// one token leads to one TreeNode), we have to do certain lookup, but
-// that's better than searching the tree each time.
-type treeNodeCache struct {
-	Entries  map[TreeID]*cacheEntry
-	stopCh   chan (struct{})
-	stopOnce sync.Once
-	sync.Mutex
-}
-
-type cacheEntry struct {
-	treeNodeMap map[TreeNodeID]*TreeNode
-	expiration  time.Time
-}
-
-var cacheTime = 5 * time.Minute
-var cleanEvery = 1 * time.Minute
-
-func newTreeNodeCache() *treeNodeCache {
-	tnc := &treeNodeCache{
-		Entries: make(map[TreeID]*cacheEntry),
-		stopCh:  make(chan struct{}),
-	}
-	go tnc.cleaner()
-	return tnc
-}
-
-func (tnc *treeNodeCache) stop() {
-	tnc.stopOnce.Do(func() {
-		close(tnc.stopCh)
-	})
-}
-
-func (tnc *treeNodeCache) cleaner() {
-	for {
-		select {
-		case <-time.After(cleanEvery):
-			tnc.clean()
-		case <-tnc.stopCh:
-			return
-		}
-	}
-}
-
-func (tnc *treeNodeCache) clean() {
-	tnc.Lock()
-	now := time.Now()
-	for k, e := range tnc.Entries {
-		if now.After(e.expiration) {
-			delete(tnc.Entries, k)
-		}
-	}
-	tnc.Unlock()
-}
-
-// Set sets an entry in the cache. It will also cache the parent and
-// children of the treenode since that's most likely what we are going
-// to query.
-func (tnc *treeNodeCache) Set(tree *Tree, treeNode *TreeNode) {
-	tnc.Lock()
-	ce, ok := tnc.Entries[tree.ID]
-	if !ok {
-		ce = &cacheEntry{
-			treeNodeMap: make(map[TreeNodeID]*TreeNode),
-			expiration:  time.Now().Add(cacheTime),
-		}
-	}
-	// add treenode
-	ce.treeNodeMap[treeNode.ID] = treeNode
-	// add parent if not root
-	if treeNode.Parent != nil {
-		ce.treeNodeMap[treeNode.Parent.ID] = treeNode.Parent
-	}
-	// add children
-	for _, c := range treeNode.Children {
-		ce.treeNodeMap[c.ID] = c
-	}
-	// add cache
-	tnc.Entries[tree.ID] = ce
-	tnc.Unlock()
-}
-
-// GetFromToken returns the TreeNode that the token is pointing at, or
-// nil if there is none for this token.
-func (tnc *treeNodeCache) GetFromToken(tok *Token) *TreeNode {
-	tnc.Lock()
-	defer tnc.Unlock()
-	if tok == nil {
-		return nil
-	}
-	ce, ok := tnc.Entries[tok.TreeID]
-	if !ok || time.Now().After(ce.expiration) {
-		// no tree cached for this token
-		return nil
-	}
-	ce.expiration = time.Now().Add(cacheTime)
-
-	tn, ok := ce.treeNodeMap[tok.TreeNodeID]
-	if !ok {
-		// no treeNode cached for this token
-		return nil
-	}
-	return tn
 }
 
 // defaultProtoIO implements the ProtocoIO interface but using the "regular/old"
