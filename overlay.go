@@ -11,16 +11,16 @@ import (
 	"gopkg.in/satori/go.uuid.v1"
 )
 
+const expirationTime = 1 * time.Minute
+const cleanInterval = 5 * time.Minute
+
 // Overlay keeps all trees and entity-lists for a given Server. It creates
 // Nodes and ProtocolInstances upon request and dispatches the messages.
 type Overlay struct {
 	server *Server
-	// mapping from Tree.Id to Tree
-	trees    map[TreeID]*Tree
-	treesMut sync.Mutex
-	// mapping from Roster.id to Roster
-	entityLists    map[RosterID]*Roster
-	entityListLock sync.Mutex
+
+	treeCache   *treeCacheTTL
+	rosterCache *rosterCacheTTL
 	// cache for relating token(~Node) to TreeNode
 	cache *treeNodeCache
 
@@ -56,8 +56,8 @@ type Overlay struct {
 func NewOverlay(c *Server) *Overlay {
 	o := &Overlay{
 		server:             c,
-		trees:              make(map[TreeID]*Tree),
-		entityLists:        make(map[RosterID]*Roster),
+		treeCache:          newTreeCache(cleanInterval, expirationTime),
+		rosterCache:        newRosterCache(cleanInterval, expirationTime),
 		cache:              newTreeNodeCache(),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
@@ -80,6 +80,8 @@ func NewOverlay(c *Server) *Overlay {
 // stop stops goroutines associated with this overlay.
 func (o *Overlay) stop() {
 	o.cache.stop()
+	o.treeCache.stop()
+	o.rosterCache.stop()
 }
 
 // Process implements the Processor interface so it process the messages that it
@@ -132,7 +134,7 @@ func (o *Overlay) Process(env *network.Envelope) {
 // io is the messageProxy to use if a specific wireformat protocol is used.
 // It can be nil: in that case it fall backs to default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
-	tree := o.Tree(onetMsg.To.TreeID)
+	tree := o.treeCache.Get(onetMsg.To.TreeID)
 	if tree == nil {
 		return o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
 	}
@@ -275,43 +277,13 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 
 // RegisterTree takes a tree and puts it in the map
 func (o *Overlay) RegisterTree(t *Tree) {
-	o.treesMut.Lock()
-	o.trees[t.ID] = t
-	o.treesMut.Unlock()
+	o.treeCache.Set(t)
 	o.checkPendingMessages(t)
 }
 
-// TreeFromToken searches for the tree corresponding to a token.
-func (o *Overlay) TreeFromToken(tok *Token) *Tree {
-	o.treesMut.Lock()
-	defer o.treesMut.Unlock()
-	return o.trees[tok.TreeID]
-}
-
-// Tree returns the tree given by treeId or nil if not found
-func (o *Overlay) Tree(tid TreeID) *Tree {
-	o.treesMut.Lock()
-	defer o.treesMut.Unlock()
-	return o.trees[tid]
-}
-
 // RegisterRoster puts an entityList in the map
-func (o *Overlay) RegisterRoster(el *Roster) {
-	o.entityListLock.Lock()
-	defer o.entityListLock.Unlock()
-	o.entityLists[el.ID] = el
-}
-
-// RosterFromToken returns the entitylist corresponding to a token
-func (o *Overlay) RosterFromToken(tok *Token) *Roster {
-	return o.entityLists[tok.RosterID]
-}
-
-// Roster returns the entityList given by RosterID
-func (o *Overlay) Roster(elid RosterID) *Roster {
-	o.entityListLock.Lock()
-	defer o.entityListLock.Unlock()
-	return o.entityLists[elid]
+func (o *Overlay) RegisterRoster(r *Roster) {
+	o.rosterCache.Set(r)
 }
 
 // TreeNodeFromToken returns the treeNode corresponding to a token
@@ -324,7 +296,7 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 		return tn, nil
 	}
 	// If cache has not, then search the tree
-	tree := o.Tree(t.TreeID)
+	tree := o.treeCache.Get(t.TreeID)
 	if tree == nil {
 		return nil, errors.New("didn't find tree")
 	}
@@ -349,7 +321,7 @@ func (o *Overlay) Tx() uint64 {
 
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
 	tid := req.TreeID
-	tree := o.Tree(tid)
+	tree := o.treeCache.Get(tid)
 	var err error
 	var treeM *TreeMarshal
 	var msg interface{}
@@ -381,7 +353,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io
 		log.Error("Received an empty Tree")
 		return
 	}
-	roster := o.Roster(tm.RosterID)
+	roster := o.rosterCache.Get(tm.RosterID)
 	// The roster does not exists, we should request that, too
 	if roster == nil {
 		msg, err := io.Wrap(nil, &OverlayMsg{
@@ -410,7 +382,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io
 
 func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRoster, io MessageProxy) {
 	id := req.RosterID
-	roster := o.Roster(id)
+	roster := o.rosterCache.Get(id)
 	var err error
 	var msg interface{}
 	if roster == nil {
@@ -741,8 +713,8 @@ func (tnc *treeNodeCache) cleaner() {
 func (tnc *treeNodeCache) clean() {
 	tnc.Lock()
 	now := time.Now()
-	for k := range tnc.Entries {
-		if now.After(tnc.Entries[k].expiration) {
+	for k, e := range tnc.Entries {
+		if now.After(e.expiration) {
 			delete(tnc.Entries, k)
 		}
 	}
