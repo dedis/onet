@@ -3,13 +3,15 @@ package onet
 import (
 	"sync"
 	"time"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 // Key-value cache with an expiration time for each pair
 // defined at the cache creation
 // The implementation is robust against concurrent call
 type cacheTTL struct {
-	entries         map[interface{}]*cacheTTLEntry
+	entries         map[uuid.UUID]*cacheTTLEntry
 	stopCh          chan (struct{})
 	stopOnce        sync.Once
 	cleanInterval   time.Duration
@@ -25,7 +27,7 @@ type cacheTTLEntry struct {
 // create a generic cache and start the cleaning routine
 func newCacheTTL(interval, expiration time.Duration) *cacheTTL {
 	c := &cacheTTL{
-		entries:         make(map[interface{}]*cacheTTLEntry),
+		entries:         make(map[uuid.UUID]*cacheTTLEntry),
 		stopCh:          make(chan (struct{})),
 		cleanInterval:   interval,
 		entryExpiration: expiration,
@@ -66,7 +68,7 @@ func (c *cacheTTL) clean() {
 }
 
 // add the item to the cache with the given key
-func (c *cacheTTL) set(key interface{}, item interface{}) {
+func (c *cacheTTL) set(key uuid.UUID, item interface{}) {
 	c.Lock()
 	c.entries[key] = &cacheTTLEntry{
 		item:       item,
@@ -76,7 +78,7 @@ func (c *cacheTTL) set(key interface{}, item interface{}) {
 }
 
 // returns the cached item or nil
-func (c *cacheTTL) get(key interface{}) interface{} {
+func (c *cacheTTL) get(key uuid.UUID) interface{} {
 	c.Lock()
 	defer c.Unlock()
 
@@ -100,13 +102,13 @@ func newTreeCache(interval, expiration time.Duration) *treeCacheTTL {
 
 // Set stores the given tree in the cache
 func (c *treeCacheTTL) Set(tree *Tree) {
-	c.cacheTTL.set(tree.ID, tree)
+	c.cacheTTL.set(uuid.UUID(tree.ID), tree)
 }
 
 // Get retrieves the tree with the given ID if it exists
 // or returns nil
 func (c *treeCacheTTL) Get(id TreeID) *Tree {
-	tree := c.cacheTTL.get(id)
+	tree := c.cacheTTL.get(uuid.UUID(id))
 	if tree != nil {
 		return tree.(*Tree)
 	}
@@ -131,13 +133,13 @@ func newRosterCache(interval, expiration time.Duration) *rosterCacheTTL {
 
 // Set stores the roster in the cache
 func (c *rosterCacheTTL) Set(roster *Roster) {
-	c.cacheTTL.set(roster.ID, roster)
+	c.cacheTTL.set(uuid.UUID(roster.ID), roster)
 }
 
 // Get retrieves the Roster with the given ID if it exists
 // or it returns nil
 func (c *rosterCacheTTL) Get(id RosterID) *Roster {
-	roster := c.cacheTTL.get(id)
+	roster := c.cacheTTL.get(uuid.UUID(id))
 	if roster != nil {
 		return roster.(*Roster)
 	}
