@@ -170,7 +170,7 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 
 // Tree returns the tree of that node
 func (n *TreeNodeInstance) Tree() *Tree {
-	return n.overlay.TreeFromToken(n.token)
+	return n.overlay.treeCache.GetFromToken(n.token)
 }
 
 // Roster returns the entity-list

@@ -157,8 +157,3 @@ type RequestRoster struct {
 // RosterUnknown is used in case the entity list is unknown
 type RosterUnknown struct {
 }
-
-// SendServerIdentity is the first message we send on creation of a link
-type SendServerIdentity struct {
-	Name string
-}
