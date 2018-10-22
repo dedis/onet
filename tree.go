@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-
 	"math/rand"
 
 	"github.com/dedis/kyber"
@@ -677,6 +676,28 @@ func (ro Roster) IsRotation(target *Roster) bool {
 			return false
 		}
 	}
+	return true
+}
+
+// Contains checks if the roster contains the given array of public keys
+// and no more
+func (ro *Roster) Contains(pubs []kyber.Point) bool {
+	if len(ro.List) != len(pubs) {
+		return false
+	}
+
+	table := make(map[string]bool)
+	for _, p := range pubs {
+		table[p.String()] = true
+	}
+
+	for _, p := range ro.Publics() {
+		_, ok := table[p.String()]
+		if !ok {
+			return false
+		}
+	}
+
 	return true
 }
 
