@@ -2,16 +2,17 @@ package onet
 
 import (
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
-	"testing"
-
 	"strings"
+	"testing"
 
 	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var prefix = "127.0.0.1:"
@@ -531,6 +532,22 @@ func TestRoster_IsRotation(t *testing.T) {
 	assert.False(t, roster.IsRotation(rosterSwapped))
 	assert.True(t, roster.IsRotation(rosterRotated0))
 	assert.True(t, roster.IsRotation(rosterRotated1))
+}
+
+func TestRoster_Contains(t *testing.T) {
+	_, roster := genLocalTree(10, 2000)
+
+	pubs := roster.Publics()
+	require.True(t, roster.Contains(pubs))
+
+	for i := 0; i < 10; i++ {
+		rand.Shuffle(len(pubs), func(i, j int) {
+			pubs[i], pubs[j] = pubs[j], pubs[i]
+			require.True(t, roster.Contains(pubs))
+		})
+	}
+
+	require.False(t, roster.Contains(pubs[1:]))
 }
 
 func TestTreeNode_AggregatePublic(t *testing.T) {
