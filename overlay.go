@@ -12,7 +12,7 @@ import (
 )
 
 const expirationTime = 1 * time.Minute
-const cleanInterval = 5 * time.Minute
+const cacheSize = 1000
 
 // Overlay keeps all trees and entity-lists for a given Server. It creates
 // Nodes and ProtocolInstances upon request and dispatches the messages.
@@ -56,9 +56,9 @@ type Overlay struct {
 func NewOverlay(c *Server) *Overlay {
 	o := &Overlay{
 		server:             c,
-		treeCache:          newTreeCache(cleanInterval, expirationTime),
-		rosterCache:        newRosterCache(cleanInterval, expirationTime),
-		treeNodeCache:      newTreeNodeCache(cleanInterval, expirationTime),
+		treeCache:          newTreeCache(expirationTime, cacheSize),
+		rosterCache:        newRosterCache(expirationTime, cacheSize),
+		treeNodeCache:      newTreeNodeCache(expirationTime, cacheSize),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
 		protocolInstances:  make(map[TokenID]ProtocolInstance),
@@ -75,13 +75,6 @@ func NewOverlay(c *Server) *Overlay {
 		SendRosterMsgID,    // send a roster back to request
 		ConfigMsgID)        // fetch config information
 	return o
-}
-
-// stop stops goroutines associated with this overlay.
-func (o *Overlay) stop() {
-	o.treeNodeCache.stop()
-	o.treeCache.stop()
-	o.rosterCache.stop()
 }
 
 // Process implements the Processor interface so it process the messages that it

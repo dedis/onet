@@ -175,7 +175,6 @@ func (c *Server) Close() error {
 	}
 	c.serviceManager.servicesMutex.Unlock()
 	wg.Wait()
-	c.overlay.stop()
 	c.WebSocket.stop()
 	c.overlay.Close()
 	err := c.serviceManager.closeDatabase()
