@@ -10,6 +10,7 @@ import (
 )
 
 const nbrOfItems = 20
+const size = 20
 
 func initTrees(tt []*Tree) {
 	for i := range tt {
@@ -20,8 +21,7 @@ func initTrees(tt []*Tree) {
 }
 
 func TestTreeCache(t *testing.T) {
-	cache := newTreeCache(25*time.Millisecond, 100*time.Millisecond)
-	defer cache.stop()
+	cache := newTreeCache(100*time.Millisecond, size)
 
 	trees := make([]*Tree, nbrOfItems)
 	initTrees(trees)
@@ -61,11 +61,12 @@ func TestTreeCache(t *testing.T) {
 		token.TreeID = tree.ID
 		require.Nil(t, cache.GetFromToken(token))
 	}
+
+	require.Equal(t, 0, len(cache.entries))
 }
 
 func TestRosterCache(t *testing.T) {
-	cache := newRosterCache(1*time.Minute, 50*time.Millisecond)
-	defer cache.stop()
+	cache := newRosterCache(50*time.Millisecond, size)
 
 	r := &Roster{}
 	id, _ := uuid.NewV1()
@@ -88,8 +89,7 @@ func generateID() uuid.UUID {
 }
 
 func TestTreeNodeCache(t *testing.T) {
-	cache := newTreeNodeCache(1*time.Minute, 50*time.Millisecond)
-	defer cache.stop()
+	cache := newTreeNodeCache(50*time.Millisecond, size)
 
 	tree := &Tree{ID: TreeID(generateID())}
 	tn1 := &TreeNode{ID: TreeNodeID(generateID())}
@@ -113,8 +113,7 @@ func TestTreeNodeCache(t *testing.T) {
 }
 
 func TestExpirationAndCleaning(t *testing.T) {
-	cache := newTreeCache(25*time.Millisecond, 100*time.Millisecond)
-	defer cache.stop()
+	cache := newTreeCache(100*time.Millisecond, size)
 
 	tt := make([]*Tree, 2)
 	initTrees(tt)
@@ -129,4 +128,26 @@ func TestExpirationAndCleaning(t *testing.T) {
 	require.Equal(t, tt[1], cache.GetFromToken(token))
 	token.TreeID = tt[0].ID
 	require.Nil(t, cache.GetFromToken(token))
+}
+
+func TestCacheSize(t *testing.T) {
+	size := 5
+	cache := newTreeCache(50*time.Millisecond, size)
+
+	tt := make([]*Tree, 10)
+	initTrees(tt)
+
+	for _, t := range tt {
+		cache.Set(t)
+		cache.Get(tt[1].ID)
+	}
+
+	require.Equal(t, size, len(cache.entries))
+	require.Nil(t, cache.Get(tt[0].ID))
+	require.Equal(t, tt[9], cache.Get(tt[9].ID))
+	require.Equal(t, tt[1], cache.Get(tt[1].ID))
+
+	time.Sleep(60 * time.Millisecond)
+	require.Nil(t, cache.Get(tt[1].ID))
+	require.Equal(t, 0, len(cache.entries))
 }
