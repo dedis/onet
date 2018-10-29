@@ -69,6 +69,9 @@ type LocalTest struct {
 	// since now the temp directory is gone.
 	closed bool
 	T      *testing.T
+
+	// keep the latestPort used so that we can add nodes later
+	latestPort int
 }
 
 const (
@@ -87,16 +90,17 @@ func NewLocalTest(s network.Suite) *LocalTest {
 	}
 
 	return &LocalTest{
-		Servers:  make(map[network.ServerIdentityID]*Server),
-		Overlays: make(map[network.ServerIdentityID]*Overlay),
-		Services: make(map[network.ServerIdentityID]map[ServiceID]Service),
-		Trees:    make(map[TreeID]*Tree),
-		Nodes:    make([]*TreeNodeInstance, 0, 1),
-		Check:    CheckAll,
-		mode:     Local,
-		ctx:      network.NewLocalManager(),
-		Suite:    s,
-		path:     dir,
+		Servers:    make(map[network.ServerIdentityID]*Server),
+		Overlays:   make(map[network.ServerIdentityID]*Overlay),
+		Services:   make(map[network.ServerIdentityID]map[ServiceID]Service),
+		Trees:      make(map[TreeID]*Tree),
+		Nodes:      make([]*TreeNodeInstance, 0, 1),
+		Check:      CheckAll,
+		mode:       Local,
+		ctx:        network.NewLocalManager(),
+		Suite:      s,
+		path:       dir,
+		latestPort: 2000,
 	}
 }
 
@@ -532,7 +536,8 @@ func (l *LocalTest) genLocalHosts(n int) []*Server {
 	l.panicClosed()
 	servers := make([]*Server, n)
 	for i := 0; i < n; i++ {
-		port := 2000 + i*10
+		port := l.latestPort
+		l.latestPort += 10
 		servers[i] = l.NewServer(l.Suite, port)
 	}
 	return servers

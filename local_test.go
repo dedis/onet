@@ -71,6 +71,14 @@ func TestGenLocalHost(t *testing.T) {
 	}
 }
 
+func TestGenLocalHostAfter(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+	hosts := l.genLocalHosts(2)
+	hosts2 := l.genLocalHosts(2)
+	require.NotEqual(t, hosts2[0].Address(), hosts[0].Address())
+}
+
 // This tests the client-connection in the case of a non-garbage-collected
 // client that stays in the service.
 func TestNewTCPTest(t *testing.T) {
