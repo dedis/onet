@@ -257,7 +257,7 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 
 		srvc, err := ServiceFactory.start(name, cont)
 		if err != nil {
-			log.Panic("Trying to instantiate service", name, ": error=", err)
+			log.Fatalf("Trying to instantiate service %v: %v", name, err)
 		}
 		log.Lvl3("Started Service", name)
 		s.servicesMutex.Lock()
