@@ -197,21 +197,28 @@ func (o *Overlay) addPendingTreeMarshal(tm *TreeMarshal) {
 func (o *Overlay) checkPendingMessages(t *Tree) {
 	go func() {
 		o.pendingMsgLock.Lock()
+
 		var newPending []pendingMsg
-		for _, pending := range o.pendingMsg {
-			if t.ID.Equal(pending.ProtocolMsg.To.TreeID) {
-				// if this message references t, instantiate it and go
-				err := o.TransmitMsg(pending.ProtocolMsg, pending.MessageProxy)
-				if err != nil {
-					log.Error("TransmitMsg failed:", err)
-					continue
-				}
+		var remaining []pendingMsg
+		// Keep msg not related to that tree in the pending list
+		for _, msg := range o.pendingMsg {
+			if t.ID.Equal(msg.To.TreeID) {
+				remaining = append(remaining, msg)
 			} else {
-				newPending = append(newPending, pending)
+				newPending = append(newPending, msg)
 			}
 		}
+
 		o.pendingMsg = newPending
 		o.pendingMsgLock.Unlock()
+
+		for _, msg := range remaining {
+			err := o.TransmitMsg(msg.ProtocolMsg, msg.MessageProxy)
+			if err != nil {
+				log.Error("TransmitMsg failed:", err)
+				continue
+			}
+		}
 	}()
 }
 
