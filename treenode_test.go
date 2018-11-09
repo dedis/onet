@@ -13,7 +13,7 @@ import (
 
 func init() {
 	GlobalProtocolRegister(spawnName, newSpawnProto)
-	GlobalProtocolRegister(dummyName, newDummyProto)
+	GlobalProtocolRegister(pingPongProtoName, newPingPongProto)
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {
@@ -36,16 +36,22 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 }
 
 func TestTreeNodeRxTx(t *testing.T) {
-	local := NewLocalTest(tSuite)
-	defer local.CloseAll()
+	local := NewTCPTest(tSuite)
+	testTreeNodeRxTx(t, local)
+	local.CloseAll()
 
+	local = NewLocalTest(tSuite)
+	testTreeNodeRxTx(t, local)
+	local.CloseAll()
+}
+
+func testTreeNodeRxTx(t *testing.T, local *LocalTest) {
 	_, _, tree := local.GenTree(2, true)
-	pi, err := local.StartProtocol(dummyName, tree)
+	pi, err := local.StartProtocol(pingPongProtoName, tree)
 	require.Nil(t, err)
-	protocol := pi.(*dummyProto)
+	protocol := pi.(*pingPongProto)
 
-	<-dummyDone
-	<-dummyDone
+	<-protocol.done
 	require.NotZero(t, protocol.TreeNodeInstance.Rx())
 	require.NotZero(t, protocol.TreeNodeInstance.Tx())
 }
@@ -212,52 +218,47 @@ func (s *spawnProto) HandlerError3(msg spawnMsg) (int, error) {
 }
 
 // Simple protocol to have messages transmit between nodes
-const dummyName = "TestDummy"
+const pingPongProtoName = "PingPongProtoTest"
 
-type DummyProtoMsg struct{}
+type PingPongMsg struct{}
 
-type dummyProto struct {
+type pingPongProto struct {
 	*TreeNodeInstance
-	done      chan bool
-	dummyChan chan struct {
+	done         chan bool
+	pingPongChan chan struct {
 		*TreeNode
-		DummyProtoMsg
+		PingPongMsg
 	}
 }
 
-var dummyDone = make(chan bool)
-
-func newDummyProto(tn *TreeNodeInstance) (ProtocolInstance, error) {
-	cp := &dummyProto{
+func newPingPongProto(tn *TreeNodeInstance) (ProtocolInstance, error) {
+	cp := &pingPongProto{
 		TreeNodeInstance: tn,
-		done:             make(chan bool),
+		done:             make(chan bool, len(tn.List())),
 	}
-	err := cp.RegisterChannelsLength(len(tn.Tree().List()), &cp.dummyChan)
+	err := cp.RegisterChannelsLength(len(tn.Tree().List()), &cp.pingPongChan)
 	return cp, err
 }
 
-func (cp *dummyProto) Dispatch() error {
+func (cp *pingPongProto) Dispatch() error {
+	defer cp.Done()
+
 	select {
-	case <-cp.dummyChan:
-		cp.SendToParent(&DummyProtoMsg{})
+	case <-cp.pingPongChan:
+		if !cp.IsRoot() {
+			cp.SendToParent(&PingPongMsg{})
+		}
 	}
 
-	cp.Done()
-	dummyDone <- true
+	cp.done <- true
 	return nil
 }
 
-func (cp *dummyProto) Start() error {
-	if !cp.IsRoot() {
-		err := cp.SendToParent(&DummyProtoMsg{})
-		if err != nil {
-			return err
-		}
-	} else {
-		err := cp.SendToChildren(&DummyProtoMsg{})
-		if err != nil {
-			return err
-		}
+func (cp *pingPongProto) Start() error {
+	// only called by the root
+	err := cp.SendToChildren(&PingPongMsg{})
+	if err != nil {
+		return err
 	}
 
 	return nil

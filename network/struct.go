@@ -59,6 +59,8 @@ type Envelope struct {
 	MsgType MessageTypeID
 	// A *pointer* to the underlying message
 	Msg Message
+	// The length of the message in bytes
+	Size int
 	// which constructors are used
 	Constructors protobuf.Constructors
 }

@@ -110,6 +110,7 @@ func (c *TCPConn) Receive() (env *Envelope, e error) {
 	return &Envelope{
 		MsgType: id,
 		Msg:     body,
+		Size:    len(buff),
 	}, err
 }
 
