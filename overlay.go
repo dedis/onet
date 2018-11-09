@@ -103,6 +103,11 @@ func (o *Overlay) Process(env *network.Envelope) {
 	case info.Roster != nil:
 		o.handleSendRoster(env.ServerIdentity, info.Roster)
 	default:
+		buf, err := network.Marshal(env.Msg)
+		if err != nil {
+			log.Errorf("Error when marshaling a message: %s", err)
+		}
+
 		typ := network.MessageType(inner)
 		protoMsg := &ProtocolMsg{
 			From:           info.TreeNodeInfo.From,
@@ -110,8 +115,9 @@ func (o *Overlay) Process(env *network.Envelope) {
 			ServerIdentity: env.ServerIdentity,
 			Msg:            inner,
 			MsgType:        typ,
+			MsgSlice:       buf,
 		}
-		err := o.TransmitMsg(protoMsg, io)
+		err = o.TransmitMsg(protoMsg, io)
 		if err != nil {
 			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
 				protoMsg.ServerIdentity, err.Error())

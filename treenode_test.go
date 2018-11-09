@@ -13,6 +13,7 @@ import (
 
 func init() {
 	GlobalProtocolRegister(spawnName, newSpawnProto)
+	GlobalProtocolRegister(dummyName, newDummyProto)
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {
@@ -32,6 +33,21 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 	<-spawnCh
 
 	pi.(*spawnProto).Done()
+}
+
+func TestTreeNodeRxTx(t *testing.T) {
+	local := NewLocalTest(tSuite)
+	defer local.CloseAll()
+
+	_, _, tree := local.GenTree(2, true)
+	pi, err := local.StartProtocol(dummyName, tree)
+	require.Nil(t, err)
+	protocol := pi.(*dummyProto)
+
+	<-dummyDone
+	<-dummyDone
+	require.NotZero(t, protocol.TreeNodeInstance.Rx())
+	require.NotZero(t, protocol.TreeNodeInstance.Tx())
 }
 
 func TestHandlerReturn(t *testing.T) {
@@ -193,4 +209,56 @@ func (s *spawnProto) HandlerError2(msg spawnMsg) error {
 // Invalid handler
 func (s *spawnProto) HandlerError3(msg spawnMsg) (int, error) {
 	return 0, nil
+}
+
+// Simple protocol to have messages transmit between nodes
+const dummyName = "TestDummy"
+
+type DummyProtoMsg struct{}
+
+type dummyProto struct {
+	*TreeNodeInstance
+	done      chan bool
+	dummyChan chan struct {
+		*TreeNode
+		DummyProtoMsg
+	}
+}
+
+var dummyDone = make(chan bool)
+
+func newDummyProto(tn *TreeNodeInstance) (ProtocolInstance, error) {
+	cp := &dummyProto{
+		TreeNodeInstance: tn,
+		done:             make(chan bool),
+	}
+	err := cp.RegisterChannelsLength(len(tn.Tree().List()), &cp.dummyChan)
+	return cp, err
+}
+
+func (cp *dummyProto) Dispatch() error {
+	select {
+	case <-cp.dummyChan:
+		cp.SendToParent(&DummyProtoMsg{})
+	}
+
+	cp.Done()
+	dummyDone <- true
+	return nil
+}
+
+func (cp *dummyProto) Start() error {
+	if !cp.IsRoot() {
+		err := cp.SendToParent(&DummyProtoMsg{})
+		if err != nil {
+			return err
+		}
+	} else {
+		err := cp.SendToChildren(&DummyProtoMsg{})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
