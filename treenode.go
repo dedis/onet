@@ -493,7 +493,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 // dispatchMsgToProtocol will dispatch this onet.Data to the right instance
 func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
 
-	n.rx.add(uint64(len(onetMsg.MsgSlice)))
+	n.rx.add(uint64(onetMsg.Size))
 
 	// if message comes from parent, dispatch directly
 	// if messages come from children we must aggregate them

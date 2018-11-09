@@ -13,6 +13,7 @@ import (
 
 func init() {
 	GlobalProtocolRegister(spawnName, newSpawnProto)
+	GlobalProtocolRegister(pingPongProtoName, newPingPongProto)
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {
@@ -32,6 +33,27 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 	<-spawnCh
 
 	pi.(*spawnProto).Done()
+}
+
+func TestTreeNodeRxTx(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	testTreeNodeRxTx(t, local)
+	local.CloseAll()
+
+	local = NewLocalTest(tSuite)
+	testTreeNodeRxTx(t, local)
+	local.CloseAll()
+}
+
+func testTreeNodeRxTx(t *testing.T, local *LocalTest) {
+	_, _, tree := local.GenTree(2, true)
+	pi, err := local.StartProtocol(pingPongProtoName, tree)
+	require.Nil(t, err)
+	protocol := pi.(*pingPongProto)
+
+	<-protocol.done
+	require.NotZero(t, protocol.TreeNodeInstance.Rx())
+	require.NotZero(t, protocol.TreeNodeInstance.Tx())
 }
 
 func TestHandlerReturn(t *testing.T) {
@@ -193,4 +215,51 @@ func (s *spawnProto) HandlerError2(msg spawnMsg) error {
 // Invalid handler
 func (s *spawnProto) HandlerError3(msg spawnMsg) (int, error) {
 	return 0, nil
+}
+
+// Simple protocol to have messages transmit between nodes
+const pingPongProtoName = "PingPongProtoTest"
+
+type PingPongMsg struct{}
+
+type pingPongProto struct {
+	*TreeNodeInstance
+	done         chan bool
+	pingPongChan chan struct {
+		*TreeNode
+		PingPongMsg
+	}
+}
+
+func newPingPongProto(tn *TreeNodeInstance) (ProtocolInstance, error) {
+	cp := &pingPongProto{
+		TreeNodeInstance: tn,
+		done:             make(chan bool, len(tn.List())),
+	}
+	err := cp.RegisterChannelsLength(len(tn.Tree().List()), &cp.pingPongChan)
+	return cp, err
+}
+
+func (cp *pingPongProto) Dispatch() error {
+	defer cp.Done()
+
+	select {
+	case <-cp.pingPongChan:
+		if !cp.IsRoot() {
+			cp.SendToParent(&PingPongMsg{})
+		}
+	}
+
+	cp.done <- true
+	return nil
+}
+
+func (cp *pingPongProto) Start() error {
+	// only called by the root
+	err := cp.SendToChildren(&PingPongMsg{})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

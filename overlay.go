@@ -93,7 +93,7 @@ func (o *Overlay) Process(env *network.Envelope) {
 		log.Error("unwrapping: ", err)
 		return
 	}
-	switch true {
+	switch {
 	case info.RequestTree != nil:
 		o.handleRequestTree(env.ServerIdentity, info.RequestTree, io)
 	case info.TreeMarshal != nil:
@@ -110,8 +110,9 @@ func (o *Overlay) Process(env *network.Envelope) {
 			ServerIdentity: env.ServerIdentity,
 			Msg:            inner,
 			MsgType:        typ,
+			Size:           env.Size,
 		}
-		err := o.TransmitMsg(protoMsg, io)
+		err = o.TransmitMsg(protoMsg, io)
 		if err != nil {
 			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
 				protoMsg.ServerIdentity, err.Error())
