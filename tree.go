@@ -701,6 +701,24 @@ func (ro *Roster) Contains(pubs []kyber.Point) bool {
 	return true
 }
 
+// Concat makes a new roster using an existing one and a list
+// of server identities
+func (ro *Roster) Concat(sis []*network.ServerIdentity) *Roster {
+	roMap := make(map[string]*network.ServerIdentity)
+	for _, si := range append(ro.List, sis...) {
+		roMap[si.String()] = si
+	}
+
+	newList := make([]*network.ServerIdentity, len(roMap))
+	i := 0
+	for _, si := range roMap {
+		newList[i] = si
+		i++
+	}
+
+	return NewRoster(newList)
+}
+
 // addNary is a recursive function to create the binary tree.
 func (ro *Roster) addNary(parent *TreeNode, N, start, end int) *TreeNode {
 	if !(start <= end && end < len(ro.List)) {

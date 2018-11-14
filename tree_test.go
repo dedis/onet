@@ -550,6 +550,22 @@ func TestRoster_Contains(t *testing.T) {
 	require.False(t, roster.Contains(pubs[1:]))
 }
 
+// Checks that you can concatenate two rosters together
+// without duplicates
+func TestRoster_Concat(t *testing.T) {
+	_, roster := genLocalTree(10, 2000)
+
+	r1 := NewRoster(roster.List[:7])
+	r2 := NewRoster(roster.List[2:])
+
+	r := r1.Concat(r2.List)
+	require.Equal(t, 10, len(r.List))
+	require.True(t, r.Contains(roster.Publics()))
+
+	r = r1.Concat([]*network.ServerIdentity{})
+	require.Equal(t, len(r1.List), len(r.List))
+}
+
 func TestTreeNode_AggregatePublic(t *testing.T) {
 	tree, el := genLocalTree(7, 2000)
 	agg := el.Aggregate
