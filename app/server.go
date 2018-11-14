@@ -27,7 +27,7 @@ const DefaultGroupFile = "public.toml"
 
 // DefaultPort to listen and connect to. As of this writing, this port is not listed in
 // /etc/services
-const DefaultPort = 6879
+const DefaultPort = 7770
 
 // DefaultAddress where to be contacted by other servers.
 const DefaultAddress = "127.0.0.1"
