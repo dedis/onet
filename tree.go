@@ -709,11 +709,9 @@ func (ro *Roster) Concat(sis []*network.ServerIdentity) *Roster {
 		roMap[si.String()] = si
 	}
 
-	newList := make([]*network.ServerIdentity, len(roMap))
-	i := 0
+	newList := make([]*network.ServerIdentity, 0)
 	for _, si := range roMap {
-		newList[i] = si
-		i++
+		newList = append(newList, si)
 	}
 
 	return NewRoster(newList)
