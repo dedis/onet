@@ -95,7 +95,7 @@ func NewLocalTest(s network.Suite) *LocalTest {
 		Services:   make(map[network.ServerIdentityID]map[ServiceID]Service),
 		Trees:      make(map[TreeID]*Tree),
 		Nodes:      make([]*TreeNodeInstance, 0, 1),
-		Check:    CheckGoroutines,
+		Check:      CheckGoroutines,
 		mode:       Local,
 		ctx:        network.NewLocalManager(),
 		Suite:      s,
