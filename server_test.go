@@ -3,7 +3,7 @@ package onet
 import (
 	"testing"
 
-	"github.com/coreos/bbolt"
+	bolt "github.com/coreos/bbolt"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/satori/go.uuid.v1"

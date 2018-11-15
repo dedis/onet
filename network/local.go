@@ -294,6 +294,7 @@ func (lc *LocalConn) Receive() (*Envelope, error) {
 	return &Envelope{
 		MsgType: id,
 		Msg:     body,
+		Size:    len(buff),
 	}, err
 }
 

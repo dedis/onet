@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"testing"
@@ -178,6 +179,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 
+	// Test the traditional host:port+1 way of specifying the websocket server.
 	cl := NewClientKeep(tSuite, "WebSocket")
 	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
@@ -189,17 +191,30 @@ func TestNewWebSocketTLS(t *testing.T) {
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
 	require.Equal(t, 1, rcvMsg.Val)
+	cl.Close()
+
+	// Set c.ServerIdentity.URL, in order to test the other way of triggering wss:// connection.
+	hp, err := getWSHostPort(c.ServerIdentity, false)
+	require.NoError(t, err)
+	u := &url.URL{Scheme: "https", Host: hp}
+	c.ServerIdentity.URL = u.String()
+
+	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	rcv, err = cl.Send(c.ServerIdentity, "SimpleResponse", buf)
+	log.Lvlf1("Received reply: %x", rcv)
+	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
+	require.Equal(t, 1, rcvMsg.Val)
 }
 
 func TestGetWebHost(t *testing.T) {
-	url, err := getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
+	url, err := getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
 	require.NotNil(t, err)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
 	require.NotNil(t, err)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
 	require.Nil(t, err)
 	require.Equal(t, "0.0.0.0:7771", url)
-	url, err = getWebAddress(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
+	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
 	require.Nil(t, err)
 	require.Equal(t, "8.8.8.8:7771", url)
 }
@@ -458,6 +473,200 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	require.NotEqual(t, "", log.GetStdOut())
 }
 
+// TestWebSocket_Streaming performs 3 test cases.
+// (1) happy-path, where client reads all messages from the service
+// (2) unhappy-path, where client closes early
+// (3) unhappy-path, where service closes early
+func TestWebSocket_Streaming(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	serName := "streamingService"
+	serID, err := RegisterNewService(serName, newStreamingService)
+	require.NoError(t, err)
+	defer UnregisterService(serName)
+
+	servers, el, _ := local.GenTree(4, false)
+	client := local.NewClientKeep(serName)
+
+	n := 5
+	r := &SimpleRequest{
+		ServerIdentities: el,
+		Val:              n,
+	}
+
+	// (1) happy-path testing
+	conn, err := client.Stream(servers[0].ServerIdentity, r)
+	require.NoError(t, err)
+
+	for i := 0; i < n; i++ {
+		sr := &SimpleResponse{}
+		require.NoError(t, conn.ReadMessage(sr))
+		require.Equal(t, sr.Val, n)
+	}
+
+	// Using the same client (connection) to repeat the same request should
+	// fail because the connection should be closed by the service when
+	// there are no more messages.
+	sr := &SimpleResponse{}
+	require.Error(t, conn.ReadMessage(sr))
+	require.NoError(t, client.Close())
+
+	// (2) This time, have the client terminate early, the service's
+	// go-routine should also terminate.
+	client = local.NewClientKeep(serName)
+	services := local.GetServices(servers, serID)
+	serviceRoot := services[0].(*StreamingService)
+	serviceRoot.gotStopChan = make(chan bool, 1)
+
+	conn, err = client.Stream(servers[0].ServerIdentity, r)
+	require.NoError(t, err)
+	require.NoError(t, client.Close())
+
+	select {
+	case <-serviceRoot.gotStopChan:
+	case <-time.After(time.Second):
+		require.Fail(t, "should have got an early finish signal")
+	}
+
+	// (3) Finally, have the service terminate early. The client should
+	// stop receiving messages.
+	stopAt := 1
+	serviceRoot.stopAt = stopAt
+	client = local.NewClientKeep(serName)
+
+	conn, err = client.Stream(servers[0].ServerIdentity, r)
+	require.NoError(t, err)
+	for i := 0; i < n; i++ {
+		if i > stopAt {
+			sr := &SimpleResponse{}
+			require.Error(t, conn.ReadMessage(sr))
+		} else {
+			sr := &SimpleResponse{}
+			require.NoError(t, conn.ReadMessage(sr))
+			require.Equal(t, sr.Val, n)
+		}
+	}
+	require.NoError(t, client.Close())
+}
+
+// TestWebSocket_Streaming_Parallel is essentially the same as
+// TestWebSocket_Streaming, except we do it in parallel.
+func TestWebSocket_Streaming_Parallel(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	serName := "streamingService"
+	serID, err := RegisterNewService(serName, newStreamingService)
+	require.NoError(t, err)
+	defer UnregisterService(serName)
+
+	servers, el, _ := local.GenTree(4, false)
+	services := local.GetServices(servers, serID)
+	serviceRoot := services[0].(*StreamingService)
+	n := 10
+
+	// (1) We try to do streaming with 10 clients in parallel. Start with
+	// the happy-path where clients read everything.
+	clients := make([]*Client, 100)
+	for i := range clients {
+		clients[i] = local.NewClientKeep(serName)
+	}
+	var wg sync.WaitGroup
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			r := &SimpleRequest{
+				ServerIdentities: el,
+				Val:              n,
+			}
+			conn, err := c.Stream(servers[0].ServerIdentity, r)
+			require.NoError(t, err)
+
+			for i := 0; i < n; i++ {
+				sr := &SimpleResponse{}
+				require.NoError(t, conn.ReadMessage(sr))
+				require.Equal(t, sr.Val, n)
+			}
+		}(client)
+	}
+	wg.Wait()
+	for i := range clients {
+		require.NoError(t, clients[i].Close())
+	}
+
+	// (2) Now try the unhappy-path where clients stop early.
+	for i := range clients {
+		clients[i] = local.NewClientKeep(serName)
+	}
+	serviceRoot.gotStopChan = make(chan bool, len(clients))
+	wg = sync.WaitGroup{}
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			r := &SimpleRequest{
+				ServerIdentities: el,
+				Val:              n,
+			}
+			conn, err := c.Stream(servers[0].ServerIdentity, r)
+			require.NoError(t, err)
+
+			// read one message instead of n then close
+			sr := &SimpleResponse{}
+			require.NoError(t, conn.ReadMessage(sr))
+			require.Equal(t, sr.Val, n)
+			require.NoError(t, c.Close())
+		}(client)
+	}
+
+	// we should get close messages
+	for i := 0; i < len(clients); i++ {
+		select {
+		case <-serviceRoot.gotStopChan:
+		case <-time.After(time.Second):
+			require.Fail(t, "should have got an early finish signal")
+		}
+	}
+	wg.Wait()
+
+	// (3) The other unhappy-path where the service stops early.
+	for i := range clients {
+		clients[i] = local.NewClientKeep(serName)
+	}
+	stopAt := 1
+	serviceRoot.stopAt = stopAt
+	wg = sync.WaitGroup{}
+	for _, client := range clients {
+		wg.Add(1)
+		go func(c *Client) {
+			defer wg.Done()
+			r := &SimpleRequest{
+				ServerIdentities: el,
+				Val:              n,
+			}
+			conn, err := c.Stream(servers[0].ServerIdentity, r)
+			require.NoError(t, err)
+
+			for i := 0; i < n; i++ {
+				if i > stopAt {
+					sr := &SimpleResponse{}
+					require.Error(t, conn.ReadMessage(sr))
+				} else {
+					sr := &SimpleResponse{}
+					require.NoError(t, conn.ReadMessage(sr))
+					require.Equal(t, sr.Val, n)
+				}
+			}
+		}(client)
+	}
+	wg.Wait()
+	for i := range clients {
+		require.NoError(t, clients[i].Close())
+	}
+}
+
 const serviceWebSocket = "WebSocket"
 
 type ServiceWebSocket struct {
@@ -481,9 +690,9 @@ const dummyService3Name = "dummyService3"
 type DummyService3 struct {
 }
 
-func (ds *DummyService3) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, error) {
+func (ds *DummyService3) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	log.Lvl2("Got called with path", path, buf)
-	return []byte(path), nil
+	return []byte(path), nil, nil
 }
 
 func (ds *DummyService3) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
@@ -491,4 +700,47 @@ func (ds *DummyService3) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) 
 }
 
 func (ds *DummyService3) Process(env *network.Envelope) {
+}
+
+type StreamingService struct {
+	*ServiceProcessor
+	stopAt      int
+	gotStopChan chan bool
+}
+
+func newStreamingService(c *Context) (Service, error) {
+	s := &StreamingService{
+		ServiceProcessor: NewServiceProcessor(c),
+		stopAt:           -1,
+	}
+	if err := s.RegisterStreamingHandler(s.StreamValues); err != nil {
+		panic(err.Error())
+	}
+	return s, nil
+}
+
+func (ss *StreamingService) StreamValues(msg *SimpleRequest) (chan *SimpleResponse, chan bool, error) {
+	streamingChan := make(chan *SimpleResponse)
+	stopChan := make(chan bool)
+	go func() {
+	outer:
+		for i := 0; i < msg.Val; i++ {
+			// Add some delay between every message so that we can
+			// actually catch the stop signal before everything is
+			// sent out.
+			time.Sleep(100 * time.Millisecond)
+			select {
+			case <-stopChan:
+				ss.gotStopChan <- true
+				break outer
+			default:
+				streamingChan <- &SimpleResponse{msg.Val}
+			}
+			if ss.stopAt == i {
+				break outer
+			}
+		}
+		close(streamingChan)
+	}()
+	return streamingChan, stopChan, nil
 }

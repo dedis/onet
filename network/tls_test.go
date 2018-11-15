@@ -6,19 +6,20 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/dedis/kyber.v2/suites"
 	"gopkg.in/dedis/kyber.v2/util/key"
 )
 
-func NewTestTLSHost(port int) (*TCPHost, error) {
+func NewTestTLSHost(suite suites.Suite, port int) (*TCPHost, error) {
 	addr := NewTLSAddress("127.0.0.1:" + strconv.Itoa(port))
-	kp := key.NewKeyPair(tSuite)
+	kp := key.NewKeyPair(suite)
 	e := NewServerIdentity(kp.Public, addr)
 	e.SetPrivate(kp.Private)
-	return NewTCPHost(e, tSuite)
+	return NewTCPHost(e, suite)
 }
 
-func NewTestRouterTLS(port int) (*Router, error) {
-	h, err := NewTestTLSHost(port)
+func NewTestRouterTLS(suite suites.Suite, port int) (*Router, error) {
+	h, err := NewTestTLSHost(suite, port)
 	if err != nil {
 		return nil, err
 	}
@@ -32,16 +33,14 @@ type hello struct {
 	From  ServerIdentity
 }
 
-var aKey = key.NewKeyPair(tSuite)
-var aHello = &hello{
-	Hello: "Howdy, partner.",
-	From:  *NewServerIdentity(aKey.Public, "127.0.0.1:9999"),
+func TestTLS(t *testing.T) {
+	testTLS(t, tSuite)
 }
 
-func TestTLS(t *testing.T) {
-	r1, err := NewTestRouterTLS(0)
+func testTLS(t *testing.T, s suites.Suite) {
+	r1, err := NewTestRouterTLS(s, 0)
 	require.Nil(t, err, "new tcp router")
-	r2, err := NewTestRouterTLS(0)
+	r2, err := NewTestRouterTLS(s, 0)
 	require.Nil(t, err, "new tcp router 2")
 
 	ready := make(chan bool)
@@ -83,7 +82,10 @@ func TestTLS(t *testing.T) {
 	}()
 
 	// now send a message from r2 to r1
-	sentLen, err := r2.Send(r1.ServerIdentity, aHello)
+	sentLen, err := r2.Send(r1.ServerIdentity, &hello{
+		Hello: "Howdy.",
+		From:  *r2.ServerIdentity,
+	})
 	require.Nil(t, err, "Could not router.Send")
 	require.NotZero(t, sentLen)
 
@@ -99,9 +101,9 @@ func BenchmarkMsgTCP(b *testing.B) {
 }
 
 func BenchmarkMsgTLS(b *testing.B) {
-	r1, err := NewTestRouterTLS(0)
+	r1, err := NewTestRouterTLS(tSuite, 0)
 	require.Nil(b, err, "new tls router")
-	r2, err := NewTestRouterTLS(0)
+	r2, err := NewTestRouterTLS(tSuite, 0)
 	require.Nil(b, err, "new tls router 2")
 	benchmarkMsg(b, r1, r2)
 }
@@ -136,7 +138,10 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 
 	// Send one message from r2 to r1.
 	for i := 0; i < b.N; i++ {
-		_, err := r2.Send(r1.ServerIdentity, aHello)
+		_, err := r2.Send(r1.ServerIdentity, &hello{
+			Hello: "Howdy.",
+			From:  *r2.ServerIdentity,
+		})
 		if err != nil {
 			b.Log("Could not router.Send")
 		}
@@ -152,4 +157,22 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 			b.Fatal("Could not stop router", i)
 		}
 	}
+}
+
+func Test_pubFromCN(t *testing.T) {
+	p1 := tSuite.Point().Pick(tSuite.RandomStream())
+
+	// old-style
+	cn := p1.String()
+
+	p2, err := pubFromCN(tSuite, cn)
+	require.NoError(t, err)
+	require.True(t, p2.Equal(p1))
+
+	// new-style
+	cn = pubToCN(p1)
+
+	p2, err = pubFromCN(tSuite, cn)
+	require.NoError(t, err)
+	require.True(t, p2.Equal(p1))
 }

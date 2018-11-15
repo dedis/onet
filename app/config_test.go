@@ -31,7 +31,9 @@ var serverGroup string = `Description = "Default Dedis Cothority"
   Address = "tcp://185.26.156.40:61117"
   Suite = "Ed25519"
   Public = "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
-  Description = "Ismail's server"`
+  Description = "Ismail's server"
+  URL = "https://ismail.example.com/conode"
+`
 
 func TestReadGroupDescToml(t *testing.T) {
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
@@ -51,6 +53,9 @@ func TestReadGroupDescToml(t *testing.T) {
 	}
 	if group.Description[group.Roster.List[1]] != "Ismail's server" {
 		t.Fatal("This should be Ismail's server")
+	}
+	if group.Roster.List[1].URL != "https://ismail.example.com/conode" {
+		t.Fatal("Did not find expected URL.")
 	}
 }
 

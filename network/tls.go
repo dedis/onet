@@ -9,11 +9,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/hex"
 	"errors"
 	"math/big"
 	"net"
 	"time"
 
+	"gopkg.in/dedis/kyber.v2"
 	"gopkg.in/dedis/kyber.v2/sign/schnorr"
 	"gopkg.in/dedis/kyber.v2/util/encoding"
 	"gopkg.in/dedis/kyber.v2/util/random"
@@ -83,10 +85,14 @@ func newCertMaker(s Suite, si *ServerIdentity) (*certMaker, error) {
 	}
 	cm.k = k
 
-	cm.subj = pkix.Name{CommonName: cm.si.Public.String()}
+	// This used to be "CommonName: cm.si.Public.String()", which
+	// results in the "old style" CommonName encoding in pubFromCN.
+	// This worked ok for ed25519 and nist, but not for bn256.g1. See
+	// dedis/onet#485.
+	cm.subj = pkix.Name{CommonName: pubToCN(cm.si.Public)}
 	der, err := asn1.Marshal(cm.subj.CommonName)
 	if err != nil {
-		panic("unexpected asn.1 marshal failure")
+		return nil, err
 	}
 	cm.subjDer = der
 	return cm, nil
@@ -115,7 +121,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	// key named in the CN.
 	//
 	// Do this using the same standardized ASN.1 marshaling that x509 uses so
-	// that anyone trying to check these signatures themselves in antoher language
+	// that anyone trying to check these signatures themselves in another language
 	// will be able to easily do so with their own x509 + kyber implementation.
 	buf := bytes.NewBuffer(nonce)
 	buf.Write(cm.subjDer)
@@ -305,8 +311,9 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		// When we know who we are connecting to (e.g. client mode):
 		// Check that the CN is the same as the public key.
 		if them != nil {
-			err = cert.VerifyHostname(them.Public.String())
+			err = cert.VerifyHostname(pubToCN(them.Public))
 			if err != nil {
+				println("here", err.Error())
 				return err
 			}
 		}
@@ -325,13 +332,13 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 
 		// Check that the DEDIS signature is valid w.r.t. si.Public.
 		cn = cert.Subject.CommonName
-		pub, err := encoding.StringHexToPoint(suite, cert.Subject.CommonName)
+		pub, err := pubFromCN(suite, cn)
 		if err != nil {
 			return err
 		}
 
 		buf := bytes.NewBuffer(nonce)
-		subAsn1, err := asn1.Marshal(cert.Subject.CommonName)
+		subAsn1, err := asn1.Marshal(cn)
 		if err != nil {
 			return err
 		}
@@ -340,6 +347,37 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 
 		return err
 	}, nonce
+}
+
+func pubFromCN(suite kyber.Group, cn string) (kyber.Point, error) {
+	if len(cn) < 1 {
+		return nil, errors.New("commonName is missing a type byte")
+	}
+	tp := cn[0]
+
+	switch tp {
+	case 'Z':
+		// New style encoding: unhex and then unmarshal.
+		buf, err := hex.DecodeString(cn[1:])
+		if err != nil {
+			return nil, err
+		}
+		r := bytes.NewBuffer(buf)
+
+		pub := suite.Point()
+		_, err = pub.UnmarshalFrom(r)
+		return pub, err
+
+	default:
+		// Old style encoding: simply StringHexToPoint
+		return encoding.StringHexToPoint(suite, cn)
+	}
+}
+
+func pubToCN(pub kyber.Point) string {
+	w := &bytes.Buffer{}
+	pub.MarshalTo(w)
+	return "Z" + hex.EncodeToString(w.Bytes())
 }
 
 // tlsConfig returns a generic config that has things set as both the server
@@ -386,7 +424,7 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
 		cfg.ServerName = string(nonce)
-		c, err = tls.Dial("tcp", netAddr, cfg)
+		c, err = tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", netAddr, cfg)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,

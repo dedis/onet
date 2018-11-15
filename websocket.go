@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -41,7 +42,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		services:  make(map[string]Service),
 		startstop: make(chan bool),
 	}
-	webHost, err := getWebAddress(si, true)
+	webHost, err := getWSHostPort(si, true)
 	log.ErrFatal(err)
 	w.mux = http.NewServeMux()
 	w.mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +158,9 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rx := 0
 	tx := 0
 	n := 0
-	ok := false
 
 	defer func() {
-		log.Lvl2("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx, "ok", ok)
+		log.Lvl2("ws close", r.RemoteAddr, "n", n, "rx", rx, "tx", tx)
 	}()
 
 	u := websocket.Upgrader{
@@ -182,6 +182,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Loop for each message
+outerReadLoop:
 	for err == nil {
 		mt, buf, rerr := ws.ReadMessage()
 		if rerr != nil {
@@ -193,25 +194,52 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		s := t.service
 		var reply []byte
+		var tun *StreamingTunnel
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
 		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
-		reply, err = s.ProcessClientRequest(r, path, buf)
+		reply, tun, err = s.ProcessClientRequest(r, path, buf)
 		if err == nil {
-			tx += len(reply)
-			err := ws.WriteMessage(mt, reply)
-			if err != nil {
-				log.Error(err)
-				return
+			if tun == nil {
+				tx += len(reply)
+				if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+					log.Error(err)
+					break
+				}
+				if err := ws.WriteMessage(mt, reply); err != nil {
+					log.Error(err)
+					break
+				}
+			} else {
+				for {
+					select {
+					case reply, ok := <-tun.out:
+						if !ok {
+							err = errors.New("service finished streaming")
+							close(tun.close)
+							break outerReadLoop
+						}
+						tx += len(reply)
+						if err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+							log.Error(err)
+							close(tun.close)
+							break outerReadLoop
+						}
+						if err = ws.WriteMessage(mt, reply); err != nil {
+							log.Error(err)
+							close(tun.close)
+							break outerReadLoop
+						}
+					}
+				}
 			}
 		} else {
-			log.Lvlf3("Got an error while executing %s/%s: %s", t.serviceName, path, err.Error())
+			log.Errorf("Got an error while executing %s/%s: %s", t.serviceName, path, err.Error())
 		}
 	}
 
 	ws.WriteControl(websocket.CloseMessage,
 		websocket.FormatCloseMessage(4000, err.Error()),
 		time.Now().Add(time.Millisecond*500))
-	ok = true
 	return
 }
 
@@ -261,36 +289,71 @@ func (c *Client) Suite() network.Suite {
 	return c.suite
 }
 
-// Send will marshal the message into a ClientRequest message and send it.
-func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
-	c.Lock()
-	defer c.Unlock()
+func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
+	dest := destination{dst, path}
+	if !c.keep {
+		if err := c.closeConn(dest); err != nil {
+			log.Errorf("error while closing the connection to %v : %v\n", dest, err)
+		}
+	}
+}
+
+func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, error) {
+	var err error
+
+	// TODO we are opening a new connection for every new path?
+	// not possible to use an existing connection for the same service?
 	dest := destination{dst, path}
 	conn, ok := c.connections[dest]
+
 	if !ok {
-		// Open connection to service.
-		url, err := getWebAddress(dst, false)
-		if err != nil {
-			return nil, err
-		}
-		log.Lvlf4("Sending %x to %s/%s/%s", buf, url, c.service, path)
 		d := &websocket.Dialer{}
 		d.TLSClientConfig = c.TLSClientConfig
 
-		var wsProtocol string
-		var protocol string
-		if c.TLSClientConfig != nil {
-			wsProtocol = "wss"
-			protocol = "https"
+		var serverURL string
+		var header http.Header
+
+		// If the URL is in the dst, then use it.
+		if dst.URL != "" {
+			u, err := url.Parse(dst.URL)
+			if err != nil {
+				return nil, err
+			}
+			if u.Scheme == "https" {
+				u.Scheme = "wss"
+			} else {
+				u.Scheme = "ws"
+			}
+			u.Path += "/" + c.service + "/" + path
+			serverURL = u.String()
+			header = http.Header{"Origin": []string{dst.URL}}
 		} else {
-			wsProtocol = "ws"
-			protocol = "http"
+			// Open connection to service.
+			hp, err := getWSHostPort(dst, false)
+			if err != nil {
+				return nil, err
+			}
+
+			var wsProtocol string
+			var protocol string
+
+			// The old hacky way of deciding if this server has HTTPS or not:
+			// the client somehow magically knows and tells onet by setting
+			// c.TLSClientConfig to a non-nil value.
+			if c.TLSClientConfig != nil {
+				wsProtocol = "wss"
+				protocol = "https"
+			} else {
+				wsProtocol = "ws"
+				protocol = "http"
+			}
+			serverURL = fmt.Sprintf("%s://%s/%s/%s", wsProtocol, hp, c.service, path)
+			header = http.Header{"Origin": []string{protocol + "://" + hp}}
 		}
-		serverURL := fmt.Sprintf("%s://%s/%s/%s", wsProtocol, url, c.service, path)
-		headers := http.Header{"Origin": []string{protocol + "://" + url}}
+
 		// Re-try to connect in case the websocket is just about to start
 		for a := 0; a < network.MaxRetryConnect; a++ {
-			conn, _, err = d.Dial(serverURL, headers)
+			conn, _, err = d.Dial(serverURL, header)
 			if err == nil {
 				break
 			}
@@ -301,18 +364,29 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		}
 		c.connections[dest] = conn
 	}
-	defer func() {
-		if !c.keep {
-			if err := c.closeConn(dest); err != nil {
-				log.Errorf("error while closing the connection to %v : %v\n", dest, err)
-			}
-		}
-	}()
+	return conn, nil
+}
+
+// Send will marshal the message into a ClientRequest message and send it.
+func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
+	c.Lock()
+	defer c.Unlock()
+
+	conn, err := c.newConnIfNotExist(dst, path)
+	if err != nil {
+		return nil, err
+	}
+	defer c.closeSingleUseConn(dst, path)
+
+	log.Lvlf4("Sending %x to %s/%s", buf, c.service, path)
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
 		return nil, err
 	}
 	c.tx += uint64(len(buf))
 
+	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+		return nil, err
+	}
 	_, rcv, err := conn.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -343,6 +417,52 @@ func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret 
 			network.DefaultConstructors(c.suite))
 	}
 	return nil
+}
+
+// StreamingConn allows clients to read from it without sending additional
+// requests.
+type StreamingConn struct {
+	conn  *websocket.Conn
+	suite network.Suite
+}
+
+// ReadMessage read more data from the connection, it will block if there are
+// no messages.
+func (c *StreamingConn) ReadMessage(ret interface{}) error {
+	if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+		return err
+	}
+	// No need to add bytes to counter here because this function is only
+	// called by the client.
+	_, buf, err := c.conn.ReadMessage()
+	if err != nil {
+		return err
+	}
+	return protobuf.DecodeWithConstructors(buf, ret,
+		network.DefaultConstructors(c.suite))
+}
+
+// Stream will send a request to start streaming, it returns a connection where
+// the client can continue to read values from it.
+func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (StreamingConn, error) {
+	buf, err := protobuf.Encode(msg)
+	if err != nil {
+		return StreamingConn{}, err
+	}
+	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
+
+	c.Lock()
+	defer c.Unlock()
+	conn, err := c.newConnIfNotExist(dst, path)
+	if err != nil {
+		return StreamingConn{}, err
+	}
+	err = conn.WriteMessage(websocket.BinaryMessage, buf)
+	if err != nil {
+		return StreamingConn{}, err
+	}
+	c.tx += uint64(len(buf))
+	return StreamingConn{conn, c.Suite()}, nil
 }
 
 // SendToAll sends a message to all ServerIdentities of the Roster and returns
@@ -409,9 +529,9 @@ func (c *Client) Rx() uint64 {
 	return c.rx
 }
 
-// getWebAddress returns the host:port+1 of the serverIdentity. If
+// getWSHostPort returns the host:port+1 of the serverIdentity. If
 // global is true, the address is set to the unspecified 0.0.0.0-address.
-func getWebAddress(si *network.ServerIdentity, global bool) (string, error) {
+func getWSHostPort(si *network.ServerIdentity, global bool) (string, error) {
 	p, err := strconv.Atoi(si.Address.Port())
 	if err != nil {
 		return "", err

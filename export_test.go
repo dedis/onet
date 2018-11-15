@@ -9,12 +9,12 @@ func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
 }
 
 func (c *Server) Roster(id RosterID) (*Roster, bool) {
-	el := c.overlay.Roster(id)
+	el := c.overlay.rosterCache.Get(id)
 	return el, el != nil
 }
 
 func (c *Server) GetTree(id TreeID) (*Tree, bool) {
-	t := c.overlay.Tree(id)
+	t := c.overlay.treeCache.Get(id)
 	return t, t != nil
 }
 
