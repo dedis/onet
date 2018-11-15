@@ -702,19 +702,17 @@ func (ro *Roster) Contains(pubs []kyber.Point) bool {
 }
 
 // Concat makes a new roster using an existing one and a list
-// of server identities
-func (ro *Roster) Concat(sis []*network.ServerIdentity) *Roster {
-	roMap := make(map[string]*network.ServerIdentity)
-	for _, si := range append(ro.List, sis...) {
-		roMap[si.String()] = si
+// of server identities while preserving the order of the
+// roster by appending at the end
+func (ro *Roster) Concat(sis ...*network.ServerIdentity) *Roster {
+	tmpRoster := NewRoster(ro.List)
+	for _, si := range sis {
+		if i, _ := tmpRoster.Search(si.ID); i < 0 {
+			tmpRoster.List = append(tmpRoster.List, si)
+		}
 	}
 
-	newList := make([]*network.ServerIdentity, 0)
-	for _, si := range roMap {
-		newList = append(newList, si)
-	}
-
-	return NewRoster(newList)
+	return NewRoster(tmpRoster.List)
 }
 
 // addNary is a recursive function to create the binary tree.

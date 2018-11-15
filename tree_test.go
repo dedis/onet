@@ -558,11 +558,11 @@ func TestRoster_Concat(t *testing.T) {
 	r1 := NewRoster(roster.List[:7])
 	r2 := NewRoster(roster.List[2:])
 
-	r := r1.Concat(r2.List)
+	r := r1.Concat(r2.List...)
 	require.Equal(t, 10, len(r.List))
 	require.True(t, r.Contains(roster.Publics()))
 
-	r = r1.Concat([]*network.ServerIdentity{})
+	r = r1.Concat()
 	require.Equal(t, len(r1.List), len(r.List))
 }
 
