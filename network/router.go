@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"gopkg.in/dedis/kyber.v2/util/encoding"
 	"gopkg.in/dedis/onet.v2/log"
 )
 
@@ -110,7 +109,7 @@ func (r *Router) Start() {
 		if err != nil {
 			if !strings.Contains(err.Error(), "EOF") {
 				// Avoid printing error message if it's just a stray connection.
-				log.Errorf("receiving server identity from %s failed: %s",
+				log.Errorf("receiving server identity from %#v failed: %v",
 					c.Remote().NetworkAddress(), err)
 			}
 			if err := c.Close(); err != nil {
@@ -454,7 +453,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			if len(cs.PeerCertificates) == 0 {
 				return nil, errors.New("TLS connection with no peer certs?")
 			}
-			pub, err := encoding.StringHexToPoint(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
+			pub, err := pubFromCN(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
 			if err != nil {
 				return nil, err
 			}
@@ -470,7 +469,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			}
 		}
 	}
-	log.Lvlf3("%s: Identity received si=%x from %s", r.address, dst.Public, dst.Address)
+	log.Lvlf3("%s: Identity received si=%v from %s", r.address, dst.Public, dst.Address)
 	return dst, nil
 }
 

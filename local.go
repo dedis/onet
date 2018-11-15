@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -68,6 +69,9 @@ type LocalTest struct {
 	// since now the temp directory is gone.
 	closed bool
 	T      *testing.T
+
+	// keep the latestPort used so that we can add nodes later
+	latestPort int
 }
 
 const (
@@ -86,16 +90,17 @@ func NewLocalTest(s network.Suite) *LocalTest {
 	}
 
 	return &LocalTest{
-		Servers:  make(map[network.ServerIdentityID]*Server),
-		Overlays: make(map[network.ServerIdentityID]*Overlay),
-		Services: make(map[network.ServerIdentityID]map[ServiceID]Service),
-		Trees:    make(map[TreeID]*Tree),
-		Nodes:    make([]*TreeNodeInstance, 0, 1),
-		Check:    CheckGoroutines,
-		mode:     Local,
-		ctx:      network.NewLocalManager(),
-		Suite:    s,
-		path:     dir,
+		Servers:    make(map[network.ServerIdentityID]*Server),
+		Overlays:   make(map[network.ServerIdentityID]*Overlay),
+		Services:   make(map[network.ServerIdentityID]map[ServiceID]Service),
+		Trees:      make(map[TreeID]*Tree),
+		Nodes:      make([]*TreeNodeInstance, 0, 1),
+		Check:      CheckGoroutines,
+		mode:       Local,
+		ctx:        network.NewLocalManager(),
+		Suite:      s,
+		path:       dir,
+		latestPort: 2000,
 	}
 }
 
@@ -160,6 +165,7 @@ func (l *LocalTest) GenServers(n int) []*Server {
 	l.panicClosed()
 	servers := l.genLocalHosts(n)
 	for _, server := range servers {
+		server.ServerIdentity.SetPrivate(server.private)
 		l.Servers[server.ServerIdentity.ID] = server
 		l.Overlays[server.ServerIdentity.ID] = server.overlay
 		l.Services[server.ServerIdentity.ID] = server.serviceManager.services
@@ -293,28 +299,37 @@ func (l *LocalTest) CloseAll() {
 		}
 	}
 
-	l.ctx.Stop()
-	for _, server := range l.Servers {
-		log.Lvl3("Closing server", server.ServerIdentity.Address)
-		err := server.Close()
-		if err != nil {
-			log.Error("Closing server", server.ServerIdentity.Address,
-				"gives error", err)
-		}
-
-		for server.Listening() {
-			log.Lvl1("Sleeping while waiting to close...")
-			time.Sleep(10 * time.Millisecond)
-		}
-		delete(l.Servers, server.ServerIdentity.ID)
-	}
 	for _, node := range l.Nodes {
 		log.Lvl3("Closing node", node)
 		node.closeDispatch()
 	}
 	l.Nodes = make([]*TreeNodeInstance, 0)
+
+	sd := sync.WaitGroup{}
+	for _, srv := range l.Servers {
+		sd.Add(1)
+		go func(server *Server) {
+			log.Lvl3("Closing server", server.ServerIdentity.Address)
+			err := server.Close()
+			if err != nil {
+				log.Error("Closing server", server.ServerIdentity.Address,
+					"gives error", err)
+			}
+
+			for server.Listening() {
+				log.Lvl1("Sleeping while waiting to close...")
+				time.Sleep(10 * time.Millisecond)
+			}
+			sd.Done()
+		}(srv)
+	}
+	sd.Wait()
+	l.Servers = map[network.ServerIdentityID]*Server{}
+	l.ctx.Stop()
+
 	os.RemoveAll(l.path)
 	l.closed = true
+
 	if log.DebugVisible() == 0 {
 		log.OutputToOs()
 	}
@@ -504,12 +519,25 @@ func (l *LocalTest) NewClient(serviceName string) *Client {
 	}
 }
 
+// NewClientKeep returns *Client for which the types depend on the mode of the
+// LocalContext, the connection is not closed after sending requests.
+func (l *LocalTest) NewClientKeep(serviceName string) *Client {
+	switch l.mode {
+	case TCP:
+		return NewClientKeep(l.Suite, serviceName)
+	default:
+		log.Fatal("Can't make local client")
+		return nil
+	}
+}
+
 // genLocalHosts returns n servers created with a localRouter
 func (l *LocalTest) genLocalHosts(n int) []*Server {
 	l.panicClosed()
 	servers := make([]*Server, n)
 	for i := 0; i < n; i++ {
-		port := 2000 + i*10
+		port := l.latestPort
+		l.latestPort += 10
 		servers[i] = l.NewServer(l.Suite, port)
 	}
 	return servers

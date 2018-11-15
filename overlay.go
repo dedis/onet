@@ -11,18 +11,18 @@ import (
 	"gopkg.in/satori/go.uuid.v1"
 )
 
+const expirationTime = 1 * time.Minute
+const cacheSize = 1000
+
 // Overlay keeps all trees and entity-lists for a given Server. It creates
 // Nodes and ProtocolInstances upon request and dispatches the messages.
 type Overlay struct {
 	server *Server
-	// mapping from Tree.Id to Tree
-	trees    map[TreeID]*Tree
-	treesMut sync.Mutex
-	// mapping from Roster.id to Roster
-	entityLists    map[RosterID]*Roster
-	entityListLock sync.Mutex
+
+	treeCache   *treeCacheTTL
+	rosterCache *rosterCacheTTL
 	// cache for relating token(~Node) to TreeNode
-	cache *treeNodeCache
+	treeNodeCache *treeNodeCacheTTL
 
 	// TreeNodeInstance part
 	instances         map[TokenID]*TreeNodeInstance
@@ -56,9 +56,9 @@ type Overlay struct {
 func NewOverlay(c *Server) *Overlay {
 	o := &Overlay{
 		server:             c,
-		trees:              make(map[TreeID]*Tree),
-		entityLists:        make(map[RosterID]*Roster),
-		cache:              newTreeNodeCache(),
+		treeCache:          newTreeCache(expirationTime, cacheSize),
+		rosterCache:        newRosterCache(expirationTime, cacheSize),
+		treeNodeCache:      newTreeNodeCache(expirationTime, cacheSize),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
 		protocolInstances:  make(map[TokenID]ProtocolInstance),
@@ -77,11 +77,6 @@ func NewOverlay(c *Server) *Overlay {
 	return o
 }
 
-// stop stops goroutines associated with this overlay.
-func (o *Overlay) stop() {
-	o.cache.stop()
-}
-
 // Process implements the Processor interface so it process the messages that it
 // wants.
 func (o *Overlay) Process(env *network.Envelope) {
@@ -98,7 +93,7 @@ func (o *Overlay) Process(env *network.Envelope) {
 		log.Error("unwrapping: ", err)
 		return
 	}
-	switch true {
+	switch {
 	case info.RequestTree != nil:
 		o.handleRequestTree(env.ServerIdentity, info.RequestTree, io)
 	case info.TreeMarshal != nil:
@@ -115,8 +110,9 @@ func (o *Overlay) Process(env *network.Envelope) {
 			ServerIdentity: env.ServerIdentity,
 			Msg:            inner,
 			MsgType:        typ,
+			Size:           env.Size,
 		}
-		err := o.TransmitMsg(protoMsg, io)
+		err = o.TransmitMsg(protoMsg, io)
 		if err != nil {
 			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
 				protoMsg.ServerIdentity, err.Error())
@@ -132,7 +128,7 @@ func (o *Overlay) Process(env *network.Envelope) {
 // io is the messageProxy to use if a specific wireformat protocol is used.
 // It can be nil: in that case it fall backs to default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
-	tree := o.Tree(onetMsg.To.TreeID)
+	tree := o.treeCache.Get(onetMsg.To.TreeID)
 	if tree == nil {
 		return o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
 	}
@@ -202,21 +198,28 @@ func (o *Overlay) addPendingTreeMarshal(tm *TreeMarshal) {
 func (o *Overlay) checkPendingMessages(t *Tree) {
 	go func() {
 		o.pendingMsgLock.Lock()
+
 		var newPending []pendingMsg
-		for _, pending := range o.pendingMsg {
-			if t.ID.Equal(pending.ProtocolMsg.To.TreeID) {
-				// if this message references t, instantiate it and go
-				err := o.TransmitMsg(pending.ProtocolMsg, pending.MessageProxy)
-				if err != nil {
-					log.Error("TransmitMsg failed:", err)
-					continue
-				}
+		var remaining []pendingMsg
+		// Keep msg not related to that tree in the pending list
+		for _, msg := range o.pendingMsg {
+			if t.ID.Equal(msg.To.TreeID) {
+				remaining = append(remaining, msg)
 			} else {
-				newPending = append(newPending, pending)
+				newPending = append(newPending, msg)
 			}
 		}
+
 		o.pendingMsg = newPending
 		o.pendingMsgLock.Unlock()
+
+		for _, msg := range remaining {
+			err := o.TransmitMsg(msg.ProtocolMsg, msg.MessageProxy)
+			if err != nil {
+				log.Error("TransmitMsg failed:", err)
+				continue
+			}
+		}
 	}()
 }
 
@@ -275,43 +278,13 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 
 // RegisterTree takes a tree and puts it in the map
 func (o *Overlay) RegisterTree(t *Tree) {
-	o.treesMut.Lock()
-	o.trees[t.ID] = t
-	o.treesMut.Unlock()
+	o.treeCache.Set(t)
 	o.checkPendingMessages(t)
 }
 
-// TreeFromToken searches for the tree corresponding to a token.
-func (o *Overlay) TreeFromToken(tok *Token) *Tree {
-	o.treesMut.Lock()
-	defer o.treesMut.Unlock()
-	return o.trees[tok.TreeID]
-}
-
-// Tree returns the tree given by treeId or nil if not found
-func (o *Overlay) Tree(tid TreeID) *Tree {
-	o.treesMut.Lock()
-	defer o.treesMut.Unlock()
-	return o.trees[tid]
-}
-
 // RegisterRoster puts an entityList in the map
-func (o *Overlay) RegisterRoster(el *Roster) {
-	o.entityListLock.Lock()
-	defer o.entityListLock.Unlock()
-	o.entityLists[el.ID] = el
-}
-
-// RosterFromToken returns the entitylist corresponding to a token
-func (o *Overlay) RosterFromToken(tok *Token) *Roster {
-	return o.entityLists[tok.RosterID]
-}
-
-// Roster returns the entityList given by RosterID
-func (o *Overlay) Roster(elid RosterID) *Roster {
-	o.entityListLock.Lock()
-	defer o.entityListLock.Unlock()
-	return o.entityLists[elid]
+func (o *Overlay) RegisterRoster(r *Roster) {
+	o.rosterCache.Set(r)
 }
 
 // TreeNodeFromToken returns the treeNode corresponding to a token
@@ -320,11 +293,11 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 		return nil, errors.New("didn't find tree-node: No token given")
 	}
 	// First, check the cache
-	if tn := o.cache.GetFromToken(t); tn != nil {
+	if tn := o.treeNodeCache.GetFromToken(t); tn != nil {
 		return tn, nil
 	}
 	// If cache has not, then search the tree
-	tree := o.Tree(t.TreeID)
+	tree := o.treeCache.Get(t.TreeID)
 	if tree == nil {
 		return nil, errors.New("didn't find tree")
 	}
@@ -333,7 +306,7 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 		return nil, errors.New("didn't find treenode")
 	}
 	// Since we found treeNode, cache it.
-	o.cache.Set(tree, tn)
+	o.treeNodeCache.Set(tree, tn)
 	return tn, nil
 }
 
@@ -349,7 +322,7 @@ func (o *Overlay) Tx() uint64 {
 
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
 	tid := req.TreeID
-	tree := o.Tree(tid)
+	tree := o.treeCache.Get(tid)
 	var err error
 	var treeM *TreeMarshal
 	var msg interface{}
@@ -381,7 +354,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io
 		log.Error("Received an empty Tree")
 		return
 	}
-	roster := o.Roster(tm.RosterID)
+	roster := o.rosterCache.Get(tm.RosterID)
 	// The roster does not exists, we should request that, too
 	if roster == nil {
 		msg, err := io.Wrap(nil, &OverlayMsg{
@@ -410,7 +383,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io
 
 func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRoster, io MessageProxy) {
 	id := req.RosterID
-	roster := o.Roster(id)
+	roster := o.rosterCache.Get(id)
 	var err error
 	var msg interface{}
 	if roster == nil {
@@ -571,7 +544,8 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	go func() {
 		err := pi.Dispatch()
 		if err != nil {
-			log.Error(err)
+			log.Errorf("%s.Dispatch() created in service %s returned error %s",
+				name, ServiceFactory.Name(sid), err)
 		}
 	}()
 	return pi, err
@@ -690,112 +664,6 @@ func (o *Overlay) RegisterMessageProxy(m MessageProxy) {
 type pendingMsg struct {
 	*ProtocolMsg
 	MessageProxy
-}
-
-// treeNodeCache is a cache that maps from token to treeNode. Since
-// the mapping is not 1-1 (many Tokens can point to one TreeNode, but
-// one token leads to one TreeNode), we have to do certain lookup, but
-// that's better than searching the tree each time.
-type treeNodeCache struct {
-	Entries  map[TreeID]*cacheEntry
-	stopCh   chan (struct{})
-	stopOnce sync.Once
-	sync.Mutex
-}
-
-type cacheEntry struct {
-	treeNodeMap map[TreeNodeID]*TreeNode
-	expiration  time.Time
-}
-
-var cacheTime = 5 * time.Minute
-var cleanEvery = 1 * time.Minute
-
-func newTreeNodeCache() *treeNodeCache {
-	tnc := &treeNodeCache{
-		Entries: make(map[TreeID]*cacheEntry),
-		stopCh:  make(chan struct{}),
-	}
-	go tnc.cleaner()
-	return tnc
-}
-
-func (tnc *treeNodeCache) stop() {
-	tnc.stopOnce.Do(func() {
-		close(tnc.stopCh)
-	})
-}
-
-func (tnc *treeNodeCache) cleaner() {
-	for {
-		select {
-		case <-time.After(cleanEvery):
-			tnc.clean()
-		case <-tnc.stopCh:
-			return
-		}
-	}
-}
-
-func (tnc *treeNodeCache) clean() {
-	tnc.Lock()
-	now := time.Now()
-	for k := range tnc.Entries {
-		if now.After(tnc.Entries[k].expiration) {
-			delete(tnc.Entries, k)
-		}
-	}
-	tnc.Unlock()
-}
-
-// Set sets an entry in the cache. It will also cache the parent and
-// children of the treenode since that's most likely what we are going
-// to query.
-func (tnc *treeNodeCache) Set(tree *Tree, treeNode *TreeNode) {
-	tnc.Lock()
-	ce, ok := tnc.Entries[tree.ID]
-	if !ok {
-		ce = &cacheEntry{
-			treeNodeMap: make(map[TreeNodeID]*TreeNode),
-			expiration:  time.Now().Add(cacheTime),
-		}
-	}
-	// add treenode
-	ce.treeNodeMap[treeNode.ID] = treeNode
-	// add parent if not root
-	if treeNode.Parent != nil {
-		ce.treeNodeMap[treeNode.Parent.ID] = treeNode.Parent
-	}
-	// add children
-	for _, c := range treeNode.Children {
-		ce.treeNodeMap[c.ID] = c
-	}
-	// add cache
-	tnc.Entries[tree.ID] = ce
-	tnc.Unlock()
-}
-
-// GetFromToken returns the TreeNode that the token is pointing at, or
-// nil if there is none for this token.
-func (tnc *treeNodeCache) GetFromToken(tok *Token) *TreeNode {
-	tnc.Lock()
-	defer tnc.Unlock()
-	if tok == nil {
-		return nil
-	}
-	ce, ok := tnc.Entries[tok.TreeID]
-	if !ok || time.Now().After(ce.expiration) {
-		// no tree cached for this token
-		return nil
-	}
-	ce.expiration = time.Now().Add(cacheTime)
-
-	tn, ok := ce.treeNodeMap[tok.TreeNodeID]
-	if !ok {
-		// no treeNode cached for this token
-		return nil
-	}
-	return tn
 }
 
 // defaultProtoIO implements the ProtocoIO interface but using the "regular/old"

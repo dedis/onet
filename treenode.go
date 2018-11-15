@@ -148,6 +148,12 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	if to == nil {
 		return errors.New("Sent to a nil TreeNode")
 	}
+	n.msgDispatchQueueMutex.Lock()
+	if n.closing {
+		n.msgDispatchQueueMutex.Unlock()
+		return errors.New("is closing")
+	}
+	n.msgDispatchQueueMutex.Unlock()
 	var c *GenericConfig
 	// only sends the config once
 	n.configMut.Lock()
@@ -164,7 +170,7 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 
 // Tree returns the tree of that node
 func (n *TreeNodeInstance) Tree() *Tree {
-	return n.overlay.TreeFromToken(n.token)
+	return n.overlay.treeCache.GetFromToken(n.token)
 }
 
 // Roster returns the entity-list
@@ -457,7 +463,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
-		if n.closing == true {
+		if n.closing {
 			log.Lvl3("Closing reader")
 			n.msgDispatchQueueMutex.Unlock()
 			return
@@ -487,7 +493,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 // dispatchMsgToProtocol will dispatch this onet.Data to the right instance
 func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
 
-	n.rx.add(uint64(len(onetMsg.MsgSlice)))
+	n.rx.add(uint64(onetMsg.Size))
 
 	// if message comes from parent, dispatch directly
 	// if messages come from children we must aggregate them

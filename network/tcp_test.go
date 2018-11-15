@@ -265,18 +265,18 @@ func TestTCPConn(t *testing.T) {
 }
 
 func TestTCPConnTimeout(t *testing.T) {
-	var readTimeoutForTest = 100 * time.Millisecond
+	var timeoutForTest = 100 * time.Millisecond
 
-	// Need to lock because using 'readTimeout' from 'tcp.go'.
-	readTimeoutLock.Lock()
-	tmp := readTimeout
-	readTimeout = readTimeoutForTest
-	readTimeoutLock.Unlock()
+	// Need to lock because using 'timeout' from 'tcp.go'.
+	timeoutLock.Lock()
+	tmp := timeout
+	timeout = timeoutForTest
+	timeoutLock.Unlock()
 
 	defer func() {
-		readTimeoutLock.Lock()
-		readTimeout = tmp
-		readTimeoutLock.Unlock()
+		timeoutLock.Lock()
+		timeout = tmp
+		timeoutLock.Unlock()
 	}()
 
 	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
@@ -291,8 +291,24 @@ func TestTCPConnTimeout(t *testing.T) {
 		// receive first a good packet
 		_, err := c.Receive()
 		connStat <- err
+
 		// then this receive should throw out the error
 		_, err = c.Receive()
+		connStat <- err
+
+		// put the far-side receiver into broken mode
+		tc := c.(*TCPConn)
+		tc.receiveRawTest = func() ([]byte, error) {
+			time.Sleep(2 * timeoutForTest)
+			return nil, nil
+		}
+
+		// this should throw also: need to send enough bytes here
+		// that we overload the kernel's buffers and it creates
+		// back-pressure on us to stop sending by blocking on
+		// the send system call so that Go's SendDeadline is passed.
+		msg := &BigMsg{Array: make([]byte, 20*1e6)}
+		_, err = c.Send(msg)
 		connStat <- err
 	}
 	go func() {
@@ -309,16 +325,25 @@ func TestTCPConnTimeout(t *testing.T) {
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
 	select {
-	case received := <-connStat:
-		assert.Nil(t, received)
-	case <-time.After(2 * readTimeoutForTest):
+	case err := <-connStat:
+		assert.NoError(t, err)
+	case <-time.After(2 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
 
+	// find the timeout from recv
 	select {
-	case received := <-connStat:
-		assert.NotNil(t, received)
-	case <-time.After(2 * readTimeoutForTest):
+	case err := <-connStat:
+		assert.Error(t, err)
+	case <-time.After(2 * timeoutForTest):
+		t.Error("Did not received message after timeout...")
+	}
+
+	// the timeout from send too
+	select {
+	case err := <-connStat:
+		assert.Equal(t, ErrTimeout, err)
+	case <-time.After(10 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
 

@@ -33,12 +33,18 @@ type Service interface {
 	// the ProtocolInstance it is using. If a Service returns (nil,nil), that
 	// means this Service lets Onet handle the protocol instance.
 	NewProtocol(*TreeNodeInstance, *GenericConfig) (ProtocolInstance, error)
-	// ProcessClientRequest is called when a message from an
-	// external client is received by the websocket for this
-	// service. It returns a message that will be sent back to the
-	// client. The returned error will be formatted as a websocket
+	// ProcessClientRequest is called when a message from an external
+	// client is received by the websocket for this service. The message is
+	// forwarded to the corresponding handler keyed by the path. If the
+	// handler is a normal one, i.e., a request-response handler, it
+	// returns a message in the first return value and the second
+	// (StreamingTunnel) will be set to nil. If the handler is a streaming
+	// handler, the first return value is set to nil but the second
+	// (StreamingTunnel) will exist. It should be used to stream messages
+	// to the client. See the StreamingTunnel documentation on how it
+	// should be used. The returned error will be formatted as a websocket
 	// error code 4000, using the string form of the error as the message.
-	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, err error)
+	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, tunnel *StreamingTunnel, err error)
 	// Processor makes a Service being able to handle any kind of packets
 	// directly from the network. It is used for inter service communications,
 	// which are mostly single packets with no or little interactions needed. If
@@ -205,6 +211,8 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 type serviceManager struct {
 	// the actual services
 	services map[ServiceID]Service
+	// making sure we're not racing for services
+	servicesMutex sync.Mutex
 	// the onet host
 	server *Server
 	// a bbolt database for all services
@@ -217,11 +225,11 @@ type serviceManager struct {
 }
 
 // newServiceManager will create a serviceStore out of all the registered Service
-func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
+func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
 	services := make(map[ServiceID]Service)
 	s := &serviceManager{
 		services:   services,
-		server:     svr,
+		server:     srv,
 		dbPath:     dbPath,
 		delDb:      delDb,
 		Dispatcher: network.NewRoutineDispatcher(),
@@ -235,23 +243,30 @@ func newServiceManager(svr *Server, o *Overlay, dbPath string, delDb bool) *serv
 	}
 	s.db = db
 
+	for name, inst := range protocols.instantiators {
+		log.Lvl4("Registering global protocol", name)
+		srv.ProtocolRegister(name, inst)
+	}
+
 	ids := ServiceFactory.registeredServiceIDs()
 	for _, id := range ids {
 		name := ServiceFactory.Name(id)
 		log.Lvl3("Starting service", name)
 
-		cont := newContext(svr, o, id, s)
+		cont := newContext(srv, o, id, s)
 
-		s, err := ServiceFactory.start(name, cont)
+		srvc, err := ServiceFactory.start(name, cont)
 		if err != nil {
-			log.Panic("Trying to instantiate service", name, ": error=", err)
+			log.Fatalf("Trying to instantiate service %v: %v", name, err)
 		}
 		log.Lvl3("Started Service", name)
-		services[id] = s
-		svr.WebSocket.registerService(name, s)
+		s.servicesMutex.Lock()
+		services[id] = srvc
+		s.servicesMutex.Unlock()
+		srv.WebSocket.registerService(name, srvc)
 	}
-	log.Lvl3(svr.Address(), "instantiated all services")
-	svr.statusReporterStruct.RegisterStatusReporter("Db", s)
+	log.Lvl3(srv.Address(), "instantiated all services")
+	srv.statusReporterStruct.RegisterStatusReporter("Db", s)
 	return s
 }
 
@@ -369,6 +384,8 @@ func (s *serviceManager) registerProcessorFunc(msgType network.MessageTypeID, fn
 // availableServices returns a list of all services available to the serviceManager.
 // If no services are instantiated, it returns an empty list.
 func (s *serviceManager) availableServices() (ret []string) {
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
 	for id := range s.services {
 		ret = append(ret, ServiceFactory.Name(id))
 	}
@@ -382,12 +399,21 @@ func (s *serviceManager) service(name string) Service {
 	if id.Equal(NilServiceID) {
 		return nil
 	}
-	return s.services[id]
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
+	ser, ok := s.services[id]
+	if !ok {
+		log.Error("this service is not instantiated")
+		return nil
+	}
+	return ser
 }
 
 func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 	var serv Service
 	var ok bool
+	s.servicesMutex.Lock()
+	defer s.servicesMutex.Unlock()
 	if serv, ok = s.services[id]; !ok {
 		return nil, false
 	}

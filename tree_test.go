@@ -2,13 +2,14 @@ package onet
 
 import (
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
-	"strings"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/dedis/kyber.v2/util/key"
 	"gopkg.in/dedis/onet.v2/log"
 	"gopkg.in/dedis/onet.v2/network"
@@ -531,6 +532,38 @@ func TestRoster_IsRotation(t *testing.T) {
 	assert.False(t, roster.IsRotation(rosterSwapped))
 	assert.True(t, roster.IsRotation(rosterRotated0))
 	assert.True(t, roster.IsRotation(rosterRotated1))
+}
+
+func TestRoster_Contains(t *testing.T) {
+	_, roster := genLocalTree(10, 2000)
+
+	pubs := roster.Publics()
+	require.True(t, roster.Contains(pubs))
+
+	for i := 0; i < 10; i++ {
+		rand.Shuffle(len(pubs), func(i, j int) {
+			pubs[i], pubs[j] = pubs[j], pubs[i]
+			require.True(t, roster.Contains(pubs))
+		})
+	}
+
+	require.False(t, roster.Contains(pubs[1:]))
+}
+
+// Checks that you can concatenate two rosters together
+// without duplicates
+func TestRoster_Concat(t *testing.T) {
+	_, roster := genLocalTree(10, 2000)
+
+	r1 := NewRoster(roster.List[:7])
+	r2 := NewRoster(roster.List[2:])
+
+	r := r1.Concat(r2.List...)
+	require.Equal(t, 10, len(r.List))
+	require.True(t, r.Contains(roster.Publics()))
+
+	r = r1.Concat()
+	require.Equal(t, len(r1.List), len(r.List))
 }
 
 func TestTreeNode_AggregatePublic(t *testing.T) {

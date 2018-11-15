@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-
 	"math/rand"
 
 	"gopkg.in/dedis/kyber.v2"
@@ -678,6 +677,42 @@ func (ro Roster) IsRotation(target *Roster) bool {
 		}
 	}
 	return true
+}
+
+// Contains checks if the roster contains the given array of public keys
+// and no more
+func (ro *Roster) Contains(pubs []kyber.Point) bool {
+	if len(ro.List) != len(pubs) {
+		return false
+	}
+
+	table := make(map[string]bool)
+	for _, p := range pubs {
+		table[p.String()] = true
+	}
+
+	for _, p := range ro.Publics() {
+		_, ok := table[p.String()]
+		if !ok {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Concat makes a new roster using an existing one and a list
+// of server identities while preserving the order of the
+// roster by appending at the end
+func (ro *Roster) Concat(sis ...*network.ServerIdentity) *Roster {
+	tmpRoster := NewRoster(ro.List)
+	for _, si := range sis {
+		if i, _ := tmpRoster.Search(si.ID); i < 0 {
+			tmpRoster.List = append(tmpRoster.List, si)
+		}
+	}
+
+	return NewRoster(tmpRoster.List)
 }
 
 // addNary is a recursive function to create the binary tree.
