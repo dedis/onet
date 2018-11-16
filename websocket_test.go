@@ -445,7 +445,7 @@ func TestWebSocket_Error(t *testing.T) {
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
-	require.NotEqual(t, "", log.GetStdOut())
+	require.NotEqual(t, "", log.GetStdErr())
 }
 
 func TestWebSocketTLS_Error(t *testing.T) {
@@ -470,7 +470,7 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
 	require.NotEqual(t, "websocket: bad handshake", err.Error())
-	require.NotEqual(t, "", log.GetStdOut())
+	require.NotEqual(t, "", log.GetStdErr())
 }
 
 // TestWebSocket_Streaming performs 3 test cases.

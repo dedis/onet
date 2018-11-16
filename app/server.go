@@ -42,7 +42,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // In case of an error this method Fatals.
 func InteractiveConfig(suite network.Suite, binaryName string) {
 	log.Info("Setting up a cothority-server.")
-	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming requests")
+	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
 	// let's dissect the port / IP
 	var hostStr string
 	var ipProvided = true
