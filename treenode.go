@@ -130,7 +130,11 @@ func (n *TreeNodeInstance) Children() []*TreeNode {
 
 // Root returns the root-node of that tree
 func (n *TreeNodeInstance) Root() *TreeNode {
-	return n.Tree().Root
+	t := n.Tree()
+	if t != nil {
+		return t.Root
+	}
+	return nil
 }
 
 // IsRoot returns whether whether we are at the top of the tree
