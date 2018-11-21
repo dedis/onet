@@ -1,6 +1,7 @@
 package manage
 
 import (
+	"errors"
 	"time"
 
 	"sync"
@@ -74,7 +75,11 @@ func NewCount(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 		timeout:          1 * time.Second,
 	}
 	p.Count = make(chan int, 1)
-	if err := p.RegisterChannelsLength(len(n.Tree().List()),
+	t := n.Tree()
+	if t == nil {
+		return nil, errors.New("cannot find tree")
+	}
+	if err := p.RegisterChannelsLength(len(t.List()),
 		&p.CountChan, &p.PrepareCountChan, &p.NodeIsUpChan); err != nil {
 		log.Error("Couldn't reister channel:", err)
 	}

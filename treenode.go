@@ -130,7 +130,11 @@ func (n *TreeNodeInstance) Children() []*TreeNode {
 
 // Root returns the root-node of that tree
 func (n *TreeNodeInstance) Root() *TreeNode {
-	return n.Tree().Root
+	t := n.Tree()
+	if t != nil {
+		return t.Root
+	}
+	return nil
 }
 
 // IsRoot returns whether whether we are at the top of the tree
@@ -175,7 +179,10 @@ func (n *TreeNodeInstance) Tree() *Tree {
 
 // Roster returns the entity-list
 func (n *TreeNodeInstance) Roster() *Roster {
-	return n.Tree().Roster
+	if t := n.Tree(); t != nil {
+		return t.Roster
+	}
+	return nil
 }
 
 // Suite can be used to get the current kyber.Suite (currently hardcoded into
@@ -383,10 +390,13 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 
 func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) reflect.Value {
 	m := reflect.Indirect(reflect.New(t))
-	tn := n.Tree().Search(msg.From.TreeNodeID)
-	if tn != nil {
-		m.Field(0).Set(reflect.ValueOf(tn))
-		m.Field(1).Set(reflect.Indirect(reflect.ValueOf(msg.Msg)))
+	tr := n.Tree()
+	if t != nil {
+		tn := tr.Search(msg.From.TreeNodeID)
+		if tn != nil {
+			m.Field(0).Set(reflect.ValueOf(tn))
+			m.Field(1).Set(reflect.Indirect(reflect.ValueOf(msg.Msg)))
+		}
 	}
 	return m
 }
@@ -640,8 +650,9 @@ func (n *TreeNodeInstance) Token() *Token {
 // List returns the list of TreeNodes cached in the node (creating it if necessary)
 func (n *TreeNodeInstance) List() []*TreeNode {
 	n.mtx.Lock()
-	if n.treeNodeList == nil {
-		n.treeNodeList = n.Tree().List()
+	t := n.Tree()
+	if t != nil && n.treeNodeList == nil {
+		n.treeNodeList = t.List()
 	}
 	n.mtx.Unlock()
 	return n.treeNodeList
