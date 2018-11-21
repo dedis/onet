@@ -390,7 +390,12 @@ func (l *LocalTest) GetTreeNodeInstances(id network.ServerIdentityID) []*TreeNod
 // Host and Network
 func (l *LocalTest) sendTreeNode(proto string, from, to *TreeNodeInstance, msg network.Message) error {
 	l.panicClosed()
-	if !from.Tree().ID.Equal(to.Tree().ID) {
+	ft := from.Tree()
+	tt := to.Tree()
+	if ft == nil || tt == nil {
+		return errors.New("cannot find tree")
+	}
+	if !ft.ID.Equal(tt.ID) {
 		return errors.New("Can't send from one tree to another")
 	}
 	onetMsg := &ProtocolMsg{
