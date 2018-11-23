@@ -17,7 +17,7 @@ should be able to do the following:
 Users are recommend to perform frequent backups such that data can be recovered
 if ONet nodes fail. ONet stores all of its data in the context folder, specified
 by `$CONODE_SERVICE_PATH`. If unset, it defaults to
-- `~/Library/conode/Services` on macOS,
+- `~/Library/Application Support/conode/data` on macOS,
 - `$HOME\AppData\Local\Conode` on Windows, or
 - `~/.local/share/conode` on other Unix/Linux.
 
