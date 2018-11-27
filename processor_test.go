@@ -143,7 +143,7 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
 	require.NotNil(t, err)
-	require.NotEqual(t, "", log.GetStdOut())
+	require.NotEqual(t, "", log.GetStdErr())
 }
 
 func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {

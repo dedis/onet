@@ -27,7 +27,7 @@ const DefaultGroupFile = "public.toml"
 
 // DefaultPort to listen and connect to. As of this writing, this port is not listed in
 // /etc/services
-const DefaultPort = 6879
+const DefaultPort = 7770
 
 // DefaultAddress where to be contacted by other servers.
 const DefaultAddress = "127.0.0.1"
@@ -42,7 +42,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // In case of an error this method Fatals.
 func InteractiveConfig(suite network.Suite, binaryName string) {
 	log.Info("Setting up a cothority-server.")
-	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming requests")
+	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
 	// let's dissect the port / IP
 	var hostStr string
 	var ipProvided = true

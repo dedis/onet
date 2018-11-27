@@ -81,7 +81,7 @@ func Fatalf(f string, args ...interface{}) {
 // ErrFatal calls log.Fatal in the case err != nil
 func ErrFatal(err error, args ...interface{}) {
 	if err != nil {
-		lvlUI(lvlFatal, err.Error()+" "+fmt.Sprint(args...))
+		lvlUI(lvlFatal, fmt.Sprint(args...)+" "+err.Error())
 		os.Exit(1)
 	}
 }
@@ -89,7 +89,7 @@ func ErrFatal(err error, args ...interface{}) {
 // ErrFatalf will call Fatalf when the error is non-nil
 func ErrFatalf(err error, f string, args ...interface{}) {
 	if err != nil {
-		lvlUI(lvlFatal, err.Error()+fmt.Sprintf(" "+f, args...))
+		lvlUI(lvlFatal, fmt.Sprintf(f+" ", args...)+err.Error())
 		os.Exit(1)
 	}
 }
@@ -97,6 +97,10 @@ func ErrFatalf(err error, f string, args ...interface{}) {
 func print(lvl int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
+	out := stdOut
+	if lvl < lvlInfo {
+		out = stdErr
+	}
 	switch loggers[0].GetLoggerInfo().DebugLvl {
 	case FormatPython:
 		prefix := []string{"[-]", "[!]", "[X]", "[Q]", "[+]", ""}
@@ -104,14 +108,14 @@ func print(lvl int, args ...interface{}) {
 		if ind < 0 || ind > 4 {
 			panic("index out of range " + strconv.Itoa(ind))
 		}
-		fmt.Fprint(stdOut, prefix[ind], " ")
+		fmt.Fprint(out, prefix[ind], " ")
 	case FormatNone:
 	}
 	for i, a := range args {
-		fmt.Fprint(stdOut, a)
+		fmt.Fprint(out, a)
 		if i != len(args)-1 {
-			fmt.Fprint(stdOut, " ")
+			fmt.Fprint(out, " ")
 		}
 	}
-	fmt.Fprint(stdOut, "\n")
+	fmt.Fprint(out, "\n")
 }
