@@ -340,25 +340,35 @@ func (tm TreeMarshal) MakeTree(ro *Roster) (*Tree, error) {
 		ID:     tm.TreeID,
 		Roster: ro,
 	}
-	tree.Root = tm.Children[0].MakeTreeFromList(nil, ro)
+	var err error
+	tree.Root, err = tm.Children[0].MakeTreeFromList(nil, ro)
+	if err != nil {
+		return nil, err
+	}
 	tree.computeSubtreeAggregate(tree.Root)
 	return tree, nil
 }
 
 // MakeTreeFromList creates a sub-tree given an Roster
-func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, ro *Roster) *TreeNode {
+func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, ro *Roster) (*TreeNode, error) {
 	idx, ent := ro.Search(tm.ServerIdentityID)
+	if idx < 0 {
+		return nil, errors.New("didn't find node in roster")
+	}
 	tn := &TreeNode{
-
 		Parent:         parent,
 		ID:             tm.TreeNodeID,
 		ServerIdentity: ent,
 		RosterIndex:    idx,
 	}
 	for _, c := range tm.Children {
-		tn.Children = append(tn.Children, c.MakeTreeFromList(tn, ro))
+		ntn, err := c.MakeTreeFromList(tn, ro)
+		if err != nil {
+			return nil, err
+		}
+		tn.Children = append(tn.Children, ntn)
 	}
-	return tn
+	return tn, nil
 }
 
 // A Roster is a list of ServerIdentity we choose to run some tree on it ( and
