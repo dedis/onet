@@ -338,6 +338,11 @@ func (n *TreeNodeInstance) Shutdown() error {
 
 // closeDispatch shuts down the go-routine and calls the protocolInstance-shutdown
 func (n *TreeNodeInstance) closeDispatch() error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Error("Recovered panic:", r)
+		}
+	}()
 	log.Lvl3("Closing node", n.Info())
 	n.msgDispatchQueueMutex.Lock()
 	n.closing = true
@@ -617,6 +622,7 @@ func (n *TreeNodeInstance) Public() kyber.Point {
 // NOTE: It is to be used VERY carefully and is likely to disappear in the next
 // releases.
 func (n *TreeNodeInstance) CloseHost() error {
+	n.Host().callTestClose()
 	return n.Host().Close()
 }
 

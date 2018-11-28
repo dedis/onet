@@ -159,29 +159,16 @@ func (c *Server) Close() error {
 	}
 	c.Unlock()
 
-	// For all services that have `TestClose` defined, call it to make
-	// sure they are able to clean up. This should only be used for tests!
-	c.serviceManager.servicesMutex.Lock()
-	var wg sync.WaitGroup
-	for _, serv := range c.serviceManager.services {
-		wg.Add(1)
-		go func(s Service) {
-			defer wg.Done()
-			c, ok := s.(TestClose)
-			if ok {
-				c.TestClose()
-			}
-		}(serv)
+	err := c.Router.Stop()
+	if err != nil {
+		log.Error("While stopping router:", err)
 	}
-	c.serviceManager.servicesMutex.Unlock()
-	wg.Wait()
 	c.WebSocket.stop()
 	c.overlay.Close()
-	err := c.serviceManager.closeDatabase()
+	err = c.serviceManager.closeDatabase()
 	if err != nil {
 		log.Lvl3("Error closing database: " + err.Error())
 	}
-	err = c.Router.Stop()
 	log.Lvl3("Host Close", c.ServerIdentity.Address, "listening?", c.Router.Listening())
 	return err
 }
@@ -259,4 +246,23 @@ func (c *Server) WaitStartup() {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
+}
+
+// For all services that have `TestClose` defined, call it to make
+// sure they are able to clean up. This should only be used for tests!
+func (c *Server) callTestClose() {
+	wg := sync.WaitGroup{}
+	c.serviceManager.servicesMutex.Lock()
+	for _, serv := range c.serviceManager.services {
+		wg.Add(1)
+		go func(s Service) {
+			defer wg.Done()
+			c, ok := s.(TestClose)
+			if ok {
+				c.TestClose()
+			}
+		}(serv)
+	}
+	c.serviceManager.servicesMutex.Unlock()
+	wg.Wait()
 }
