@@ -269,7 +269,6 @@ func (l *LocalTest) CloseAll() {
 	if l.T != nil && l.T.Failed() {
 		return
 	}
-
 	InformAllServersStopped()
 
 	// If the debug-level is 0, we copy all errors to a buffer that
@@ -277,6 +276,16 @@ func (l *LocalTest) CloseAll() {
 	if log.DebugVisible() == 0 {
 		log.OutputToBuf()
 	}
+
+	var wg sync.WaitGroup
+	for _, srv := range l.Servers {
+		wg.Add(1)
+		go func(s *Server) {
+			s.callTestClose()
+			wg.Done()
+		}(srv)
+	}
+	wg.Wait()
 
 	if err := l.WaitDone(5 * time.Second); err != nil {
 		switch l.Check {

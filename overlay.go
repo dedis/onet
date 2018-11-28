@@ -158,6 +158,9 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		// request the PI from the Service and binds the two
 		pi, err = o.server.serviceManager.newProtocol(tni, config)
 		if err != nil {
+			o.instancesLock.Lock()
+			o.nodeDelete(onetMsg.To)
+			o.instancesLock.Unlock()
 			return err
 		}
 		if pi == nil {

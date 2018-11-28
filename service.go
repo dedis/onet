@@ -426,6 +426,10 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the creation of the PI. Otherwise the service is responsible for setting up
 // the PI.
 func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
+	if s.server.Closed() {
+		err = errors.New("will not pass protocol once the server is closed")
+		return
+	}
 	si, ok := s.serviceByID(tni.Token().ServiceID)
 	defaultHandle := func() (ProtocolInstance, error) { return s.server.protocolInstantiate(tni.Token().ProtoID, tni) }
 	if !ok {
