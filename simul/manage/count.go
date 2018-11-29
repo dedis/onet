@@ -2,9 +2,8 @@ package manage
 
 import (
 	"errors"
-	"time"
-
 	"sync"
+	"time"
 
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
@@ -58,7 +57,7 @@ type NodeIsUp struct{}
 
 // Count sends the number of children to the parent node.
 type Count struct {
-	Children int
+	Children int32
 }
 
 // CountMsg is wrapper around the Count-structure
@@ -163,11 +162,11 @@ func (p *ProtocolCount) FuncPC() {
 func (p *ProtocolCount) FuncC(cc []CountMsg) {
 	count := 1
 	for _, c := range cc {
-		count += c.Count.Children
+		count += int(c.Count.Children)
 	}
 	if !p.IsRoot() {
 		log.Lvl3(p.Info(), "Sends to", p.Parent().ID, p.Parent().ServerIdentity.Address)
-		if err := p.SendTo(p.Parent(), &Count{count}); err != nil {
+		if err := p.SendTo(p.Parent(), &Count{int32(count)}); err != nil {
 			log.Lvl2(p.Name(), "coouldn't send to parent",
 				p.Parent().Name())
 		}

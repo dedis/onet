@@ -40,7 +40,7 @@ type ProtocolMsg struct {
 	// The actual data as binary blob
 	MsgSlice []byte
 	// The size of the data
-	Size int
+	Size network.Size
 }
 
 // ConfigMsg is sent by the overlay containing a generic slice of bytes to

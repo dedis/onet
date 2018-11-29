@@ -2,9 +2,8 @@ package onet
 
 import (
 	"errors"
-	"testing"
-
 	"reflect"
+	"testing"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -154,7 +153,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	h := func(m *testMsg) (chan network.Message, chan bool, error) {
 		outChan := make(chan network.Message)
 		go func() {
-			for i := 0; i < m.I; i++ {
+			for i := 0; i < int(m.I); i++ {
 				outChan <- m
 			}
 			close(outChan)
@@ -164,7 +163,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	require.Nil(t, p.RegisterStreamingHandler(h))
 
 	n := 5
-	buf, err := protobuf.Encode(&testMsg{n})
+	buf, err := protobuf.Encode(&testMsg{int64(n)})
 	require.NoError(t, err)
 	rep, tun, err := p.ProcessClientRequest(nil, "testMsg", buf)
 	require.Nil(t, rep)
@@ -178,7 +177,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 			buf := <-tun.out
 			val := &testMsg{}
 			require.Nil(t, protobuf.Decode(buf, val))
-			require.Equal(t, val.I, n)
+			require.Equal(t, val.I, int64(n))
 		}
 	}
 }
@@ -203,7 +202,7 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 }
 
 type testMsg struct {
-	I int
+	I int64
 }
 
 type testMsg2 testMsg

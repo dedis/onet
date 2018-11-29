@@ -104,7 +104,7 @@ func TestRouterErrorHandling(t *testing.T) {
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
 	decoded := <-proc.relay
-	require.Equal(t, 3, decoded.I)
+	require.Equal(t, int64(3), decoded.I)
 	sentLen, err = h2.Send(h1.ServerIdentity, msgSimple)
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
@@ -142,7 +142,7 @@ func TestRouterSendToSelf(t *testing.T) {
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
 	decoded := <-proc.relay
-	require.Equal(t, 3, decoded.I)
+	require.Equal(t, int64(3), decoded.I)
 
 	// Ensure no connections were open (since sending to ourself)
 	r.Lock()
@@ -279,7 +279,7 @@ func TestRouterMessaging(t *testing.T) {
 	require.NotZero(t, sentLen)
 
 	decoded := <-proc.relay
-	require.Equal(t, 3, decoded.I)
+	require.Equal(t, int64(3), decoded.I)
 
 	// make sure the connection is registered in host1 (because it's launched in
 	// a go routine). Since we try to avoid random timeout, let's send a msg
@@ -289,7 +289,7 @@ func TestRouterMessaging(t *testing.T) {
 	require.NotZero(t, sentLen)
 
 	decoded = <-proc.relay
-	require.Equal(t, 3, decoded.I)
+	require.Equal(t, int64(3), decoded.I)
 
 	written := h1.Tx()
 	read := h2.Rx()

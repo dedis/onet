@@ -634,7 +634,7 @@ func NewTestServerIdentity(address Address) *ServerIdentity {
 
 // SimpleMessage is just used to transfer one integer
 type SimpleMessage struct {
-	I int
+	I int64
 }
 
 var SimpleMessageType MessageTypeID
@@ -661,7 +661,7 @@ func (smp *simpleMessageProc) Process(e *Envelope) {
 
 type statusMessage struct {
 	Ok  bool
-	Val int
+	Val int64
 }
 
 var statusMsgID = RegisterMessage(statusMessage{})
