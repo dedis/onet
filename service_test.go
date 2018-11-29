@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
-
-	"sync"
 
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -268,7 +267,7 @@ func TestServiceBackForthProtocol(t *testing.T) {
 	sr := &SimpleResponse{}
 	err = client.SendProtobuf(servers[0].ServerIdentity, r, sr)
 	log.ErrFatal(err)
-	require.Equal(t, sr.Val, 10)
+	require.Equal(t, sr.Val, int64(10))
 }
 
 func TestPanicNewProto(t *testing.T) {
@@ -383,17 +382,17 @@ func TestServiceGenericConfig(t *testing.T) {
 // BackForthProtocolForth & Back are messages that go down and up the tree.
 // => BackForthProtocol protocol / message
 type SimpleMessageForth struct {
-	Val int
+	Val int64
 }
 
 type SimpleMessageBack struct {
-	Val int
+	Val int64
 }
 
 type BackForthProtocol struct {
 	*TreeNodeInstance
-	Val       int
-	counter   int
+	Val       int64
+	counter   int64
 	forthChan chan struct {
 		*TreeNode
 		SimpleMessageForth
@@ -408,7 +407,7 @@ type BackForthProtocol struct {
 
 func newBackForthProtocolRoot(tn *TreeNodeInstance, val int, handler func(int)) (ProtocolInstance, error) {
 	s, err := newBackForthProtocol(tn)
-	s.Val = val
+	s.Val = int64(val)
 	s.handler = handler
 	return s, err
 }
@@ -469,9 +468,9 @@ func (sp *BackForthProtocol) dispatch() error {
 			msg := m.SimpleMessageBack
 			// call the handler  if we are the root
 			sp.counter++
-			if sp.counter == len(sp.Children()) {
+			if int(sp.counter) == len(sp.Children()) {
 				if sp.IsRoot() {
-					sp.handler(msg.Val)
+					sp.handler(int(msg.Val))
 				} else {
 					sp.SendTo(sp.Parent(), &msg)
 				}
@@ -488,11 +487,11 @@ func (sp *BackForthProtocol) dispatch() error {
 // Client API request / response emulation
 type SimpleRequest struct {
 	ServerIdentities *Roster
-	Val              int
+	Val              int64
 }
 
 type SimpleResponse struct {
-	Val int
+	Val int64
 }
 
 var SimpleResponseType = network.RegisterMessage(SimpleResponse{})
@@ -512,7 +511,7 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 	tree := msg.ServerIdentities.GenerateBinaryTree()
 	tni := s.ctx.NewTreeNodeInstance(tree, tree.Root, backForthServiceName)
 	ret := make(chan int)
-	proto, err := newBackForthProtocolRoot(tni, msg.Val, func(n int) {
+	proto, err := newBackForthProtocolRoot(tni, int(msg.Val), func(n int) {
 		ret <- n
 	})
 	if err != nil {
@@ -526,7 +525,7 @@ func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf
 		proto.(*BackForthProtocol).Done()
 		close(ret)
 	}
-	resp, err := protobuf.Encode(&SimpleResponse{<-ret})
+	resp, err := protobuf.Encode(&SimpleResponse{int64(<-ret)})
 	return resp, nil, err
 }
 
@@ -558,7 +557,7 @@ type DummyConfig struct {
 }
 
 type DummyMsg struct {
-	A int
+	A int64
 }
 
 var dummyMsgType network.MessageTypeID

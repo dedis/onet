@@ -91,7 +91,7 @@ func (p *SimpleProtocol) ReturnError(msg MsgSimpleMessage) error {
 }
 
 type SimpleMessage struct {
-	I int
+	I int64
 }
 
 type MsgSimpleMessage struct {

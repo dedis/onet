@@ -195,7 +195,7 @@ func (s *spawnProto) Start() error {
 }
 
 type spawn struct {
-	I int
+	I int64
 }
 
 type spawnMsg struct {

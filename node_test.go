@@ -247,7 +247,7 @@ func TestTreeNodeFlags(t *testing.T) {
 
 // Protocol/service Channels test code:
 type NodeTestMsg struct {
-	I int
+	I int64
 }
 
 var Incoming chan struct {
@@ -256,7 +256,7 @@ var Incoming chan struct {
 }
 
 type NodeTestAggMsg struct {
-	I int
+	I int64
 }
 
 type ProtocolChannels struct {

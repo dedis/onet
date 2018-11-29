@@ -148,7 +148,7 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 	// make the listener send and receive a struct that only they can know (this
 	// listener + conn
 	handshake := func(c Conn, sending, receiving Address) error {
-		sentLen, err := c.Send(&AddressTest{sending, secret})
+		sentLen, err := c.Send(&AddressTest{sending, int64(secret)})
 		if err != nil {
 			return err
 		}
@@ -165,7 +165,7 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 		if at.Addr != receiving {
 			return fmt.Errorf("Receiveid wrong address")
 		}
-		if at.Val != secret {
+		if at.Val != int64(secret) {
 			return fmt.Errorf("Received wrong secret")
 		}
 		return nil
@@ -244,7 +244,7 @@ func testLocalConn(t *testing.T, a1, a2 Address) {
 			incomingConn <- true
 			nm, err := c.Receive()
 			assert.Nil(t, err)
-			assert.Equal(t, 3, nm.Msg.(*SimpleMessage).I)
+			assert.Equal(t, int64(3), nm.Msg.(*SimpleMessage).I)
 			// acknoledge the message
 			incomingConn <- true
 			sentLen, err := c.Send(&SimpleMessage{3})
@@ -278,7 +278,7 @@ func testLocalConn(t *testing.T, a1, a2 Address) {
 	// receive stg and send ack
 	nm, err := outgoing.Receive()
 	assert.Nil(t, err)
-	assert.Equal(t, 3, nm.Msg.(*SimpleMessage).I)
+	assert.Equal(t, int64(3), nm.Msg.(*SimpleMessage).I)
 	outgoingConn <- true
 
 	<-incomingConn
@@ -327,7 +327,7 @@ func TestLocalManyConn(t *testing.T) {
 			assert.NotZero(t, sentLen)
 			nm, err := c.Receive()
 			assert.Nil(t, err)
-			assert.Equal(t, 3, nm.Msg.(*SimpleMessage).I)
+			assert.Equal(t, int64(3), nm.Msg.(*SimpleMessage).I)
 			assert.Nil(t, c.Close())
 			wg.Done()
 		}(i)
@@ -361,7 +361,7 @@ func NewTestLocalHost(port int) (*LocalHost, error) {
 
 type AddressTest struct {
 	Addr Address
-	Val  int
+	Val  int64
 }
 
 var AddressTestType = RegisterMessage(&AddressTest{})

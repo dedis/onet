@@ -18,7 +18,7 @@ import (
 )
 
 type ContextData struct {
-	I int
+	I int64
 	S string
 }
 
@@ -41,8 +41,9 @@ func TestContextSaveLoad(t *testing.T) {
 	wg.Add(nbr)
 	for i := range c {
 		go func(i int) {
+			// defer insures the call even on a panic
+			defer wg.Done()
 			testLoadSave(t, c[i])
-			wg.Done()
 		}(i)
 	}
 	wg.Wait()

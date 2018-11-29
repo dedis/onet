@@ -30,7 +30,7 @@ func TestTCPHugeConnections(t *testing.T) {
 	// the maximum number of connections using the above snippet.
 	nbrHosts := 10
 	// 1MB of message size
-	msgSize := 1024 * 1024 * 1
+	msgSize := int64(1024 * 1024 * 1)
 	big := bigMessage{
 		Msize: msgSize,
 		Msg:   make([]byte, msgSize),
@@ -147,7 +147,7 @@ func TestTCPHugeConnections(t *testing.T) {
 }
 
 type bigMessage struct {
-	Msize int
+	Msize int64
 	Msg   []byte
-	Pcrc  int
+	Pcrc  int64
 }

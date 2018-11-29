@@ -7,5 +7,11 @@ install:
 script:
   - make test
 
+matrix:
+  include:
+    - name: "64-bit Unit Tests"
+    - name: "32-bit Unit Tests"
+      env: GOARCH=386
+
 notifications:
   email: false

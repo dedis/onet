@@ -9,10 +9,10 @@ import (
 )
 
 type TestRegisterS1 struct {
-	I int
+	I int64
 }
 type TestRegisterS2 struct {
-	I int
+	I int64
 }
 
 func TestRegisterMessage(t *testing.T) {
@@ -50,7 +50,7 @@ func TestUnmarshalRegister(t *testing.T) {
 	ty, b, err := Unmarshal(buff, tSuite)
 	assert.Nil(t, err)
 	assert.Equal(t, trType, ty)
-	assert.Equal(t, 10, b.(*TestRegisterS1).I)
+	assert.Equal(t, int64(10), b.(*TestRegisterS1).I)
 
 	var randType [16]byte
 	rand.Read(randType[:])

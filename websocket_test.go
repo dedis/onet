@@ -152,7 +152,7 @@ func TestNewWebSocket(t *testing.T) {
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
-	require.Equal(t, 1, rcvMsg.Val)
+	require.Equal(t, int64(1), rcvMsg.Val)
 }
 
 func TestNewWebSocketTLS(t *testing.T) {
@@ -165,6 +165,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	defer l.CloseAll()
 
 	c := newTCPServer(tSuite, 0, l.path)
+	defer c.Close()
 
 	certToAdd, err := tls.X509KeyPair(cert, key)
 	if err != nil {
@@ -174,13 +175,13 @@ func TestNewWebSocketTLS(t *testing.T) {
 	c.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certToAdd}}
 	c.WebSocket.Unlock()
 	c.StartInBackground()
-	defer c.Close()
 
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 
 	// Test the traditional host:port+1 way of specifying the websocket server.
 	cl := NewClientKeep(tSuite, "WebSocket")
+	defer cl.Close()
 	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
@@ -190,8 +191,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
-	require.Equal(t, 1, rcvMsg.Val)
-	cl.Close()
+	require.Equal(t, int64(1), rcvMsg.Val)
 
 	// Set c.ServerIdentity.URL, in order to test the other way of triggering wss:// connection.
 	hp, err := getWSHostPort(c.ServerIdentity, false)
@@ -203,7 +203,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	rcv, err = cl.Send(c.ServerIdentity, "SimpleResponse", buf)
 	log.Lvlf1("Received reply: %x", rcv)
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
-	require.Equal(t, 1, rcvMsg.Val)
+	require.Equal(t, int64(1), rcvMsg.Val)
 }
 
 func TestGetWebHost(t *testing.T) {
@@ -243,7 +243,7 @@ func TestClient_Send(t *testing.T) {
 	require.Equal(t, uint64(0), client.Rx())
 	require.Equal(t, uint64(0), client.Tx())
 	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-	require.Equal(t, sr.Val, 10)
+	require.Equal(t, sr.Val, int64(10))
 	require.NotEqual(t, uint64(0), client.Rx())
 	require.NotEqual(t, uint64(0), client.Tx())
 	require.True(t, client.Tx() > client.Rx())
@@ -281,7 +281,7 @@ func TestClientTLS_Send(t *testing.T) {
 	require.Equal(t, uint64(0), client.Rx())
 	require.Equal(t, uint64(0), client.Tx())
 	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-	require.Equal(t, sr.Val, 10)
+	require.Equal(t, sr.Val, int64(10))
 	require.NotEqual(t, uint64(0), client.Rx())
 	require.NotEqual(t, uint64(0), client.Tx())
 	require.True(t, client.Tx() > client.Rx())
@@ -308,18 +308,18 @@ func TestClient_Parallel(t *testing.T) {
 	wg.Add(nbrParallel)
 	for i := 0; i < nbrParallel; i++ {
 		go func(i int) {
+			defer wg.Done()
 			log.Lvl1("Starting message", i)
 			r := &SimpleRequest{
 				ServerIdentities: el,
-				Val:              10 * i,
+				Val:              int64(10 * i),
 			}
 			client := local.NewClient(backForthServiceName)
 			sr := &SimpleResponse{}
 			err := client.SendProtobuf(servers[0].ServerIdentity, r, sr)
 			require.Nil(t, err)
-			require.Equal(t, 10*i, sr.Val)
+			require.Equal(t, int64(10*i), sr.Val)
 			log.Lvl1("Done with message", i)
-			wg.Done()
 		}(i)
 	}
 	wg.Wait()
@@ -353,18 +353,18 @@ func TestClientTLS_Parallel(t *testing.T) {
 	wg.Add(nbrParallel)
 	for i := 0; i < nbrParallel; i++ {
 		go func(i int) {
+			defer wg.Done()
 			log.Lvl1("Starting message", i)
 			r := &SimpleRequest{
 				ServerIdentities: el,
-				Val:              10 * i,
+				Val:              int64(10 * i),
 			}
 			client := local.NewClient(backForthServiceName)
 			client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 			sr := &SimpleResponse{}
 			require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
-			require.Equal(t, 10*i, sr.Val)
+			require.Equal(t, int64(10*i), sr.Val)
 			log.Lvl1("Done with message", i)
-			wg.Done()
 		}(i)
 	}
 	wg.Wait()
@@ -492,7 +492,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	n := 5
 	r := &SimpleRequest{
 		ServerIdentities: el,
-		Val:              n,
+		Val:              int64(n),
 	}
 
 	// (1) happy-path testing
@@ -502,7 +502,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	for i := 0; i < n; i++ {
 		sr := &SimpleResponse{}
 		require.NoError(t, conn.ReadMessage(sr))
-		require.Equal(t, sr.Val, n)
+		require.Equal(t, sr.Val, int64(n))
 	}
 
 	// Using the same client (connection) to repeat the same request should
@@ -544,7 +544,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 		} else {
 			sr := &SimpleResponse{}
 			require.NoError(t, conn.ReadMessage(sr))
-			require.Equal(t, sr.Val, n)
+			require.Equal(t, sr.Val, int64(n))
 		}
 	}
 	require.NoError(t, client.Close())
@@ -579,7 +579,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 			defer wg.Done()
 			r := &SimpleRequest{
 				ServerIdentities: el,
-				Val:              n,
+				Val:              int64(n),
 			}
 			conn, err := c.Stream(servers[0].ServerIdentity, r)
 			require.NoError(t, err)
@@ -587,7 +587,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 			for i := 0; i < n; i++ {
 				sr := &SimpleResponse{}
 				require.NoError(t, conn.ReadMessage(sr))
-				require.Equal(t, sr.Val, n)
+				require.Equal(t, sr.Val, int64(n))
 			}
 		}(client)
 	}
@@ -608,7 +608,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 			defer wg.Done()
 			r := &SimpleRequest{
 				ServerIdentities: el,
-				Val:              n,
+				Val:              int64(n),
 			}
 			conn, err := c.Stream(servers[0].ServerIdentity, r)
 			require.NoError(t, err)
@@ -616,7 +616,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 			// read one message instead of n then close
 			sr := &SimpleResponse{}
 			require.NoError(t, conn.ReadMessage(sr))
-			require.Equal(t, sr.Val, n)
+			require.Equal(t, sr.Val, int64(n))
 			require.NoError(t, c.Close())
 		}(client)
 	}
@@ -644,7 +644,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 			defer wg.Done()
 			r := &SimpleRequest{
 				ServerIdentities: el,
-				Val:              n,
+				Val:              int64(n),
 			}
 			conn, err := c.Stream(servers[0].ServerIdentity, r)
 			require.NoError(t, err)
@@ -656,7 +656,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 				} else {
 					sr := &SimpleResponse{}
 					require.NoError(t, conn.ReadMessage(sr))
-					require.Equal(t, sr.Val, n)
+					require.Equal(t, sr.Val, int64(n))
 				}
 			}
 		}(client)
@@ -724,7 +724,7 @@ func (ss *StreamingService) StreamValues(msg *SimpleRequest) (chan *SimpleRespon
 	stopChan := make(chan bool)
 	go func() {
 	outer:
-		for i := 0; i < msg.Val; i++ {
+		for i := 0; i < int(msg.Val); i++ {
 			// Add some delay between every message so that we can
 			// actually catch the stop signal before everything is
 			// sent out.
