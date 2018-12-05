@@ -30,12 +30,20 @@ import (
 type CothorityConfig struct {
 	Suite                      string
 	Public                     string
+	Services                   map[string]ServiceConfig
 	Private                    string
 	Address                    network.Address
 	ListenAddress              string
 	Description                string
 	WebSocketTLSCertificate    CertificateURL
 	WebSocketTLSCertificateKey CertificateURL
+}
+
+// ServiceConfig is the configuration of a specific service to override
+// default parameters as the key pair
+type ServiceConfig struct {
+	Public  string
+	Private string
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -86,6 +94,28 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
+
+	// parse the service configurations
+	for name, sc := range hc.Services {
+		suite := onet.ServiceFactory.Suite(name)
+		if suite == nil {
+			return nil, nil, fmt.Errorf("Service `%s` has not been registered with a suite", name)
+		}
+
+		private, err := encoding.StringHexToScalar(suite, sc.Private)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
+		}
+
+		public, err := encoding.StringHexToPoint(suite, sc.Public)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
+		}
+
+		serviceID := network.NewServiceIdentity(name, public, private)
+		si.ServiceIdentities = append(si.ServiceIdentities, serviceID)
+	}
+
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
 	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
 
@@ -132,6 +162,7 @@ type ServerToml struct {
 	Suite       string
 	Public      string
 	Description string
+	Services    map[string]ServiceConfig
 	URL         string `toml:"URL,omitempty"`
 }
 

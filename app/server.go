@@ -14,6 +14,7 @@ import (
 
 	"github.com/dedis/kyber/util/encoding"
 	"github.com/dedis/kyber/util/key"
+	"github.com/dedis/onet"
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -125,13 +126,29 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		log.Fatal("Could not validate public ip address:", publicAddress)
 	}
 
+	// Generate the key pairs for the registered services
+	services := make(map[string]ServiceConfig)
+	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
+		serviceSuite := onet.ServiceFactory.Suite(name)
+		if serviceSuite != nil {
+			private, public := createKeyPair(serviceSuite)
+			si := ServiceConfig{
+				Public:  public,
+				Private: private,
+			}
+
+			services[name] = si
+		}
+	}
+
 	// create the keys
 	privStr, pubStr := createKeyPair(suite)
 	conf := &CothorityConfig{
-		Suite:   suite.String(),
-		Public:  pubStr,
-		Private: privStr,
-		Address: publicAddress,
+		Suite:    suite.String(),
+		Public:   pubStr,
+		Private:  privStr,
+		Address:  publicAddress,
+		Services: services,
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
 	}

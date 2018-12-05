@@ -10,6 +10,7 @@ import (
 
 	"github.com/dedis/kyber"
 	"github.com/dedis/kyber/util/encoding"
+	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
 	"gopkg.in/satori/go.uuid.v1"
@@ -70,6 +71,8 @@ type Envelope struct {
 type ServerIdentity struct {
 	// This is the public key of that ServerIdentity
 	Public kyber.Point
+	// This is the configuration for the services
+	ServiceIdentities []ServiceIdentity
 	// The ServerIdentityID corresponding to that public key
 	ID ServerIdentityID
 	// The address where that Id might be found
@@ -86,6 +89,32 @@ type ServerIdentity struct {
 
 // ServerIdentityID uniquely identifies an ServerIdentity struct
 type ServerIdentityID uuid.UUID
+
+// ServiceIdentity contains the identity of a service which is its public and
+// private keys
+type ServiceIdentity struct {
+	Name    string
+	Public  kyber.Point
+	private kyber.Scalar
+}
+
+// NewServiceIdentity creates a new identity
+func NewServiceIdentity(name string, public kyber.Point, private kyber.Scalar) ServiceIdentity {
+	return ServiceIdentity{
+		Name:    name,
+		Public:  public,
+		private: private,
+	}
+}
+
+// NewServiceIdentityFromPair creates a new identity using the provided key pair
+func NewServiceIdentityFromPair(name string, kp *key.Pair) ServiceIdentity {
+	return ServiceIdentity{
+		Public:  kp.Public,
+		private: kp.Private,
+		Name:    name,
+	}
+}
 
 // String returns a canonical representation of the ServerIdentityID.
 func (eId ServerIdentityID) String() string {
@@ -146,6 +175,28 @@ func (si *ServerIdentity) SetPrivate(p kyber.Scalar) {
 
 // GetPrivate returns the private key set with SetPrivate.
 func (si *ServerIdentity) GetPrivate() kyber.Scalar {
+	return si.private
+}
+
+// ServicePublic returns the public key of the service
+func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
+	for _, si := range si.ServiceIdentities {
+		if si.Name == name {
+			return si.Public
+		}
+	}
+
+	return si.Public
+}
+
+// ServicePrivate returns the private key of the service
+func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
+	for _, si := range si.ServiceIdentities {
+		if si.Name == name {
+			return si.private
+		}
+	}
+
 	return si.private
 }
 

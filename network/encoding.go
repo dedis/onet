@@ -8,10 +8,21 @@ import (
 	"sync"
 
 	"github.com/dedis/kyber"
+	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
 	"gopkg.in/satori/go.uuid.v1"
 )
+
+func init() {
+	bn256 := suites.MustFind("bn256.adapter")
+	ed25519 := suites.MustFind("Ed25519")
+
+	protobuf.RegisterInterface(func() interface{} { return bn256.Point() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.Scalar() })
+	protobuf.RegisterInterface(func() interface{} { return ed25519.Point() })
+	protobuf.RegisterInterface(func() interface{} { return ed25519.Scalar() })
+}
 
 /// Encoding part ///
 
@@ -66,6 +77,12 @@ var globalOrder = binary.BigEndian
 // corresponding MessageTypeID. Once a struct is registered, it can be sent and
 // received by the network library.
 func RegisterMessage(msg Message) MessageTypeID {
+	return RegisterMessageWithSuite(nil, msg)
+}
+
+// RegisterMessageWithSuite registers as RegisterMessage but also registers a specific
+// suite for the message
+func RegisterMessageWithSuite(suite Suite, msg Message) MessageTypeID {
 	msgType := computeMessageType(msg)
 	val := reflect.ValueOf(msg)
 	if val.Kind() == reflect.Ptr {
@@ -81,9 +98,15 @@ func RegisterMessage(msg Message) MessageTypeID {
 // give the same message more than once, it will register it only once, but return
 // it's id as many times as it appears in the arguments.
 func RegisterMessages(msg ...Message) []MessageTypeID {
+	return RegisterMessagesWithSuite(nil, msg...)
+}
+
+// RegisterMessagesWithSuite registers as RegisterMessages but also registers
+// a specific suite for those messages
+func RegisterMessagesWithSuite(suite Suite, msg ...Message) []MessageTypeID {
 	var ret []MessageTypeID
 	for _, m := range msg {
-		ret = append(ret, RegisterMessage(m))
+		ret = append(ret, RegisterMessageWithSuite(suite, m))
 	}
 	return ret
 }

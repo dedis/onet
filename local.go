@@ -462,6 +462,19 @@ func NewPrivIdentity(suite network.Suite, port int) (kyber.Scalar, *network.Serv
 	address := network.NewLocalAddress("127.0.0.1:" + strconv.Itoa(port))
 	kp := key.NewKeyPair(suite)
 	id := network.NewServerIdentity(kp.Public, address)
+
+	services := []network.ServiceIdentity{}
+	for _, name := range ServiceFactory.RegisteredServiceNames() {
+		suite := ServiceFactory.Suite(name)
+		if suite != nil {
+			pair := key.NewKeyPair(suite)
+			si := network.NewServiceIdentityFromPair(name, pair)
+
+			services = append(services, si)
+		}
+	}
+	id.ServiceIdentities = services
+
 	return kp.Private, id
 }
 

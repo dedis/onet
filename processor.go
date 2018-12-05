@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
-
 	"strings"
 
 	"github.com/dedis/onet/log"

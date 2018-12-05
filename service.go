@@ -96,6 +96,7 @@ type serviceEntry struct {
 	constructor NewServiceFunc
 	serviceID   ServiceID
 	name        string
+	suite       network.Suite
 }
 
 // ServiceFactory is the global service factory to instantiate Services
@@ -105,7 +106,7 @@ var ServiceFactory = serviceFactory{
 
 // Register takes a name and a function, then creates a ServiceID out of it and stores the
 // mapping and the creation function.
-func (s *serviceFactory) Register(name string, fn NewServiceFunc) (ServiceID, error) {
+func (s *serviceFactory) Register(name string, suite network.Suite, fn NewServiceFunc) (ServiceID, error) {
 	if !s.ServiceID(name).Equal(NilServiceID) {
 		return NilServiceID, fmt.Errorf("service %s already registered", name)
 	}
@@ -116,6 +117,7 @@ func (s *serviceFactory) Register(name string, fn NewServiceFunc) (ServiceID, er
 		constructor: fn,
 		serviceID:   id,
 		name:        name,
+		suite:       suite,
 	})
 	return id, nil
 }
@@ -138,9 +140,16 @@ func (s *serviceFactory) Unregister(name string) error {
 	return nil
 }
 
-// RegisterNewService is a wrapper around service factory
+// RegisterNewService is a wrapper around service factory to register
+// a service with the default suite
 func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
-	return ServiceFactory.Register(name, fn)
+	return ServiceFactory.Register(name, nil, fn)
+}
+
+// RegisterNewServiceWithSuite is wrapper around service factory to register
+// a service with a given suite
+func RegisterNewServiceWithSuite(name string, suite network.Suite, fn NewServiceFunc) (ServiceID, error) {
+	return ServiceFactory.Register(name, suite, fn)
 }
 
 // UnregisterService removes a service from the global pool.
@@ -180,6 +189,18 @@ func (s *serviceFactory) ServiceID(name string) ServiceID {
 		}
 	}
 	return NilServiceID
+}
+
+func (s *serviceFactory) Suite(name string) network.Suite {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for _, c := range s.constructors {
+		if name == c.name {
+			return c.suite
+		}
+	}
+
+	return nil
 }
 
 // Name returns the Name out of the ID
