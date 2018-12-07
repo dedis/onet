@@ -98,6 +98,10 @@ type ServiceIdentity struct {
 	private kyber.Scalar
 }
 
+func (sid *ServiceIdentity) GetPrivate() kyber.Scalar {
+	return sid.private
+}
+
 // NewServiceIdentity creates a new identity
 func NewServiceIdentity(name string, public kyber.Point, private kyber.Scalar) ServiceIdentity {
 	return ServiceIdentity{

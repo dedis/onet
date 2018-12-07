@@ -84,9 +84,7 @@ func TestMarshalKyberTypes(t *testing.T) {
 	bn256 := suites.MustFind("bn256.adapter")
 	ed25519 := suites.MustFind("Ed25519")
 
-	RegisterMessage(&TestRegisterS3{})
-	RegisterMessageWithSuite(ed25519, &TestContainer1{})
-	RegisterMessageWithSuite(bn256, &TestContainer2{})
+	RegisterMessages(&TestRegisterS3{})
 
 	obj := &TestRegisterS3{
 		P1: ed25519.Point(),

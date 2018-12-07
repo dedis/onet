@@ -94,27 +94,7 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
-
-	// parse the service configurations
-	for name, sc := range hc.Services {
-		suite := onet.ServiceFactory.Suite(name)
-		if suite == nil {
-			return nil, nil, fmt.Errorf("Service `%s` has not been registered with a suite", name)
-		}
-
-		private, err := encoding.StringHexToScalar(suite, sc.Private)
-		if err != nil {
-			return nil, nil, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
-		}
-
-		public, err := encoding.StringHexToPoint(suite, sc.Public)
-		if err != nil {
-			return nil, nil, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
-		}
-
-		serviceID := network.NewServiceIdentity(name, public, private)
-		si.ServiceIdentities = append(si.ServiceIdentities, serviceID)
-	}
+	si.ServiceIdentities, err = parseServiceConfig(hc.Services)
 
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
 	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
@@ -248,7 +228,9 @@ func (s *ServerToml) toServerIdentity() (*network.ServerIdentity, error) {
 	}
 	si := network.NewServerIdentity(public, s.Address)
 	si.URL = s.URL
-	return si, nil
+	si.ServiceIdentities, err = parseServiceConfig(s.Services)
+
+	return si, err
 }
 
 // NewServerToml takes a public key and an address and returns
@@ -388,4 +370,36 @@ func (cu CertificateURL) blobPart() string {
 		return vals[0]
 	}
 	return vals[1]
+}
+
+// parseServiceConfig parses the server toml to create the mapping of service->keypair
+func parseServiceConfig(configs map[string]ServiceConfig) ([]network.ServiceIdentity, error) {
+	si := []network.ServiceIdentity{}
+
+	for name, sc := range configs {
+		suite := onet.ServiceFactory.Suite(name)
+		if suite == nil {
+			return nil, fmt.Errorf("Service `%s` has not been registered with a suite", name)
+		}
+
+		private := suite.Scalar()
+		var err error
+
+		if len(sc.Private) > 0 {
+			private, err = encoding.StringHexToScalar(suite, sc.Private)
+			if err != nil {
+				return nil, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
+			}
+		}
+
+		public, err := encoding.StringHexToPoint(suite, sc.Public)
+		if err != nil {
+			return nil, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
+		}
+
+		serviceID := network.NewServiceIdentity(name, public, private)
+		si = append(si, serviceID)
+	}
+
+	return si, nil
 }

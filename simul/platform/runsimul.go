@@ -5,10 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
-
-	"github.com/BurntSushi/toml"
 	"github.com/dedis/onet/network"
 	"github.com/dedis/onet/simul/manage"
 	"github.com/dedis/onet/simul/monitor"

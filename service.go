@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
+	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"gopkg.in/satori/go.uuid.v1"
@@ -166,6 +167,21 @@ func (s *serviceFactory) registeredServiceIDs() []ServiceID {
 		ids = append(ids, c.serviceID)
 	}
 	return ids
+}
+
+// generateKeyPairs generates the key pairs for the registered services
+func (s *serviceFactory) generateKeyPairs(si *network.ServerIdentity) {
+	services := []network.ServiceIdentity{}
+	for _, name := range ServiceFactory.RegisteredServiceNames() {
+		suite := ServiceFactory.Suite(name)
+		if suite != nil {
+			pair := key.NewKeyPair(suite)
+			sid := network.NewServiceIdentityFromPair(name, pair)
+
+			services = append(services, sid)
+		}
+	}
+	si.ServiceIdentities = services
 }
 
 // RegisteredServiceNames returns all the names of the services registered
