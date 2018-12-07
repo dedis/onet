@@ -238,7 +238,7 @@ func (s *ServerToml) toServerIdentity() (*network.ServerIdentity, error) {
 // If an error occurs, it will be printed to StdErr and nil
 // is returned.
 func NewServerToml(suite network.Suite, public kyber.Point, addr network.Address,
-	desc string) *ServerToml {
+	desc string, services map[string]ServiceConfig) *ServerToml {
 	var buff bytes.Buffer
 	if err := encoding.WriteHexPoint(suite, &buff, public); err != nil {
 		log.Error("Error writing public key")
@@ -249,6 +249,7 @@ func NewServerToml(suite network.Suite, public kyber.Point, addr network.Address
 		Suite:       suite.String(),
 		Public:      buff.String(),
 		Description: desc,
+		Services:    services,
 	}
 }
 

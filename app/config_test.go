@@ -17,8 +17,10 @@ import (
 
 var o bytes.Buffer
 
+const testServiceName = "OnetConfigTestService"
+
 func init() {
-	onet.RegisterNewServiceWithSuite("skipchain", pairing.NewSuiteBn256(), func(c *onet.Context) (onet.Service, error) {
+	onet.RegisterNewServiceWithSuite(testServiceName, pairing.NewSuiteBn256(), func(c *onet.Context) (onet.Service, error) {
 		return nil, nil
 	})
 }
@@ -91,12 +93,12 @@ func TestParseCothority(t *testing.T) {
         ListenAddress = "%s"
 		Description = "%s"
 		[services]
-			[services.skipchain]
+			[services.%s]
 			suite = "bn256.adapter"
 			public = "%s"
 			private = "%s"`,
 		suite, public, private, address, listenAddr,
-		description, scPublic, scPrivate)
+		description, testServiceName, scPublic, scPrivate)
 
 	privateToml, err := ioutil.TempFile("", "temp_private.toml")
 	require.Nil(t, err)
@@ -114,7 +116,7 @@ func TestParseCothority(t *testing.T) {
 	require.Equal(t, address, cothConfig.Address.String())
 	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
-	require.Equal(t, scPublic, cothConfig.Services["skipchain"].Public)
+	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
 
 	srv.Close()
 }

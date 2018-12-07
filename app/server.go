@@ -182,7 +182,7 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		log.Fatal("Impossible to parse public key:", err)
 	}
 
-	server := NewServerToml(suite, public, publicAddress, conf.Description)
+	server := NewServerToml(suite, public, publicAddress, conf.Description, services)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
