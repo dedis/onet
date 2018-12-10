@@ -19,10 +19,14 @@ var o bytes.Buffer
 
 const testServiceName = "OnetConfigTestService"
 
-func init() {
+func registerService() {
 	onet.RegisterNewServiceWithSuite(testServiceName, pairing.NewSuiteBn256(), func(c *onet.Context) (onet.Service, error) {
 		return nil, nil
 	})
+}
+
+func unregisterService() {
+	onet.UnregisterService(testServiceName)
 }
 
 func TestMain(m *testing.M) {
@@ -35,10 +39,10 @@ var serverGroup = `Description = "Default Dedis Cothority"
 [[servers]]
   Address = "tcp://5.135.161.91:2000"
   Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
-  [services]
-  	[services.skipchain]
-	public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
   Description = "Nikkolasg's server: spreading the love of singing"
+  [servers.services]
+  	[servers.services.OnetConfigTestService]
+	public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
@@ -49,6 +53,9 @@ var serverGroup = `Description = "Default Dedis Cothority"
 `
 
 func TestReadGroupDescToml(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	if err != nil {
 		t.Fatal(err)
@@ -70,10 +77,14 @@ func TestReadGroupDescToml(t *testing.T) {
 	if group.Roster.List[1].URL != "https://ismail.example.com/conode" {
 		t.Fatal("Did not find expected URL.")
 	}
+
+	require.Equal(t, 1, len(group.Roster.List[0].ServiceIdentities))
 }
 
 func TestParseCothority(t *testing.T) {
-	log.SetDebugVisible(2)
+	registerService()
+	defer unregisterService()
+
 	suite := "Ed25519"
 	public := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
 	private := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
@@ -117,6 +128,7 @@ func TestParseCothority(t *testing.T) {
 	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
 	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
+	require.Equal(t, scPrivate, cothConfig.Services[testServiceName].Private)
 
 	srv.Close()
 }

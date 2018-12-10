@@ -5,6 +5,7 @@ import (
 
 	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServerIdentity(t *testing.T) {
@@ -63,4 +64,28 @@ func TestGlobalBind(t *testing.T) {
 	if gb != ":2000" {
 		t.Fatal("Wrong result", gb)
 	}
+}
+
+// TestServiceIdentity checks that service identities are instantiated
+// correctly and that we can access the keys
+func TestServiceIdentity(t *testing.T) {
+	kp := key.NewKeyPair(tSuite)
+	si := NewServerIdentity(kp.Public, NewLocalAddress("1"))
+	si.SetPrivate(kp.Private)
+
+	pub := tSuite.Point()
+	priv := tSuite.Scalar()
+	kp2 := key.NewKeyPair(tSuite)
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", pub, priv))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentityFromPair("b", kp2))
+
+	require.Equal(t, pub, si.ServicePublic("a"))
+	require.Equal(t, priv, si.ServicePrivate("a"))
+	require.Equal(t, kp2.Public, si.ServicePublic("b"))
+	require.Equal(t, kp2.Private, si.ServicePrivate("b"))
+	require.Equal(t, kp.Public, si.ServicePublic("c"))
+	require.Equal(t, kp.Private, si.ServicePrivate("c"))
+	require.True(t, si.HasServiceKeyPair("a"))
+	require.True(t, si.HasServiceKeyPair("b"))
+	require.False(t, si.HasServiceKeyPair("c"))
 }

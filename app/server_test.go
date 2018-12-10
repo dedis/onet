@@ -11,6 +11,9 @@ import (
 )
 
 func TestInteractiveConfig(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
 	tmp, err := ioutil.TempDir("", "conode")
 	log.ErrFatal(err)
 

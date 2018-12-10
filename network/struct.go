@@ -98,6 +98,7 @@ type ServiceIdentity struct {
 	private kyber.Scalar
 }
 
+// GetPrivate returns the private key of the service identity if available
 func (sid *ServiceIdentity) GetPrivate() kyber.Scalar {
 	return sid.private
 }
@@ -113,11 +114,7 @@ func NewServiceIdentity(name string, public kyber.Point, private kyber.Scalar) S
 
 // NewServiceIdentityFromPair creates a new identity using the provided key pair
 func NewServiceIdentityFromPair(name string, kp *key.Pair) ServiceIdentity {
-	return ServiceIdentity{
-		Public:  kp.Public,
-		private: kp.Private,
-		Name:    name,
-	}
+	return NewServiceIdentity(name, kp.Public, kp.Private)
 }
 
 // String returns a canonical representation of the ServerIdentityID.
@@ -182,7 +179,8 @@ func (si *ServerIdentity) GetPrivate() kyber.Scalar {
 	return si.private
 }
 
-// ServicePublic returns the public key of the service
+// ServicePublic returns the public key of the service or the default
+// one if the service has not been registered with a suite
 func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
 	for _, si := range si.ServiceIdentities {
 		if si.Name == name {
@@ -193,7 +191,8 @@ func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
 	return si.Public
 }
 
-// ServicePrivate returns the private key of the service
+// ServicePrivate returns the private key of the service or the default
+// one if the service has not been registered with a suite
 func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
 	for _, si := range si.ServiceIdentities {
 		if si.Name == name {
@@ -202,6 +201,18 @@ func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
 	}
 
 	return si.private
+}
+
+// HasServiceKeyPair returns true if the public and private keys are
+// generated for the given service. The default key pair is ignored.
+func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
+	for _, sid := range si.ServiceIdentities {
+		if sid.Name == name && sid.Public != nil && sid.private != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Toml converts an ServerIdentity to a Toml-structure
