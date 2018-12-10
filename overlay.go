@@ -167,8 +167,8 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			err := pi.Dispatch()
 			if err != nil {
 				svc := ServiceFactory.Name(tni.Token().ServiceID)
-				log.Errorf("%s.Dispatch() returned error %s",
-					svc, err)
+				log.Errorf("%v %s.Dispatch() returned error %s",
+					o.server.ServerIdentity, svc, err)
 			}
 		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
