@@ -127,19 +127,7 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 	}
 
 	// Generate the key pairs for the registered services
-	services := make(map[string]ServiceConfig)
-	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
-		serviceSuite := onet.ServiceFactory.Suite(name)
-		if serviceSuite != nil {
-			private, public := createKeyPair(serviceSuite)
-			si := ServiceConfig{
-				Public:  public,
-				Private: private,
-			}
-
-			services[name] = si
-		}
-	}
+	services := GenerateServiceKeyPairs()
 
 	// create the keys
 	privStr, pubStr := createKeyPair(suite)
@@ -187,6 +175,26 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 
 	saveFiles(conf, configFile, group, groupFile)
 	log.Info("All configurations saved, ready to serve signatures now.")
+}
+
+// GenerateServiceKeyPairs generates a map of the service with their
+// key pairs. It can be used to generate server configuration.
+func GenerateServiceKeyPairs() map[string]ServiceConfig {
+	services := make(map[string]ServiceConfig)
+	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
+		serviceSuite := onet.ServiceFactory.Suite(name)
+		if serviceSuite != nil {
+			private, public := createKeyPair(serviceSuite)
+			si := ServiceConfig{
+				Public:  public,
+				Private: private,
+			}
+
+			services[name] = si
+		}
+	}
+
+	return services
 }
 
 // Returns true if file exists and user confirms overwriting, or if file doesn't exist.
