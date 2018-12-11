@@ -166,7 +166,14 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		if pi == nil {
 			return nil
 		}
-		go pi.Dispatch()
+		go func() {
+			err := pi.Dispatch()
+			if err != nil {
+				svc := ServiceFactory.Name(tni.Token().ServiceID)
+				log.Errorf("%v %s.Dispatch() returned error %s",
+					o.server.ServerIdentity, svc, err)
+			}
+		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
 			return errors.New("Error Binding TreeNodeInstance and ProtocolInstance:" +
 				err.Error())

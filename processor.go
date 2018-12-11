@@ -206,7 +206,7 @@ type StreamingTunnel struct {
 	close chan bool
 }
 
-// ProcessClientRequest implementes the Service interface, see the interface
+// ProcessClientRequest implements the Service interface, see the interface
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	mh, ok := p.handlers[path]

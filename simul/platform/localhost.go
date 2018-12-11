@@ -149,7 +149,7 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 	}
 	d.addresses = make([]string, d.servers)
 	for i := range d.addresses {
-		d.addresses[i] = "127.0.0." + strconv.Itoa(i)
+		d.addresses[i] = "127.0.0." + strconv.Itoa(i+1)
 	}
 	d.sc, err = sim.Setup(d.runDir, d.addresses)
 	if err != nil {
@@ -197,7 +197,7 @@ func (d *Localhost) Start(args ...string) error {
 
 	for index := 0; index < d.servers; index++ {
 		log.Lvl3("Starting", index)
-		host := "127.0.0." + strconv.Itoa(index)
+		host := "127.0.0." + strconv.Itoa(index+1)
 		go func(i int, h string) {
 			log.Lvl3("Localhost: will start host", i, h)
 			err := Simulate(d.Suite, host, d.Simulation, "")
