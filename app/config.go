@@ -95,6 +95,9 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 	si.SetPrivate(private)
 	si.Description = hc.Description
 	si.ServiceIdentities, err = parseServiceConfig(hc.Services)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
 	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
@@ -142,8 +145,14 @@ type ServerToml struct {
 	Suite       string
 	Public      string
 	Description string
-	Services    map[string]ServiceConfig
+	Services    map[string]ServerServiceConfig
 	URL         string `toml:"URL,omitempty"`
+}
+
+// ServerServiceConfig is a public configuration for a server (i.e. private key
+// is missing)
+type ServerServiceConfig struct {
+	Public string
 }
 
 // Group holds the Roster and the server-description.
@@ -155,6 +164,41 @@ type Group struct {
 // GetDescription returns the description of a ServerIdentity.
 func (g *Group) GetDescription(e *network.ServerIdentity) string {
 	return g.Description[e]
+}
+
+// Save converts the group into a toml structure and save it to the file
+func (g *Group) Save(suite suites.Suite, filename string) error {
+	servers := make([]*ServerToml, len(g.Roster.List))
+	for i, si := range g.Roster.List {
+		pub, err := encoding.PointToStringHex(suite, si.Public)
+		if err != nil {
+			return err
+		}
+
+		services := make(map[string]ServerServiceConfig)
+		for _, sid := range si.ServiceIdentities {
+			suite := onet.ServiceFactory.Suite(sid.Name)
+
+			pub, err := encoding.PointToStringHex(suite, sid.Public)
+			if err != nil {
+				return err
+			}
+
+			services[sid.Name] = ServerServiceConfig{Public: pub}
+		}
+
+		servers[i] = &ServerToml{
+			Address:     si.Address,
+			Suite:       suite.String(),
+			Public:      pub,
+			Description: si.Description,
+			Services:    services,
+			URL:         si.URL,
+		}
+	}
+
+	toml := &GroupToml{Servers: servers}
+	return toml.Save(filename)
 }
 
 // ReadGroupDescToml reads a group.toml file and returns the list of ServerIdentities
@@ -228,7 +272,8 @@ func (s *ServerToml) toServerIdentity() (*network.ServerIdentity, error) {
 	}
 	si := network.NewServerIdentity(public, s.Address)
 	si.URL = s.URL
-	si.ServiceIdentities, err = parseServiceConfig(s.Services)
+	si.Description = s.Description
+	si.ServiceIdentities, err = parseServerServiceConfig(s.Services)
 
 	return si, err
 }
@@ -244,12 +289,19 @@ func NewServerToml(suite network.Suite, public kyber.Point, addr network.Address
 		log.Error("Error writing public key")
 		return nil
 	}
+
+	// Keep only the public key
+	publics := make(map[string]ServerServiceConfig)
+	for name, conf := range services {
+		publics[name] = ServerServiceConfig{Public: conf.Public}
+	}
+
 	return &ServerToml{
 		Address:     addr,
 		Suite:       suite.String(),
 		Public:      buff.String(),
 		Description: desc,
-		Services:    services,
+		Services:    publics,
 	}
 }
 
@@ -373,34 +425,57 @@ func (cu CertificateURL) blobPart() string {
 	return vals[1]
 }
 
-// parseServiceConfig parses the server toml to create the mapping of service->keypair
+// parseServiceConfig takes the map and creates service identities
 func parseServiceConfig(configs map[string]ServiceConfig) ([]network.ServiceIdentity, error) {
 	si := []network.ServiceIdentity{}
 
 	for name, sc := range configs {
-		suite := onet.ServiceFactory.Suite(name)
-		if suite == nil {
-			return nil, fmt.Errorf("Service `%s` has not been registered with a suite", name)
-		}
-
-		private := suite.Scalar()
-		var err error
-
-		if len(sc.Private) > 0 {
-			private, err = encoding.StringHexToScalar(suite, sc.Private)
-			if err != nil {
-				return nil, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
-			}
-		}
-
-		public, err := encoding.StringHexToPoint(suite, sc.Public)
+		sid, err := parseServiceIdentity(name, sc.Public, sc.Private)
 		if err != nil {
-			return nil, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
+			return nil, err
 		}
-
-		serviceID := network.NewServiceIdentity(name, public, private)
-		si = append(si, serviceID)
+		si = append(si, *sid)
 	}
 
 	return si, nil
+}
+
+// parseServerServiceConfig takes the map and creates service identities with only the public key
+func parseServerServiceConfig(configs map[string]ServerServiceConfig) ([]network.ServiceIdentity, error) {
+	si := []network.ServiceIdentity{}
+
+	for name, sc := range configs {
+		sid, err := parseServiceIdentity(name, sc.Public, "")
+		if err != nil {
+			return nil, err
+		}
+		si = append(si, *sid)
+	}
+
+	return si, nil
+}
+
+// parseServiceIdentity creates the service identity
+func parseServiceIdentity(name string, pub string, priv string) (*network.ServiceIdentity, error) {
+	suite := onet.ServiceFactory.Suite(name)
+	if suite == nil {
+		return nil, fmt.Errorf("Service `%s` has not been registered with a suite", name)
+	}
+
+	private := suite.Scalar()
+	var err error
+	if priv != "" {
+		private, err = encoding.StringHexToScalar(suite, priv)
+		if err != nil {
+			return nil, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
+		}
+	}
+
+	public, err := encoding.StringHexToPoint(suite, pub)
+	if err != nil {
+		return nil, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
+	}
+
+	si := network.NewServiceIdentity(name, public, private)
+	return &si, nil
 }

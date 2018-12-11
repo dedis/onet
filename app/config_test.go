@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
+	"github.com/dedis/cothority"
 	"github.com/dedis/kyber/pairing"
 	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
@@ -40,9 +42,9 @@ var serverGroup = `Description = "Default Dedis Cothority"
   Address = "tcp://5.135.161.91:2000"
   Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
   Description = "Nikkolasg's server: spreading the love of singing"
-  [servers.services]
-  	[servers.services.OnetConfigTestService]
-	public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
+  [servers.Services]
+  	[servers.Services.OnetConfigTestService]
+	Public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
@@ -79,6 +81,29 @@ func TestReadGroupDescToml(t *testing.T) {
 	}
 
 	require.Equal(t, 1, len(group.Roster.List[0].ServiceIdentities))
+}
+
+// TestSaveGroup checks that the group is correctly written into the file
+func TestSaveGroup(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
+	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
+	require.NoError(t, err)
+
+	tmp, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmp)
+
+	filename := path.Join(tmp, "public.toml")
+
+	err = group.Save(cothority.Suite, filename)
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadFile(filename)
+	require.NoError(t, err)
+	fmt.Print(string(data))
+	require.Contains(t, string(data), serverGroup[strings.LastIndex(serverGroup, "[[servers]]"):])
 }
 
 func TestParseCothority(t *testing.T) {
