@@ -181,7 +181,7 @@ func (s *serviceFactory) generateKeyPairs(si *network.ServerIdentity) {
 		suite := ServiceFactory.Suite(name)
 		if suite != nil {
 			pair := key.NewKeyPair(suite)
-			sid := network.NewServiceIdentityFromPair(name, pair)
+			sid := network.NewServiceIdentityFromPair(name, suite, pair)
 
 			services = append(services, sid)
 		}

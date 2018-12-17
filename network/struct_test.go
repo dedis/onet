@@ -76,8 +76,8 @@ func TestServiceIdentity(t *testing.T) {
 	pub := tSuite.Point()
 	priv := tSuite.Scalar()
 	kp2 := key.NewKeyPair(tSuite)
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", pub, priv))
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentityFromPair("b", kp2))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", tSuite, pub, priv))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentityFromPair("b", tSuite, kp2))
 
 	require.Equal(t, pub, si.ServicePublic("a"))
 	require.Equal(t, priv, si.ServicePrivate("a"))

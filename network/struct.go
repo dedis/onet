@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dedis/kyber"
+	"github.com/dedis/kyber/suites"
 	"github.com/dedis/kyber/util/encoding"
 	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
@@ -94,6 +95,7 @@ type ServerIdentityID uuid.UUID
 // private keys
 type ServiceIdentity struct {
 	Name    string
+	Suite   string
 	Public  kyber.Point
 	private kyber.Scalar
 }
@@ -104,17 +106,18 @@ func (sid *ServiceIdentity) GetPrivate() kyber.Scalar {
 }
 
 // NewServiceIdentity creates a new identity
-func NewServiceIdentity(name string, public kyber.Point, private kyber.Scalar) ServiceIdentity {
+func NewServiceIdentity(name string, suite suites.Suite, public kyber.Point, private kyber.Scalar) ServiceIdentity {
 	return ServiceIdentity{
 		Name:    name,
+		Suite:   suite.String(),
 		Public:  public,
 		private: private,
 	}
 }
 
 // NewServiceIdentityFromPair creates a new identity using the provided key pair
-func NewServiceIdentityFromPair(name string, kp *key.Pair) ServiceIdentity {
-	return NewServiceIdentity(name, kp.Public, kp.Private)
+func NewServiceIdentityFromPair(name string, suite suites.Suite, kp *key.Pair) ServiceIdentity {
+	return NewServiceIdentity(name, suite, kp.Public, kp.Private)
 }
 
 // String returns a canonical representation of the ServerIdentityID.

@@ -2,6 +2,7 @@ package onet
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -138,7 +139,11 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 				// Populate the private key in the same array order
 				for i, privkey := range scf.PrivateKeys[e.Address].Services {
 					sid := e.ServiceIdentities[i]
-					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, sid.Public, privkey)
+					suite, err := suites.Find(sid.Suite)
+					if err != nil {
+						return nil, fmt.Errorf("Unknown suite with name %s", sid.Suite)
+					}
+					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, suite, sid.Public, privkey)
 				}
 
 				server := NewServerTCP(e, suite)

@@ -32,6 +32,7 @@ func TestInteractiveConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(gc.Roster.List))
 	require.Equal(t, 1, len(gc.Roster.List[0].ServiceIdentities))
+	require.Equal(t, "bn256.adapter", gc.Roster.List[0].ServiceIdentities[0].Suite)
 
 	log.ErrFatal(os.RemoveAll(tmp))
 }

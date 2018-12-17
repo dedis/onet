@@ -43,7 +43,8 @@ var serverGroup = `Description = "Default Dedis Cothority"
   Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
   Description = "Nikkolasg's server: spreading the love of singing"
   [servers.Services]
-  	[servers.Services.OnetConfigTestService]
+	[servers.Services.OnetConfigTestService]
+	Suite = "bn256.adapter"
 	Public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
 
 [[servers]]
@@ -81,6 +82,27 @@ func TestReadGroupDescToml(t *testing.T) {
 	}
 
 	require.Equal(t, 1, len(group.Roster.List[0].ServiceIdentities))
+	require.Equal(t, "bn256.adapter", group.Roster.List[0].ServiceIdentities[0].Suite)
+}
+
+// TestReadGroupWithWrongSuite checks if an error is returned when the wrong suite
+// is used in the service configuration
+func TestReadGroupWithWrongSuite(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
+	const group = `
+	[[servers]]
+	Address = "tcp://5.135.161.91:2000"
+	Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
+	Description = "Nikkolasg's server: spreading the love of singing"
+	[servers.Services]
+	  [servers.Services.OnetConfigTestService]
+	  Suite = "fake_name"
+	  Public = ""
+	`
+
+	require.Panics(t, func() { ReadGroupDescToml(strings.NewReader(group)) })
 }
 
 // TestSaveGroup checks that the group is correctly written into the file
@@ -152,6 +174,7 @@ func TestParseCothority(t *testing.T) {
 	require.Equal(t, address, cothConfig.Address.String())
 	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
+	require.Equal(t, "bn256.adapter", cothConfig.Services[testServiceName].Suite)
 	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
 	require.Equal(t, scPrivate, cothConfig.Services[testServiceName].Private)
 

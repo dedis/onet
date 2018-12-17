@@ -186,6 +186,7 @@ func GenerateServiceKeyPairs() map[string]ServiceConfig {
 		if serviceSuite != nil {
 			private, public := createKeyPair(serviceSuite)
 			si := ServiceConfig{
+				Suite:   serviceSuite.String(),
 				Public:  public,
 				Private: private,
 			}
