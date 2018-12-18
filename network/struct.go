@@ -185,9 +185,9 @@ func (si *ServerIdentity) GetPrivate() kyber.Scalar {
 // ServicePublic returns the public key of the service or the default
 // one if the service has not been registered with a suite
 func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
-	for _, si := range si.ServiceIdentities {
-		if si.Name == name {
-			return si.Public
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name {
+			return srvid.Public
 		}
 	}
 
@@ -197,9 +197,9 @@ func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
 // ServicePrivate returns the private key of the service or the default
 // one if the service has not been registered with a suite
 func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
-	for _, si := range si.ServiceIdentities {
-		if si.Name == name {
-			return si.private
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name {
+			return srvid.private
 		}
 	}
 
@@ -209,8 +209,8 @@ func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
 // HasServiceKeyPair returns true if the public and private keys are
 // generated for the given service. The default key pair is ignored.
 func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
-	for _, sid := range si.ServiceIdentities {
-		if sid.Name == name && sid.Public != nil && sid.private != nil {
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name && srvid.Public != nil && srvid.private != nil {
 			return true
 		}
 	}
