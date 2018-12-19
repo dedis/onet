@@ -1,7 +1,10 @@
 package onet
 
 import (
+	"bytes"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -654,7 +657,7 @@ func (ro *Roster) RandomSubset(root *network.ServerIdentity, n int) *Roster {
 	out := make([]*network.ServerIdentity, 1, n+1)
 	out[0] = root
 
-	perm := rand.Perm(len(ro.List))
+	perm := securePermute(len(ro.List))
 	for _, p := range perm {
 		if !ro.List[p].ID.Equal(root.ID) {
 			out = append(out, ro.List[p])
@@ -664,6 +667,29 @@ func (ro *Roster) RandomSubset(root *network.ServerIdentity, n int) *Roster {
 		}
 	}
 	return NewRoster(out)
+}
+
+// securePermute is like rand.Perm, but seeded via cryptographically
+// secure random data.
+func securePermute(n int) []int {
+	var buf [8]byte
+	nb, err := cryptorand.Read(buf[:])
+	if nb != 8 {
+		panic("securePermute cannot get random")
+	}
+	if err != nil {
+		panic("securePermute cannot get random: " + err.Error())
+	}
+	buf2 := bytes.NewReader(buf[:])
+
+	var seed int64
+	err = binary.Read(buf2, binary.LittleEndian, &seed)
+	if err != nil {
+		panic("securePermute failed to seed: " + err.Error())
+	}
+	src := rand.NewSource(seed)
+	r := rand.New(src)
+	return r.Perm(n)
 }
 
 // IsRotation returns true if the target is a rotated (the same roster but with
