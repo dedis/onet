@@ -4,15 +4,6 @@ install:
   - go get -t ./...
   - go get github.com/dedis/Coding || true
 
-before_install:
-  - go get github.com/dedis/kyber
-  - cd ${TRAVIS_HOME}/gopath/src/github.com/dedis/kyber
-  - git checkout bn256_available
-  - go get github.com/dedis/protobuf
-  - cd ${TRAVIS_HOME}/gopath/src/github.com/dedis/protobuf
-  - git checkout interface_marshaler
-  - cd ${TRAVIS_HOME}/gopath/src/github.com/dedis/onet
-
 script:
   - make test
 
