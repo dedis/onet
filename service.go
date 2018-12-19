@@ -11,6 +11,8 @@ import (
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
+	"github.com/dedis/kyber/suites"
+	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"gopkg.in/satori/go.uuid.v1"
@@ -96,6 +98,7 @@ type serviceEntry struct {
 	constructor NewServiceFunc
 	serviceID   ServiceID
 	name        string
+	suite       suites.Suite
 }
 
 // ServiceFactory is the global service factory to instantiate Services
@@ -105,7 +108,9 @@ var ServiceFactory = serviceFactory{
 
 // Register takes a name and a function, then creates a ServiceID out of it and stores the
 // mapping and the creation function.
-func (s *serviceFactory) Register(name string, fn NewServiceFunc) (ServiceID, error) {
+//
+// A suite can be provided to override the default one
+func (s *serviceFactory) Register(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
 	if !s.ServiceID(name).Equal(NilServiceID) {
 		return NilServiceID, fmt.Errorf("service %s already registered", name)
 	}
@@ -116,6 +121,7 @@ func (s *serviceFactory) Register(name string, fn NewServiceFunc) (ServiceID, er
 		constructor: fn,
 		serviceID:   id,
 		name:        name,
+		suite:       suite,
 	})
 	return id, nil
 }
@@ -138,9 +144,16 @@ func (s *serviceFactory) Unregister(name string) error {
 	return nil
 }
 
-// RegisterNewService is a wrapper around service factory
+// RegisterNewService is a wrapper around service factory to register
+// a service with the default suite
 func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
-	return ServiceFactory.Register(name, fn)
+	return ServiceFactory.Register(name, nil, fn)
+}
+
+// RegisterNewServiceWithSuite is wrapper around service factory to register
+// a service with a given suite
+func RegisterNewServiceWithSuite(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
+	return ServiceFactory.Register(name, suite, fn)
 }
 
 // UnregisterService removes a service from the global pool.
@@ -157,6 +170,23 @@ func (s *serviceFactory) registeredServiceIDs() []ServiceID {
 		ids = append(ids, c.serviceID)
 	}
 	return ids
+}
+
+// generateKeyPairs generates the key pairs for the services that
+// have a suite registered with them. Other ones will use the default
+// suite and the associated key pair.
+func (s *serviceFactory) generateKeyPairs(si *network.ServerIdentity) {
+	services := []network.ServiceIdentity{}
+	for _, name := range ServiceFactory.RegisteredServiceNames() {
+		suite := ServiceFactory.Suite(name)
+		if suite != nil {
+			pair := key.NewKeyPair(suite)
+			sid := network.NewServiceIdentityFromPair(name, suite, pair)
+
+			services = append(services, sid)
+		}
+	}
+	si.ServiceIdentities = services
 }
 
 // RegisteredServiceNames returns all the names of the services registered
@@ -182,6 +212,33 @@ func (s *serviceFactory) ServiceID(name string) ServiceID {
 	return NilServiceID
 }
 
+// Suite returns the suite registered with the service or nil
+func (s *serviceFactory) Suite(name string) suites.Suite {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for _, c := range s.constructors {
+		if name == c.name {
+			return c.suite
+		}
+	}
+
+	return nil
+}
+
+// SuiteByID returns the suite registered with the service or nil
+// using the generated service ID
+func (s *serviceFactory) SuiteByID(id ServiceID) suites.Suite {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	for _, c := range s.constructors {
+		if id == c.serviceID {
+			return c.suite
+		}
+	}
+
+	return nil
+}
+
 // Name returns the Name out of the ID
 func (s *serviceFactory) Name(id ServiceID) string {
 	s.mutex.RLock()
@@ -196,6 +253,13 @@ func (s *serviceFactory) Name(id ServiceID) string {
 
 // start launches a new service
 func (s *serviceFactory) start(name string, con *Context) (Service, error) {
+	// Checks if we need a key pair and if it is available
+	suite := s.Suite(name)
+	if suite != nil && !con.ServerIdentity().HasServiceKeyPair(name) {
+		return nil, fmt.Errorf("Service `%s` requires a key pair. "+
+			"Use the interactive setup to generate a new file that will include this service.", name)
+	}
+
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, c := range s.constructors {

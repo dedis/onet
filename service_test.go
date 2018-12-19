@@ -53,6 +53,22 @@ func TestServiceRegistration(t *testing.T) {
 			t.Fatal("Dummy should not be found!")
 		}
 	}
+
+	var nameWithSuite = "dummyWithSuite"
+	sid, err := RegisterNewServiceWithSuite(nameWithSuite, tSuite, func(c *Context) (Service, error) {
+		return &DummyService{}, nil
+	})
+	require.NoError(t, err)
+
+	suite := ServiceFactory.Suite(nameWithSuite)
+	require.NotNil(t, suite)
+	suite = ServiceFactory.SuiteByID(sid)
+	require.NotNil(t, suite)
+
+	suite = ServiceFactory.Suite(name)
+	require.Nil(t, suite)
+
+	UnregisterService(nameWithSuite)
 }
 
 func TestServiceNew(t *testing.T) {
@@ -76,6 +92,30 @@ func TestServiceNew(t *testing.T) {
 	<-servers
 	waitOrFatal(ds.link, t)
 	local.CloseAll()
+}
+
+// TestService_StartWithKP checks that services with a registered suite
+// won't start if the key pair is not provided in the conode toml file.
+func TestService_StartWithKP(t *testing.T) {
+	dummyWithSuite := "dummyWithSuite"
+	RegisterNewServiceWithSuite(dummyWithSuite, tSuite, func(c *Context) (Service, error) {
+		return &DummyService{}, nil
+	})
+
+	si := &network.ServerIdentity{}
+	ctx := &Context{
+		server: &Server{
+			Router: &network.Router{ServerIdentity: si},
+		},
+	}
+	_, err := ServiceFactory.start(dummyWithSuite, ctx)
+	require.Contains(t, err.Error(), "requires a key pair")
+
+	ServiceFactory.generateKeyPairs(si)
+	_, err = ServiceFactory.start(dummyWithSuite, ctx)
+	require.NoError(t, err)
+
+	UnregisterService(dummyWithSuite)
 }
 
 func TestServiceProcessRequest(t *testing.T) {

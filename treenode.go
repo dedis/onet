@@ -185,9 +185,14 @@ func (n *TreeNodeInstance) Roster() *Roster {
 	return nil
 }
 
-// Suite can be used to get the current kyber.Suite (currently hardcoded into
-// the network library).
+// Suite can be used to get the kyber.Suite associated with the service. It can
+// be either the default suite or the one registered with the service.
 func (n *TreeNodeInstance) Suite() network.Suite {
+	suite := ServiceFactory.SuiteByID(n.token.ServiceID)
+	if suite != nil {
+		return suite
+	}
+
 	return n.overlay.suite()
 }
 
@@ -607,14 +612,35 @@ func (n *TreeNodeInstance) OnDoneCallback(fn func() bool) {
 	n.onDoneCallback = fn
 }
 
-// Private returns the private key of the entity
+// Private returns the private key of the service entity
 func (n *TreeNodeInstance) Private() kyber.Scalar {
-	return n.Host().private
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+
+	return n.Host().ServerIdentity.ServicePrivate(serviceName)
 }
 
-// Public returns the public key of the entity
+// Public returns the public key of the service, either the specific
+// or the default if not available
 func (n *TreeNodeInstance) Public() kyber.Point {
-	return n.ServerIdentity().Public
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+
+	return n.Host().ServerIdentity.ServicePublic(serviceName)
+}
+
+// Publics makes a list of public keys for the service
+// associated with the instance
+func (n *TreeNodeInstance) Publics() []kyber.Point {
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+
+	return n.Roster().ServicePublics(serviceName)
+}
+
+// NodePublic returns the public key associated with the node's service
+// stored in the given server identity
+func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) kyber.Point {
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+
+	return si.ServicePublic(serviceName)
 }
 
 // CloseHost closes the underlying onet.Host (which closes the overlay

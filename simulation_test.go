@@ -9,9 +9,26 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
 )
+
+var pairingSuite = suites.MustFind("bn256.adapter")
+
+func registerService() {
+	RegisterNewServiceWithSuite("simulationTestService", tSuite, func(c *Context) (Service, error) {
+		return nil, nil
+	})
+	RegisterNewServiceWithSuite("simulationTestService2", pairingSuite, func(c *Context) (Service, error) {
+		return nil, nil
+	})
+}
+
+func unregisterService() {
+	UnregisterService("simulationTestService")
+	UnregisterService("simulationTestService2")
+}
 
 func TestSimulationBF(t *testing.T) {
 	sc, _, err := createBFTree(7, 2, false, []string{"test1", "test2"})
@@ -60,6 +77,9 @@ func TestSimulationBigTree(t *testing.T) {
 }
 
 func TestSimulationLoadSave(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
 	sc, _, err := createBFTree(7, 2, false, []string{"127.0.0.1", "127.0.0.2"})
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +95,14 @@ func TestSimulationLoadSave(t *testing.T) {
 	if !sc2[0].Tree.ID.Equal(sc.Tree.ID) {
 		t.Fatal("Tree-id is not correct")
 	}
+
+	for key, privKeys := range sc.PrivateKeys {
+		require.Equal(t, privKeys.Private.String(), sc2[0].PrivateKeys[key].Private.String())
+		require.Equal(t, 2, len(sc2[0].PrivateKeys[key].Services))
+		require.Equal(t, privKeys.Services[0].String(), sc2[0].PrivateKeys[key].Services[0].String())
+		require.Equal(t, privKeys.Services[1].String(), sc2[0].PrivateKeys[key].Services[1].String())
+	}
+
 	closeAll(sc2)
 }
 

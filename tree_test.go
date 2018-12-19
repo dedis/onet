@@ -500,15 +500,22 @@ func TestRoster_GenerateNaryTreeWithRoot(t *testing.T) {
 }
 
 func TestRoster_Publics(t *testing.T) {
-	_, el := genLocalTree(1, 2000)
-	agg := el.Publics()
-	if !agg[0].Equal(el.List[0].Public) {
-		t.Fatal("Aggregate of 1 key is not correct")
+	_, roster := genLocalTree(5, 2000)
+	agg := roster.Publics()
+	spk := roster.ServicePublics("")
+
+	for i, si := range roster.List {
+		if !agg[i].Equal(si.Public) {
+			t.Fatal("Aggregate of 5 keys is not correct")
+		}
+
+		require.True(t, spk[i].Equal(si.Public))
 	}
-	_, el = genLocalTree(2, 0)
-	agg = el.Publics()
-	agg2 := el.List[0].Public.Add(el.List[0].Public,
-		el.List[1].Public)
+
+	_, roster = genLocalTree(2, 0)
+	agg = roster.Publics()
+	agg2 := roster.List[0].Public.Add(roster.List[0].Public,
+		roster.List[1].Public)
 	if !agg[0].Equal(agg2) {
 		t.Fatal("Aggregate of 2 keys is not correct")
 	}

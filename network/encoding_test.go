@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"testing"
 
+	"github.com/dedis/kyber"
+	"github.com/dedis/kyber/suites"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -11,8 +13,26 @@ import (
 type TestRegisterS1 struct {
 	I int64
 }
+
 type TestRegisterS2 struct {
 	I int64
+}
+
+type TestRegisterS3 struct {
+	P1 kyber.Point
+	P2 kyber.Point
+	C1 TestContainer1
+	C2 TestContainer2
+}
+
+type TestContainer1 struct {
+	P kyber.Point
+	S kyber.Scalar
+}
+
+type TestContainer2 struct {
+	P kyber.Point
+	S kyber.Scalar
 }
 
 func TestRegisterMessage(t *testing.T) {
@@ -58,4 +78,34 @@ func TestUnmarshalRegister(t *testing.T) {
 	ty, b, err = Unmarshal(buff, tSuite)
 	assert.NotNil(t, err)
 	assert.Equal(t, ErrorType, ty)
+}
+
+func TestMarshalKyberTypes(t *testing.T) {
+	bn256 := suites.MustFind("bn256.adapter")
+	ed25519 := suites.MustFind("Ed25519")
+
+	RegisterMessages(&TestRegisterS3{})
+
+	obj := &TestRegisterS3{
+		P1: ed25519.Point(),
+		P2: bn256.Point(),
+		C1: TestContainer1{P: ed25519.Point(), S: ed25519.Scalar()},
+		C2: TestContainer2{P: bn256.Point(), S: bn256.Scalar()},
+	}
+
+	buff, err := Marshal(obj)
+	require.Nil(t, err)
+
+	_, msg, err := Unmarshal(buff, ed25519)
+	require.Nil(t, err)
+	obj2 := msg.(*TestRegisterS3)
+	require.NotNil(t, obj2.C1)
+	require.NotNil(t, obj2.C1.P)
+	require.NotNil(t, obj2.C2)
+	require.NotNil(t, obj2.C2.P)
+	require.NotNil(t, obj2.P1)
+	require.NotNil(t, obj2.P2)
+	require.Equal(t, obj2.P1.String(), obj.P1.String())
+	require.Equal(t, obj2.P2.String(), obj.P2.String())
+	require.Equal(t, obj2.C2.P.String(), obj.C2.P.String())
 }

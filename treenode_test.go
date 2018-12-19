@@ -16,6 +16,20 @@ func init() {
 	GlobalProtocolRegister(pingPongProtoName, newPingPongProto)
 }
 
+func TestTreeNodeInstance_KeyPairs(t *testing.T) {
+	local := NewLocalTest(tSuite)
+	defer local.CloseAll()
+
+	_, _, tree := local.GenTree(5, true)
+	tni, err := local.NewTreeNodeInstance(tree.Root, spawnName)
+
+	require.NoError(t, err)
+	require.True(t, tni.Private().Equal(tni.Host().private))
+	require.True(t, tni.Public().Equal(tni.Host().ServerIdentity.Public))
+	require.True(t, tni.Public().Equal(tni.NodePublic(tni.Host().ServerIdentity)))
+	require.Equal(t, 5, len(tni.Publics()))
+}
+
 func TestTreeNodeCreateProtocol(t *testing.T) {
 	local := NewLocalTest(tSuite)
 	defer local.CloseAll()

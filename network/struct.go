@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/dedis/kyber"
+	"github.com/dedis/kyber/suites"
 	"github.com/dedis/kyber/util/encoding"
+	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
 	"gopkg.in/satori/go.uuid.v1"
@@ -70,6 +72,8 @@ type Envelope struct {
 type ServerIdentity struct {
 	// This is the public key of that ServerIdentity
 	Public kyber.Point
+	// This is the configuration for the services
+	ServiceIdentities []ServiceIdentity
 	// The ServerIdentityID corresponding to that public key
 	ID ServerIdentityID
 	// The address where that Id might be found
@@ -86,6 +90,35 @@ type ServerIdentity struct {
 
 // ServerIdentityID uniquely identifies an ServerIdentity struct
 type ServerIdentityID uuid.UUID
+
+// ServiceIdentity contains the identity of a service which is its public and
+// private keys
+type ServiceIdentity struct {
+	Name    string
+	Suite   string
+	Public  kyber.Point
+	private kyber.Scalar
+}
+
+// GetPrivate returns the private key of the service identity if available
+func (sid *ServiceIdentity) GetPrivate() kyber.Scalar {
+	return sid.private
+}
+
+// NewServiceIdentity creates a new identity
+func NewServiceIdentity(name string, suite suites.Suite, public kyber.Point, private kyber.Scalar) ServiceIdentity {
+	return ServiceIdentity{
+		Name:    name,
+		Suite:   suite.String(),
+		Public:  public,
+		private: private,
+	}
+}
+
+// NewServiceIdentityFromPair creates a new identity using the provided key pair
+func NewServiceIdentityFromPair(name string, suite suites.Suite, kp *key.Pair) ServiceIdentity {
+	return NewServiceIdentity(name, suite, kp.Public, kp.Private)
+}
 
 // String returns a canonical representation of the ServerIdentityID.
 func (eId ServerIdentityID) String() string {
@@ -147,6 +180,42 @@ func (si *ServerIdentity) SetPrivate(p kyber.Scalar) {
 // GetPrivate returns the private key set with SetPrivate.
 func (si *ServerIdentity) GetPrivate() kyber.Scalar {
 	return si.private
+}
+
+// ServicePublic returns the public key of the service or the default
+// one if the service has not been registered with a suite
+func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name {
+			return srvid.Public
+		}
+	}
+
+	return si.Public
+}
+
+// ServicePrivate returns the private key of the service or the default
+// one if the service has not been registered with a suite
+func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name {
+			return srvid.private
+		}
+	}
+
+	return si.private
+}
+
+// HasServiceKeyPair returns true if the public and private keys are
+// generated for the given service. The default key pair is ignored.
+func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name && srvid.Public != nil && srvid.private != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Toml converts an ServerIdentity to a Toml-structure

@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"strings"
 	"testing"
 
+	"github.com/dedis/cothority"
+	"github.com/dedis/kyber/pairing"
+	"github.com/dedis/onet"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/require"
@@ -15,17 +19,33 @@ import (
 
 var o bytes.Buffer
 
+const testServiceName = "OnetConfigTestService"
+
+func registerService() {
+	onet.RegisterNewServiceWithSuite(testServiceName, pairing.NewSuiteBn256(), func(c *onet.Context) (onet.Service, error) {
+		return nil, nil
+	})
+}
+
+func unregisterService() {
+	onet.UnregisterService(testServiceName)
+}
+
 func TestMain(m *testing.M) {
 	out = &o
 	log.MainTest(m)
 }
 
-var serverGroup string = `Description = "Default Dedis Cothority"
+var serverGroup = `Description = "Default Dedis Cothority"
 
 [[servers]]
   Address = "tcp://5.135.161.91:2000"
   Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
   Description = "Nikkolasg's server: spreading the love of singing"
+  [servers.Services]
+	[servers.Services.OnetConfigTestService]
+	Suite = "bn256.adapter"
+	Public = "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b740124c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814779b9f009f3a2e0f7775cf30a2844957172"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
@@ -36,6 +56,9 @@ var serverGroup string = `Description = "Default Dedis Cothority"
 `
 
 func TestReadGroupDescToml(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	if err != nil {
 		t.Fatal(err)
@@ -57,24 +80,83 @@ func TestReadGroupDescToml(t *testing.T) {
 	if group.Roster.List[1].URL != "https://ismail.example.com/conode" {
 		t.Fatal("Did not find expected URL.")
 	}
+
+	require.Equal(t, 1, len(group.Roster.List[0].ServiceIdentities))
+	require.Equal(t, "bn256.adapter", group.Roster.List[0].ServiceIdentities[0].Suite)
+}
+
+// TestReadGroupWithWrongSuite checks if an error is returned when the wrong suite
+// is used in the service configuration
+func TestReadGroupWithWrongSuite(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
+	const group = `
+	[[servers]]
+	Address = "tcp://5.135.161.91:2000"
+	Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
+	Description = "Nikkolasg's server: spreading the love of singing"
+	[servers.Services]
+	  [servers.Services.OnetConfigTestService]
+	  Suite = "fake_name"
+	  Public = ""
+	`
+
+	require.Panics(t, func() { ReadGroupDescToml(strings.NewReader(group)) })
+}
+
+// TestSaveGroup checks that the group is correctly written into the file
+func TestSaveGroup(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
+	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
+	require.NoError(t, err)
+
+	tmp, err := ioutil.TempDir("", "")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmp)
+
+	filename := path.Join(tmp, "public.toml")
+
+	err = group.Save(cothority.Suite, filename)
+	require.NoError(t, err)
+
+	data, err := ioutil.ReadFile(filename)
+	require.NoError(t, err)
+	fmt.Print(string(data))
+	require.Contains(t, string(data), serverGroup[strings.LastIndex(serverGroup, "[[servers]]"):])
 }
 
 func TestParseCothority(t *testing.T) {
+	registerService()
+	defer unregisterService()
+
 	suite := "Ed25519"
 	public := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
 	private := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
 	address := "tcp://1.2.3.4:1234"
 	listenAddr := "127.0.0.1:0"
 	description := "This is a description."
+	scPublic := "017f84a03a7833d74820be7cc3d8ad7adc29bf3af7025fd24176f5dc5b451ec23c8dc" +
+		"82bbf856f10b422bc14e840222c2a91e1537372ab218b6f4f5d69e8f21d302f814a6d03b74012" +
+		"4c7e6249960a770af381ed82d8aa8dbed961d6aef49779db06e4726c4de6d6d81e0e6431d3814" +
+		"779b9f009f3a2e0f7775cf30a2844957172"
+	scPrivate := "622f20fbc7995dd48bab00b0f3d7d13220a9d71716c6be7a45b4b284836041a8"
 
 	privateInfo := fmt.Sprintf(`Suite = "%s"
         Public = "%s"
         Private = "%s"
         Address = "%s"
         ListenAddress = "%s"
-        Description = "%s"`,
+		Description = "%s"
+		[services]
+			[services.%s]
+			suite = "bn256.adapter"
+			public = "%s"
+			private = "%s"`,
 		suite, public, private, address, listenAddr,
-		description)
+		description, testServiceName, scPublic, scPrivate)
 
 	privateToml, err := ioutil.TempFile("", "temp_private.toml")
 	require.Nil(t, err)
@@ -92,6 +174,9 @@ func TestParseCothority(t *testing.T) {
 	require.Equal(t, address, cothConfig.Address.String())
 	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
+	require.Equal(t, "bn256.adapter", cothConfig.Services[testServiceName].Suite)
+	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
+	require.Equal(t, scPrivate, cothConfig.Services[testServiceName].Private)
 
 	srv.Close()
 }

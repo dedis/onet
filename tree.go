@@ -471,6 +471,18 @@ func (ro *Roster) Publics() []kyber.Point {
 	return res
 }
 
+// ServicePublics returns the list of public keys for a specific service. If it
+// is registered with a different key pair, it will return the associated one
+// and the default key in the contrary
+func (ro *Roster) ServicePublics(name string) []kyber.Point {
+	res := make([]kyber.Point, len(ro.List))
+	for i, si := range ro.List {
+		res[i] = si.ServicePublic(name)
+	}
+
+	return res
+}
+
 // GenerateBigNaryTree creates a tree where each node has N children.
 // It will make a tree with exactly 'nodes' elements, regardless of the
 // size of the Roster. If 'nodes' is bigger than the number of elements

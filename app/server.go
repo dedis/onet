@@ -14,6 +14,7 @@ import (
 
 	"github.com/dedis/kyber/util/encoding"
 	"github.com/dedis/kyber/util/key"
+	"github.com/dedis/onet"
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
@@ -125,13 +126,17 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		log.Fatal("Could not validate public ip address:", publicAddress)
 	}
 
+	// Generate the key pairs for the registered services
+	services := GenerateServiceKeyPairs()
+
 	// create the keys
 	privStr, pubStr := createKeyPair(suite)
 	conf := &CothorityConfig{
-		Suite:   suite.String(),
-		Public:  pubStr,
-		Private: privStr,
-		Address: publicAddress,
+		Suite:    suite.String(),
+		Public:   pubStr,
+		Private:  privStr,
+		Address:  publicAddress,
+		Services: services,
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
 	}
@@ -165,11 +170,32 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		log.Fatal("Impossible to parse public key:", err)
 	}
 
-	server := NewServerToml(suite, public, publicAddress, conf.Description)
+	server := NewServerToml(suite, public, publicAddress, conf.Description, services)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
 	log.Info("All configurations saved, ready to serve signatures now.")
+}
+
+// GenerateServiceKeyPairs generates a map of the service with their
+// key pairs. It can be used to generate server configuration.
+func GenerateServiceKeyPairs() map[string]ServiceConfig {
+	services := make(map[string]ServiceConfig)
+	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
+		serviceSuite := onet.ServiceFactory.Suite(name)
+		if serviceSuite != nil {
+			private, public := createKeyPair(serviceSuite)
+			si := ServiceConfig{
+				Suite:   serviceSuite.String(),
+				Public:  public,
+				Private: private,
+			}
+
+			services[name] = si
+		}
+	}
+
+	return services
 }
 
 // Returns true if file exists and user confirms overwriting, or if file doesn't exist.
