@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -61,14 +62,25 @@ func Test_showFail(t *testing.T) {
 }
 
 func TestGenLocalHost(t *testing.T) {
-	l := NewLocalTest(tSuite)
-	hosts := l.genLocalHosts(2)
-	defer l.CloseAll()
+	n := 5
+	wg := sync.WaitGroup{}
+	wg.Add(n)
 
-	log.Lvl4("Hosts are:", hosts[0].Address(), hosts[1].Address())
-	if hosts[0].Address() == hosts[1].Address() {
-		t.Fatal("Both addresses are equal")
+	for i := 0; i < n; i++ {
+		go func() {
+			l := NewLocalTest(tSuite)
+			defer l.CloseAll()
+			defer wg.Done()
+
+			hosts := l.genLocalHosts(2)
+
+			if hosts[0].Address() == hosts[1].Address() {
+				t.Fatal("Both addresses are equal")
+			}
+		}()
 	}
+
+	wg.Wait()
 }
 
 func TestGenLocalHostAfter(t *testing.T) {
