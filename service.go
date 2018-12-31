@@ -426,8 +426,8 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the creation of the PI. Otherwise the service is responsible for setting up
 // the PI.
 func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
-	if s.server == nil{
-		err = errors.New("server is null - this is not good")
+	if s == nil || s.server == nil{
+		err = errors.New("serviceManager or server is null - this is not good")
 		return
 	}
 	if s.server.Closed() {
