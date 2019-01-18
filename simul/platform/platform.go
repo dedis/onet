@@ -182,7 +182,7 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 	}
 	args := strings.Split(scanner.Text(), ",")
 	for scanner.Scan() {
-		if scanner.Text()[0] == '#' {
+		if len(scanner.Text()) == 0 || scanner.Text()[0] == '#' {
 			continue
 		}
 		rc := masterConfig.Clone()
@@ -291,4 +291,10 @@ func (r *RunConfig) Clone() *RunConfig {
 		rc.fields[k] = v
 	}
 	return rc
+}
+
+func (r *RunConfig) String() string {
+	r.RLock()
+	defer r.RUnlock()
+	return fmt.Sprintf("%-v", r.fields)
 }

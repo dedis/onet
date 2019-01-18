@@ -146,7 +146,7 @@ func RunTests(deployP platform.Platform, name string, runconfigs []*platform.Run
 
 		// run test t nTimes times
 		// take the average of all successful runs
-		log.Lvl1("Running test", rc)
+		log.Lvl1("Running test with config:", rc)
 		stats, err := RunTest(deployP, rc)
 		if err != nil {
 			log.Error("Error running test:", err)
