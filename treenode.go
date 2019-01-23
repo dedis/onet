@@ -407,6 +407,12 @@ func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) refle
 			m.Field(0).Set(reflect.ValueOf(tn))
 			m.Field(1).Set(reflect.Indirect(reflect.ValueOf(msg.Msg)))
 		}
+		// Check whether the sender treenode actually is the same as the node who sent it.
+		// We can trust msg.ServerIdentity, because it is written in Router.handleConn and
+		// is not writable by the sending node.
+		if !tn.ServerIdentity.Equal(msg.ServerIdentity){
+			panic("Attack detected")
+		}
 	}
 	return m
 }
