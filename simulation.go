@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/suites"
+	"go.dedis.ch/kyber/util/key"
 )
 
 type simulationCreate func(string) (Simulation, error)

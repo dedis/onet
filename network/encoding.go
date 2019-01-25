@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
+	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/suites"
 	"gopkg.in/satori/go.uuid.v1"
 )
 
