@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/encoding"
-	"github.com/dedis/kyber/util/key"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/protobuf"
+	"go.dedis.ch/kyber"
+	"go.dedis.ch/kyber/suites"
+	"go.dedis.ch/kyber/util/encoding"
+	"go.dedis.ch/kyber/util/key"
 	"gopkg.in/satori/go.uuid.v1"
 )
 

@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/kyber"
 	"github.com/dedis/onet/cfgpath"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"go.dedis.ch/kyber"
 	"rsc.io/goversion/version"
 )
 

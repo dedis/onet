@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/kyber/suites"
 	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/suites"
 )
 
 var pairingSuite = suites.MustFind("bn256.adapter")

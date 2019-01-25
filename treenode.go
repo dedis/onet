@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/dedis/kyber"
 	"github.com/dedis/onet/log"
 	"github.com/dedis/onet/network"
+	"go.dedis.ch/kyber"
 )
 
 // TreeNodeInstance represents a protocol-instance in a given TreeNode. It embeds an
