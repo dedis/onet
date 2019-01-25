@@ -37,6 +37,11 @@ func TestTLS(t *testing.T) {
 	testTLS(t, tSuite)
 }
 
+func TestTLS_bn256(t *testing.T) {
+	s := suites.MustFind("bn256.g2")
+	testTLS(t, s)
+}
+
 func testTLS(t *testing.T, s suites.Suite) {
 	r1, err := NewTestRouterTLS(s, 0)
 	require.Nil(t, err, "new tcp router")
