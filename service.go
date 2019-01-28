@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"sync"
 
-	bolt "github.com/coreos/bbolt"
 	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	bbolt "go.etcd.io/bbolt"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -280,7 +280,7 @@ type serviceManager struct {
 	// the onet host
 	server *Server
 	// a bbolt database for all services
-	db     *bolt.DB
+	db     *bbolt.DB
 	dbPath string
 	// should the db be deleted on close?
 	delDb bool
@@ -336,8 +336,8 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 
 // openDb opens a database at `path`. It creates the database if it does not exist.
 // The caller must ensure that all parent directories exist.
-func openDb(path string) (*bolt.DB, error) {
-	db, err := bolt.Open(path, 0600, nil)
+func openDb(path string) (*bbolt.DB, error) {
+	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,10 @@ package onet
 import (
 	"testing"
 
-	bolt "github.com/coreos/bbolt"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
-	"gopkg.in/satori/go.uuid.v1"
+	bbolt "go.etcd.io/bbolt"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func TestServer_ProtocolRegisterName(t *testing.T) {
@@ -37,7 +37,7 @@ func TestServer_Database(t *testing.T) {
 	require.NotNil(t, c.serviceManager.db)
 
 	for _, s := range c.serviceManager.availableServices() {
-		c.serviceManager.db.Update(func(tx *bolt.Tx) error {
+		c.serviceManager.db.Update(func(tx *bbolt.Tx) error {
 			b := tx.Bucket([]byte(s))
 			require.NotNil(t, b)
 			return nil

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sync"
 
-	bolt "github.com/coreos/bbolt"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	bbolt "go.etcd.io/bbolt"
 )
 
 // Context represents the methods that are available to a service.
@@ -32,7 +32,7 @@ func newContext(c *Server, o *Overlay, servID ServiceID, manager *serviceManager
 		bucketName:        []byte(ServiceFactory.Name(servID)),
 		bucketVersionName: []byte(ServiceFactory.Name(servID) + "version"),
 	}
-	err := manager.db.Update(func(tx *bolt.Tx) error {
+	err := manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(ctx.bucketName)
 		if err != nil {
 			return err
@@ -154,7 +154,7 @@ func (c *Context) Save(key []byte, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	return c.manager.db.Update(func(tx *bolt.Tx) error {
+	return c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketName)
 		return b.Put(key, buf)
 	})
@@ -164,7 +164,7 @@ func (c *Context) Save(key []byte, data interface{}) error {
 // Returns a nil value if the key does not exist.
 func (c *Context) Load(key []byte) (interface{}, error) {
 	var buf []byte
-	err := c.manager.db.View(func(tx *bolt.Tx) error {
+	err := c.manager.db.View(func(tx *bbolt.Tx) error {
 		v := tx.Bucket(c.bucketName).Get(key)
 		if v == nil {
 			return nil
@@ -190,7 +190,7 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 // Returns a nil value if the key does not exist.
 func (c *Context) LoadRaw(key []byte) ([]byte, error) {
 	var buf []byte
-	err := c.manager.db.View(func(tx *bolt.Tx) error {
+	err := c.manager.db.View(func(tx *bbolt.Tx) error {
 		v := tx.Bucket(c.bucketName).Get(key)
 		if v == nil {
 			return nil
@@ -209,7 +209,7 @@ var dbVersion = []byte("dbVersion")
 // no version has been found.
 func (c *Context) LoadVersion() (int, error) {
 	var buf []byte
-	err := c.manager.db.View(func(tx *bolt.Tx) error {
+	err := c.manager.db.View(func(tx *bbolt.Tx) error {
 		v := tx.Bucket(c.bucketVersionName).Get(dbVersion)
 		if v == nil {
 			return nil
@@ -239,7 +239,7 @@ func (c *Context) SaveVersion(version int) error {
 	if err != nil {
 		return err
 	}
-	return c.manager.db.Update(func(tx *bolt.Tx) error {
+	return c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketVersionName)
 		return b.Put(dbVersion, buf.Bytes())
 	})
@@ -252,9 +252,9 @@ func (c *Context) SaveVersion(version int) error {
 // This function should only be used if the Load and Save functions are not sufficient.
 // Additionally, the user should not create buckets directly on the DB but always
 // call this function to create new buckets to avoid bucket name conflicts.
-func (c *Context) GetAdditionalBucket(name []byte) (*bolt.DB, []byte) {
+func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
 	fullName := append(append(c.bucketName, byte('_')), name...)
-	err := c.manager.db.Update(func(tx *bolt.Tx) error {
+	err := c.manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(fullName)
 		if err != nil {
 			return fmt.Errorf("create bucket: %s", err)
