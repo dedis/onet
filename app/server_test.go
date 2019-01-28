@@ -5,9 +5,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/suites"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/onet/v3/log"
 )
 
 func TestInteractiveConfig(t *testing.T) {

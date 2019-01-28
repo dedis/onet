@@ -11,11 +11,11 @@ import (
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
-	"go.dedis.ch/kyber/suites"
-	"go.dedis.ch/kyber/util/key"
-	"gopkg.in/satori/go.uuid.v1"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {

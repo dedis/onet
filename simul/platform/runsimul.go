@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
-	"github.com/dedis/onet/simul/manage"
-	"github.com/dedis/onet/simul/monitor"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v3/simul/manage"
+	"go.dedis.ch/onet/v3/simul/monitor"
 )
 
 type simulInit struct{}

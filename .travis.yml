@@ -1,15 +1,20 @@
 language: go
 
+go:
+  - "1.11.x"
+
+go_import_path: go.dedis.ch/onet/v3
+
 install:
-  - go get -t ./...
   - go get github.com/dedis/Coding || true
 
 script:
-  - make test
+  - env GO111MODULE=on make test
 
 matrix:
   include:
     - name: "64-bit Unit Tests"
+      env: GOARCH=amd64
     - name: "32-bit Unit Tests"
       env: GOARCH=386
 

@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v3/log"
 	"gopkg.in/satori/go.uuid.v1"
 )
 

@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/cfgpath"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
-	"go.dedis.ch/kyber/util/encoding"
-	"go.dedis.ch/kyber/util/key"
+	"go.dedis.ch/kyber/v3/util/encoding"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/cfgpath"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 )
 
 // DefaultServerConfig is the default server configuration file-name.

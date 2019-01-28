@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 )
 
 // Context represents the methods that are available to a service.

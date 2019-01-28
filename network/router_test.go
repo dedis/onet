@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v3/log"
 )
 
 func NewTestRouterTCP(port int) (*Router, error) {
