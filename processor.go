@@ -6,9 +6,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
-	"github.com/dedis/protobuf"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/protobuf"
 )
 
 // ServiceProcessor allows for an easy integration of external messages

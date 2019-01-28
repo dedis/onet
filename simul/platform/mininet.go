@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/app"
-	"github.com/dedis/onet/log"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/app"
+	"go.dedis.ch/onet/v3/log"
 )
 
 // MiniNet represents all the configuration that is necessary to run a simulation

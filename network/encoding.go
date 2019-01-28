@@ -7,11 +7,11 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/protobuf"
-	"go.dedis.ch/kyber"
-	"go.dedis.ch/kyber/suites"
-	"gopkg.in/satori/go.uuid.v1"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/protobuf"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {

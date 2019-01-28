@@ -11,9 +11,9 @@ import (
 	"math"
 	"time"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/simul/monitor"
-	"github.com/dedis/onet/simul/platform"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/simul/monitor"
+	"go.dedis.ch/onet/v3/simul/platform"
 )
 
 // Configuration-variables

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/onet/log"
+	"go.dedis.ch/onet/v3/log"
 )
 
 type remote struct {

@@ -12,10 +12,10 @@ import (
 
 	"time"
 
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/app"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/simul/monitor"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/app"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/simul/monitor"
 )
 
 // Localhost is responsible for launching the app with the specified number of nodes

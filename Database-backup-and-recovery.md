@@ -6,7 +6,7 @@ Database Backup and Recovery
 
 Users of ONet have the option to make use of its built-in database.
 
-We use [bbolt](https://github.com/coreos/bbolt), which supports "fully
+We use [bbolt](https://github.com/etcd-io/bbolt), which supports "fully
 serializable ACID transactions" to ensure data integrity for ONet users. Users
 should be able to do the following:
 
@@ -28,14 +28,14 @@ So performing backups in the middle of a transaction should not be a problem.
 However, it is still recommended to check the data integrity of the backed-up file
 using the bbolt CLI, i.e. `bolt check database_name.db`.
 
-To install the bbolt CLI, see [Bolt Installation](https://github.com/coreos/bbolt#installing).
+To install the bbolt CLI, see [Bolt Installation](https://github.com/etcd-io/bbolt#installing).
 
 # Recovery
 
 A data corruption is easy to detect as ONet nodes would crash when reading from
 a corrupted database, at startup or during operation. Concretely, the bbolt
 library would panic, e.g.
-[here](https://github.com/coreos/bbolt/blob/386b851495d42c4e02908838373a06d0a533e170/freelist.go#L237).
+[here](https://github.com/etcd-io/bbolt/blob/386b851495d42c4e02908838373a06d0a533e170/freelist.go#L237).
 This behavior is produced by writing a few blocks on random data using `dd` to
 the database.
 
@@ -52,7 +52,7 @@ The primary and recommended methods to interact with the database is
 on the database is needed, then we can ask the context to return a database
 handler and bucket name using the function
 [`GetAdditionalBucket`](https://godoc.org/github.com/dedis/onet#Context.GetAdditionalBucket).
-All the [bbolt functions](https://godoc.org/github.com/coreos/bbolt) can be used
+All the [bbolt functions](https://godoc.org/github.com/etcd-io/bbolt) can be used
 with the database handler. However, the user should avoid creating new buckets
 using the bbolt functions and only use `GetAdditionalBucket` to avoid bucket
 name conflicts.

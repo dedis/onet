@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/suites"
-	"go.dedis.ch/kyber/util/key"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v3/util/key"
 )
 
 func NewTestTLSHost(suite suites.Suite, port int) (*TCPHost, error) {

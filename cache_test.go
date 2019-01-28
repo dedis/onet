@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 const nbrOfItems = 20
@@ -15,7 +15,7 @@ const size = 20
 func initTrees(tt []*Tree) {
 	for i := range tt {
 		tt[i] = &Tree{}
-		id, _ := uuid.NewV1()
+		id := uuid.NewV1()
 		tt[i].ID = TreeID(id)
 	}
 }
@@ -69,7 +69,7 @@ func TestRosterCache(t *testing.T) {
 	cache := newRosterCache(50*time.Millisecond, size)
 
 	r := &Roster{}
-	id, _ := uuid.NewV1()
+	id := uuid.NewV1()
 	r.ID = RosterID(id)
 
 	cache.Set(r)
@@ -84,7 +84,7 @@ func TestRosterCache(t *testing.T) {
 }
 
 func generateID() uuid.UUID {
-	id, _ := uuid.NewV1()
+	id := uuid.NewV1()
 	return id
 }
 
