@@ -10,12 +10,12 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/encoding"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v3/util/encoding"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 )
 
 // CothorityConfig is the configuration structure of the cothority daemon.

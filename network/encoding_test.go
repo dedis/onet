@@ -4,10 +4,10 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/suites"
 )
 
 type TestRegisterS1 struct {

@@ -1,6 +1,5 @@
 all: test
 
-PKG_STABLE = gopkg.in/dedis/onet.v2
 include $(shell go env GOPATH)/src/github.com/dedis/Coding/bin/Makefile.base
 
 # You can use `test_playground` to run any test or part of cothority

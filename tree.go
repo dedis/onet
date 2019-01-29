@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
-	"gopkg.in/satori/go.uuid.v1"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // In this file we define the main structures used for a running protocol

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"syscall"
 
-	"github.com/dedis/onet/log"
+	"go.dedis.ch/onet/v3/log"
 )
 
 // By default in simulation we update the per-process file descriptor limit

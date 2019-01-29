@@ -9,12 +9,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dedis/cothority"
-	"github.com/dedis/kyber/pairing"
-	"github.com/dedis/onet"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3/pairing"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 )
 
 var o bytes.Buffer
@@ -119,7 +119,8 @@ func TestSaveGroup(t *testing.T) {
 
 	filename := path.Join(tmp, "public.toml")
 
-	err = group.Save(cothority.Suite, filename)
+	suite := suites.MustFind("ed25519")
+	err = group.Save(suite, filename)
 	require.NoError(t, err)
 
 	data, err := ioutil.ReadFile(filename)

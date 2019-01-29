@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/onet/log"
+	"go.dedis.ch/onet/v3/log"
 )
 
 // a connection will return an io.EOF after networkTimeout if nothing has been

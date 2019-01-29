@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/onet/log"
 	uuid "github.com/satori/go.uuid"
+	"go.dedis.ch/onet/v3/log"
 )
 
 // Key-value cache with an expiration time for each pair

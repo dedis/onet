@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 	"gopkg.in/satori/go.uuid.v1"
 )
 

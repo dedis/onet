@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/key"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v3/util/key"
 )
 
 func NewTestTLSHost(suite suites.Suite, port int) (*TCPHost, error) {
@@ -35,6 +35,11 @@ type hello struct {
 
 func TestTLS(t *testing.T) {
 	testTLS(t, tSuite)
+}
+
+func TestTLS_bn256(t *testing.T) {
+	s := suites.MustFind("bn256.g2")
+	testTLS(t, s)
 }
 
 func testTLS(t *testing.T, s suites.Suite) {

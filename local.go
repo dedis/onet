@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/util/key"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 )
 
 // LeakyTestCheck represents an enum to indicate how deep CloseAll needs to

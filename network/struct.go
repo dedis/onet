@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dedis/kyber"
-	"github.com/dedis/kyber/suites"
-	"github.com/dedis/kyber/util/encoding"
-	"github.com/dedis/kyber/util/key"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/protobuf"
-	"gopkg.in/satori/go.uuid.v1"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v3/util/encoding"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/protobuf"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // MaxRetryConnect defines how many times we should try to connect.

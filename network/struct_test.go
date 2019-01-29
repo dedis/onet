@@ -3,9 +3,9 @@ package network
 import (
 	"testing"
 
-	"github.com/dedis/kyber/util/key"
-	"github.com/dedis/onet/log"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
 )
 
 func TestServerIdentity(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dedis/onet/log"
+	"go.dedis.ch/onet/v3/log"
 )
 
 func TestMain(m *testing.M) {

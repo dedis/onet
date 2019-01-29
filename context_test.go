@@ -10,11 +10,11 @@ import (
 	"sync"
 	"testing"
 
-	bolt "github.com/coreos/bbolt"
-	"github.com/dedis/kyber/util/key"
-	"github.com/dedis/onet/log"
-	"github.com/dedis/onet/network"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
+	bbolt "go.etcd.io/bbolt"
 )
 
 type ContextData struct {
@@ -169,7 +169,7 @@ func createContext(t *testing.T, dbPath string) *Context {
 	db, err := openDb(sm.dbFileName())
 	require.Nil(t, err)
 
-	err = db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucket([]byte(name))
 		return err
 	})
