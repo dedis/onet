@@ -167,10 +167,11 @@ func newClientService(c *Context) (Service, error) {
 		closed:           make(chan bool, 1),
 	}
 	log.ErrFatal(s.RegisterHandlers(s.SimpleMessage, s.SimpleMessage2))
-	s.RegisterProcessorFunc(network.RegisterMessage(RawMessage{}), func(arg1 *network.Envelope) {
+	s.RegisterProcessorFunc(network.RegisterMessage(RawMessage{}), func(arg1 *network.Envelope) error {
 		s.click <- true
 		time.Sleep(100 * time.Millisecond)
 		s.click <- true
+		return nil
 	})
 
 	return s, nil

@@ -53,8 +53,9 @@ func testTLS(t *testing.T, s suites.Suite) {
 	rcv := make(chan bool, 1)
 
 	mt := RegisterMessage(&hello{})
-	r1.Dispatcher.RegisterProcessorFunc(mt, func(*Envelope) {
+	r1.Dispatcher.RegisterProcessorFunc(mt, func(*Envelope) error {
 		rcv <- true
+		return nil
 	})
 
 	go func() {
@@ -115,9 +116,10 @@ func BenchmarkMsgTLS(b *testing.B) {
 
 func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 	mt := RegisterMessage(&hello{})
-	r1.Dispatcher.RegisterProcessorFunc(mt, func(*Envelope) {
+	r1.Dispatcher.RegisterProcessorFunc(mt, func(*Envelope) error {
 		// Don't do anything. We are not interested in
 		// benchmarking this work.
+		return nil
 	})
 
 	ready := make(chan bool)

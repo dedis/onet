@@ -437,7 +437,7 @@ func (s *serviceManager) registerProcessor(p network.Processor, msgType network.
 	s.Dispatcher.RegisterProcessor(p, msgType)
 }
 
-func (s *serviceManager) registerProcessorFunc(msgType network.MessageTypeID, fn func(*network.Envelope)) {
+func (s *serviceManager) registerProcessorFunc(msgType network.MessageTypeID, fn func(*network.Envelope) error) {
 	// delegate message to host so the host will pass the message to ourself
 	s.server.RegisterProcessor(s, msgType)
 	// handle the message ourselves (will be launched in a go routine)

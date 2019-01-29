@@ -79,14 +79,17 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		// Need to store sc in a tmp-variable so it's correctly passed
 		// to the Register-functions.
 		scTmp := sc
-		server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) {
+		server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) error {
 			err = sim.Node(scTmp)
 			log.ErrFatal(err)
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
 			log.ErrFatal(err)
+			// not reached because of ErrFatal, but return it anyway.
+			return err
 		})
-		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) {
+		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
 			wgSimulInit.Done()
+			return nil
 		})
 		if server.ServerIdentity.ID.Equal(sc.Tree.Root.ServerIdentity.ID) {
 			log.Lvl2(serverAddress, "is root-node, will start protocol")

@@ -3,6 +3,8 @@ package network
 import (
 	"errors"
 	"sync"
+
+	"go.dedis.ch/onet/v3/log"
 )
 
 // Dispatcher is an interface whose sole role is to distribute messages to the
@@ -26,7 +28,7 @@ type Dispatcher interface {
 	// RegisterProcessorFunc enables to register directly a function that will
 	// be called for each message of type msgType. It's a shorter way of
 	// registering a Processor.
-	RegisterProcessorFunc(MessageTypeID, func(*Envelope))
+	RegisterProcessorFunc(MessageTypeID, func(*Envelope) error)
 	// Dispatch will find the right processor to dispatch the packet to. The id
 	// is the identity of the author / sender of the packet.
 	// It can be called for example by the network layer.
@@ -70,7 +72,7 @@ func (d *BlockingDispatcher) RegisterProcessor(p Processor, msgType ...MessageTy
 
 // RegisterProcessorFunc takes a func, creates a Processor struct around it and
 // registers it to the dispatcher.
-func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageTypeID, fn func(*Envelope)) {
+func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageTypeID, fn func(*Envelope) error) {
 	p := &defaultProcessor{
 		fn: fn,
 	}
@@ -140,9 +142,12 @@ func (d *RoutineDispatcher) GetRoutines() int {
 }
 
 type defaultProcessor struct {
-	fn func(*Envelope)
+	fn func(*Envelope) error
 }
 
 func (dp *defaultProcessor) Process(msg *Envelope) {
-	dp.fn(msg)
+	err := dp.fn(msg)
+	if err != nil {
+		log.Errorf("error while processing msg type %v from %v: %v", msg.MsgType, msg.ServerIdentity, err)
+	}
 }
