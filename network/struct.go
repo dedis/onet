@@ -165,6 +165,9 @@ func NewServerIdentity(public kyber.Point, address Address) *ServerIdentity {
 
 // Equal tests on same public key
 func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
+	if si == nil || e2 == nil || si.Public == nil {
+		return false
+	}
 	return si.Public.Equal(e2.Public)
 }
 

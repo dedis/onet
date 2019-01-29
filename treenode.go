@@ -417,7 +417,7 @@ func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) (refl
 		// Check whether the sender treenode actually is the same as the node who sent it.
 		// We can trust msg.ServerIdentity, because it is written in Router.handleConn and
 		// is not writable by the sending node.
-		if !tn.ServerIdentity.Equal(msg.ServerIdentity) {
+		if msg.ServerIdentity != nil && !tn.ServerIdentity.Equal(msg.ServerIdentity) {
 			return m, fmt.Errorf("ServerIdentity in the tree node referenced by the message (%v) does not match the ServerIdentity of the message originator (%v)",
 				tn.ServerIdentity, msg.ServerIdentity)
 		}
