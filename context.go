@@ -112,7 +112,7 @@ func (c *Context) RegisterProcessor(p network.Processor, msgType network.Message
 
 // RegisterProcessorFunc takes a message-type and a function that will be called
 // if this message-type is received.
-func (c *Context) RegisterProcessorFunc(msgType network.MessageTypeID, fn func(*network.Envelope)) {
+func (c *Context) RegisterProcessorFunc(msgType network.MessageTypeID, fn func(*network.Envelope) error) {
 	c.manager.registerProcessorFunc(msgType, fn)
 }
 

@@ -686,8 +686,9 @@ type ServiceMessages struct {
 	GotResponse chan bool
 }
 
-func (i *ServiceMessages) SimpleResponse(env *network.Envelope) {
+func (i *ServiceMessages) SimpleResponse(env *network.Envelope) error {
 	i.GotResponse <- true
+	return nil
 }
 
 func newServiceMessages(c *Context) (Service, error) {
