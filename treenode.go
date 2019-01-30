@@ -374,7 +374,7 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 	if n.hasFlag(mt, AggregateMessages) {
 		msgs := reflect.MakeSlice(to, len(msgSlice), len(msgSlice))
 		for i, msg := range msgSlice {
-			m, err := n.reflectCreate(to.Elem(), msg)
+			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
 				return err
 			}
@@ -391,7 +391,7 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 					errV.Interface().(error))
 			}
 			log.Lvl4("Dispatching", msg, "to", n.ServerIdentity().Address)
-			m, err := n.reflectCreate(to, msg)
+			m, err := n.createValueAndVerify(to, msg)
 			if err != nil {
 				return err
 			}
@@ -405,7 +405,7 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 	return nil
 }
 
-func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) (reflect.Value, error) {
+func (n *TreeNodeInstance) createValueAndVerify(t reflect.Type, msg *ProtocolMsg) (reflect.Value, error) {
 	m := reflect.Indirect(reflect.New(t))
 	tr := n.Tree()
 	if t != nil {
@@ -417,7 +417,7 @@ func (n *TreeNodeInstance) reflectCreate(t reflect.Type, msg *ProtocolMsg) (refl
 		// Check whether the sender treenode actually is the same as the node who sent it.
 		// We can trust msg.ServerIdentity, because it is written in Router.handleConn and
 		// is not writable by the sending node.
-		if msg.ServerIdentity != nil && !tn.ServerIdentity.Equal(msg.ServerIdentity) {
+		if msg.ServerIdentity != nil && tn != nil && !tn.ServerIdentity.Equal(msg.ServerIdentity) {
 			return m, fmt.Errorf("ServerIdentity in the tree node referenced by the message (%v) does not match the ServerIdentity of the message originator (%v)",
 				tn.ServerIdentity, msg.ServerIdentity)
 		}
@@ -442,7 +442,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 		out := reflect.MakeSlice(to, len(msgSlice), len(msgSlice))
 		for i, msg := range msgSlice {
 			log.Lvl4("Dispatching aggregated to", to)
-			m, err := n.reflectCreate(to.Elem(), msg)
+			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
 				return err
 			}
@@ -453,7 +453,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 	} else {
 		for _, msg := range msgSlice {
 			out := reflect.ValueOf(n.channels[mt])
-			m, err := n.reflectCreate(to.Elem(), msg)
+			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
 				return err
 			}
