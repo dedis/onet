@@ -233,36 +233,39 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats,
 	}
 }
 
-// CheckHosts verifies that there is either a 'Hosts' or a 'Depth/BF'
-// -parameter in the Runconfig
+// CheckHosts verifies that at least two out of the three parameters: hosts, BF
+// and depth are set in RunConfig. If one is missing, it tries to fix it. When
+// more than one is missing, it stops the program.
 func CheckHosts(rc *platform.RunConfig) {
 	hosts, _ := rc.GetInt("hosts")
 	bf, _ := rc.GetInt("bf")
 	depth, _ := rc.GetInt("depth")
 	if hosts == 0 {
 		if depth == 0 || bf == 0 {
-			log.Fatal("No Hosts and no Depth or BF given - stopping")
+			log.Fatal("When hosts is not set, depth and BF must be set.")
 		}
 		hosts = calcHosts(bf, depth)
 		rc.Put("hosts", strconv.Itoa(hosts))
-	}
-	if bf == 0 {
+	} else if bf == 0 {
 		if depth == 0 || hosts == 0 {
-			log.Fatal("No BF and no Depth or hosts given - stopping")
+			log.Fatal("When BF is not set, depth and hosts must be set.")
 		}
 		bf = 1
 		for calcHosts(bf, depth) < hosts {
 			bf++
 		}
 		rc.Put("bf", strconv.Itoa(bf))
-	}
-	if depth == 0 {
+	} else if depth == 0 {
+		if hosts == 0 || bf == 0 {
+			log.Fatal("When depth is not set, hsots and BF must be set.")
+		}
 		depth = 1
 		for calcHosts(bf, depth) < hosts {
 			depth++
 		}
 		rc.Put("depth", strconv.Itoa(depth))
 	}
+	// don't do anything if all three parameters are set
 }
 
 // Geometric sum to count the total number of nodes:

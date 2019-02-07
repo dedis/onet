@@ -23,17 +23,21 @@ func TestDepth(t *testing.T) {
 		rc := platform.NewRunConfig()
 		rc.Put("bf", strconv.Itoa(s.BF))
 		rc.Put("depth", strconv.Itoa(s.depth))
+
+		rc.Put("hosts", "0")
 		CheckHosts(rc)
 		hosts, _ := rc.GetInt("hosts")
 		if hosts != s.hosts {
 			t.Fatal(s, "gave hosts:", hosts)
 		}
+
 		rc.Put("bf", "0")
 		CheckHosts(rc)
 		bf, _ := rc.GetInt("bf")
 		if bf != s.BF {
 			t.Fatal(s, "gave BF:", bf)
 		}
+
 		rc.Put("depth", "0")
 		CheckHosts(rc)
 		depth, _ := rc.GetInt("depth")
