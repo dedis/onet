@@ -17,14 +17,9 @@ ProtocolInstance.
 */
 package onet
 
-// Version of onet.
-const Version = "2.0"
-
 // Version history notes:
 // 1.2 (no comment)
 // 2.0 first version where no base64 is allowed in {public,private}.toml files. Cothority's
 //     run_conode.sh migrates from 1.2->2.0 format files.
-
-// This can be set during building. If set, it will be added onto the end
-// of Version in the Status message.
-var gitTag = ""
+// 3+  version is recorded in the build via the Go modules system and exposed
+//     via rsc.io/goversion/version (see server.go)
