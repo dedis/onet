@@ -111,12 +111,6 @@ var goverOk = false
 
 // GetStatus is a function that returns the status report of the server.
 func (c *Server) GetStatus() *Status {
-	v := Version
-	if gitTag != "" {
-		v += "-"
-		v += gitTag
-	}
-
 	a := c.serviceManager.availableServices()
 	sort.Strings(a)
 
@@ -127,7 +121,6 @@ func (c *Server) GetStatus() *Status {
 		"Uptime":             time.Now().Sub(c.started).String(),
 		"System": fmt.Sprintf("%s/%s/%s", runtime.GOOS, runtime.GOARCH,
 			runtime.Version()),
-		"Version":     v,
 		"Host":        c.ServerIdentity.Address.Host(),
 		"Port":        c.ServerIdentity.Address.Port(),
 		"Description": c.ServerIdentity.Description,
