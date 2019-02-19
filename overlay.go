@@ -167,11 +167,17 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			return nil
 		}
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					svc := ServiceFactory.Name(tni.Token().ServiceID)
+					log.Errorf("Panic in %v %s.Dispatch(): %v", svc, o.server.ServerIdentity, r)
+				}
+			}()
+
 			err := pi.Dispatch()
 			if err != nil {
 				svc := ServiceFactory.Name(tni.Token().ServiceID)
-				log.Errorf("%v %s.Dispatch() returned error %s",
-					o.server.ServerIdentity, svc, err)
+				log.Errorf("%v %s.Dispatch() returned error %s", o.server.ServerIdentity, svc, err)
 			}
 		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
@@ -206,6 +212,8 @@ func (o *Overlay) addPendingTreeMarshal(tm *TreeMarshal) {
 // some pending ProtocolMessage messages using this tree. If there are, we can
 // make an instance of a protocolinstance and give it the message.
 func (o *Overlay) checkPendingMessages(t *Tree) {
+	// This goroutine has no recover because the underlying code should never panic
+	// and TransmitMsg does its own recovering
 	go func() {
 		o.pendingMsgLock.Lock()
 
@@ -552,6 +560,12 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 		return nil, err
 	}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("Panic in %s.Dispatch(): %v", name, r)
+			}
+		}()
+
 		err := pi.Dispatch()
 		if err != nil {
 			log.Errorf("%s.Dispatch() created in service %s returned error %s",
@@ -568,6 +582,12 @@ func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolIn
 		return nil, err
 	}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Errorf("Panic in %s.Start(): %v", name, r)
+			}
+		}()
+
 		err := pi.Start()
 		if err != nil {
 			log.Error("Error while starting:", err)

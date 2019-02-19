@@ -134,6 +134,77 @@ func TestOverlayDone(t *testing.T) {
 	}
 }
 
+type protocolCatastrophic struct {
+	*TreeNodeInstance
+
+	ChannelMsg chan WrapDummyMsg
+
+	done chan bool
+}
+
+func (po *protocolCatastrophic) Start() error {
+	panic("start panic")
+}
+
+func (po *protocolCatastrophic) Dispatch() error {
+	if !po.IsRoot() {
+		<-po.ChannelMsg
+
+		po.SendToParent(&DummyMsg{})
+
+		po.Done()
+		panic("dispatch panic")
+	}
+
+	err := po.SendToChildren(&DummyMsg{})
+	if err != nil {
+		return err
+	}
+
+	<-po.ChannelMsg
+	<-po.ChannelMsg
+	po.done <- true
+
+	po.Done()
+	panic("root dispatch panic")
+}
+
+// TestOverlayCatastrophicFailure checks if a panic during a protocol could
+// cause the server to crash
+func TestOverlayCatastrophicFailure(t *testing.T) {
+	log.OutputToBuf()
+	defer log.OutputToOs()
+
+	fn := func(n *TreeNodeInstance) (ProtocolInstance, error) {
+		ps := protocolCatastrophic{
+			TreeNodeInstance: n,
+			done:             make(chan bool),
+		}
+
+		err := ps.RegisterChannel(&ps.ChannelMsg)
+
+		return &ps, err
+	}
+	GlobalProtocolRegister("ProtocolCatastrophic", fn)
+	local := NewLocalTest(tSuite)
+	defer local.CloseAll()
+
+	h, _, tree := local.GenTree(3, true)
+	h1 := h[0]
+	pi, err := h1.StartProtocol("ProtocolCatastrophic", tree)
+	assert.NoError(t, err)
+
+	<-pi.(*protocolCatastrophic).done
+
+	// can't have a synchronisation and a panic so we wait for the panic to be handled
+	time.Sleep(1 * time.Second)
+
+	stderr := log.GetStdErr()
+	assert.Contains(t, stderr, "Start(): start panic")
+	assert.Contains(t, stderr, "Dispatch(): dispatch panic")
+	assert.Contains(t, stderr, "Dispatch(): root dispatch panic")
+}
+
 // Test when a peer receives a New Roster, it can create the trees that are
 // waiting on this specific entitiy list, to be constructed.
 func TestOverlayPendingTreeMarshal(t *testing.T) {
