@@ -419,6 +419,13 @@ func NewRoster(ids []*network.ServerIdentity) *Roster {
 		if err != nil {
 			log.Error(err)
 		}
+
+		for _, srvid := range id.ServiceIdentities {
+			_, err = srvid.Public.MarshalTo(h)
+			if err != nil {
+				log.Error(err)
+			}
+		}
 	}
 
 	r := &Roster{
