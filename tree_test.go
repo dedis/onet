@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -431,6 +432,22 @@ func TestTreeNode_SubtreeCount(t *testing.T) {
 	}
 }
 
+func TestRoster_ID(t *testing.T) {
+	names := genLocalhostPeerNames(10, 2000)
+	ro := genRoster(tSuite, names)
+	ro2 := NewRoster(ro.List)
+
+	assert.True(t, ro.ID.Equal(ro2.ID))
+
+	tt := []*network.ServerIdentity{}
+	for _, id := range ro.List {
+		tt = append(tt, network.NewServerIdentity(id.Public, id.Address))
+	}
+
+	ro3 := NewRoster(tt)
+	assert.False(t, ro3.ID.Equal(ro.ID))
+}
+
 func TestRoster_GenerateNaryTree(t *testing.T) {
 	names := genLocalhostPeerNames(10, 2000)
 	peerList := genRoster(tSuite, names)
@@ -666,13 +683,22 @@ func genLocalPeerName(nbrLocal, nbrPort int) []network.Address {
 }
 
 // genRoster generates a Roster out of names
-func genRoster(suite network.Suite, names []network.Address) *Roster {
+func genRoster(suite suites.Suite, names []network.Address) *Roster {
 	var ids []*network.ServerIdentity
 	for _, n := range names {
 		kp := key.NewKeyPair(suite)
-		ids = append(ids, network.NewServerIdentity(kp.Public, n))
+		srvid := network.NewServerIdentity(kp.Public, n)
+		srvid.ServiceIdentities = []network.ServiceIdentity{genServiceIdentity(suite)}
+
+		ids = append(ids, srvid)
 	}
 	return NewRoster(ids)
+}
+
+func genServiceIdentity(suite suites.Suite) network.ServiceIdentity {
+	kp := key.NewKeyPair(suite)
+
+	return network.NewServiceIdentityFromPair("ServiceTest", suite, kp)
 }
 
 func genLocalTree(count, port int) (*Tree, *Roster) {
