@@ -98,3 +98,13 @@ to start:
 
 You can contact us at https://groups.google.com/forum/#!forum/cothority or
 privately at dedis@epfl.ch.
+
+# Reporting security problems
+
+This library is offered as-is, and without a guarantee. It will need an
+independent security review before it should be considered ready for use in
+security-critical applications. If you integrate Onet into your application it
+is YOUR RESPONSIBILITY to arrange for that audit.
+
+If you notice a possible security problem, please report it
+to dedis-security@epfl.ch.
