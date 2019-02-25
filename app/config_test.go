@@ -46,6 +46,9 @@ var serverGroup = `Description = "Default Dedis Cothority"
 	[servers.Services.OnetConfigTestService]
 	Suite = "bn256.adapter"
 	Public = "593c700babf825b6056a2339ce437f73f717226a77d618a5e8f0251c00273b38557c3cda8dbde5431d062804275f8757a2c942d888ac09f2df34f806e35e660a3c6f13dc64a7cf112865807450ccbd9f75bb3aadb98599f7034cf377a9b976045df374f840e9ee617631257fc9611def6c7c2e5cf23f5ab36cf72f68f14b6686"
+	[servers.Services.abc]
+	Suite = "Ed25519"
+	Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
@@ -147,12 +150,15 @@ func TestParseCothority(t *testing.T) {
         Private = "%s"
         Address = "%s"
         ListenAddress = "%s"
-		Description = "%s"
+		    Description = "%s"
 		[services]
 			[services.%s]
 			suite = "bn256.adapter"
 			public = "%s"
-			private = "%s"`,
+			private = "%s"
+			[services.abc]
+			suite = "Ed25519"
+			public = "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"`,
 		suite, public, private, address, listenAddr,
 		description, testServiceName, scPublic, scPrivate)
 
@@ -172,6 +178,7 @@ func TestParseCothority(t *testing.T) {
 	require.Equal(t, address, cothConfig.Address.String())
 	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
+	require.Equal(t, 1, len(srv.ServerIdentity.ServiceIdentities))
 	require.Equal(t, "bn256.adapter", cothConfig.Services[testServiceName].Suite)
 	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
 	require.Equal(t, scPrivate, cothConfig.Services[testServiceName].Private)

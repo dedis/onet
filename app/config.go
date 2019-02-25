@@ -443,8 +443,9 @@ func parseServiceConfig(configs map[string]ServiceConfig) []network.ServiceIdent
 			// You might try to parse a toml file for a single service so
 			// you can ignore other pairs
 			log.Lvlf2("Service `%s` not registered. Ignoring the key pair.", name)
+		} else {
+			si = append(si, sid)
 		}
-		si = append(si, sid)
 	}
 
 	return si
