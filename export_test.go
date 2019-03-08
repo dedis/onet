@@ -8,11 +8,6 @@ func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	return c.overlay.StartProtocol(name, t, NilServiceID)
 }
 
-func (c *Server) Roster(id RosterID) (*Roster, bool) {
-	el := c.overlay.rosterCache.Get(id)
-	return el, el != nil
-}
-
 func (c *Server) GetTree(id TreeID) (*Tree, bool) {
 	t := c.overlay.treeCache.Get(id)
 	return t, t != nil
@@ -31,10 +26,4 @@ func (o *Overlay) TokenToNode(tok *Token) (*TreeNodeInstance, bool) {
 // Useful for unit-testing only.
 func (c *Server) AddTree(t *Tree) {
 	c.overlay.RegisterTree(t)
-}
-
-// AddRoster registers the given Roster in the underlying overlay.
-// Useful for unit-testing only.
-func (c *Server) AddRoster(el *Roster) {
-	c.overlay.RegisterRoster(el)
 }

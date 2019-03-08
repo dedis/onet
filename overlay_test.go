@@ -229,93 +229,39 @@ func TestOverlayPendingTreeMarshal(t *testing.T) {
 // i.e. Roster & Tree management.
 // Each type of message will be sent trhough the appropriate channel
 type overlayProc struct {
-	sendRoster  chan *Roster
-	treeMarshal chan *TreeMarshal
-	requestTree chan *RequestTree
+	sendRoster   chan *Roster
+	responseTree chan *ResponseTree
+	requestTree  chan *RequestTree
 }
 
 func newOverlayProc() *overlayProc {
 	return &overlayProc{
-		sendRoster:  make(chan *Roster, 1),
-		treeMarshal: make(chan *TreeMarshal, 1),
-		requestTree: make(chan *RequestTree, 1),
+		sendRoster:   make(chan *Roster, 1),
+		responseTree: make(chan *ResponseTree, 1),
+		requestTree:  make(chan *RequestTree, 1),
 	}
 }
 
 func (op *overlayProc) Process(env *network.Envelope) {
 	switch env.MsgType {
-	case SendRosterMsgID:
-		op.sendRoster <- env.Msg.(*Roster)
-	case TreeMarshalTypeID:
-		op.treeMarshal <- env.Msg.(*TreeMarshal)
+	case SendTreeMsgID:
+		op.responseTree <- env.Msg.(*ResponseTree)
 	case RequestTreeMsgID:
 		op.requestTree <- env.Msg.(*RequestTree)
 	}
 }
 
 func (op *overlayProc) Types() []network.MessageTypeID {
-	return []network.MessageTypeID{SendRosterMsgID, TreeMarshalTypeID}
-}
-
-// Test propagation of roster - both known and unknown
-func TestOverlayRosterPropagation(t *testing.T) {
-	local := NewLocalTest(tSuite)
-	hosts, el, _ := local.GenTree(2, false)
-	defer local.CloseAll()
-	h1 := hosts[0]
-	h2 := hosts[1]
-	proc := newOverlayProc()
-	h1.RegisterProcessor(proc, proc.Types()...)
-
-	// Check that h2 sends back an empty list if it is unknown
-	sentLen, err := h1.Send(h2.ServerIdentity, &RequestRoster{
-		RosterID: el.ID})
-	require.Nil(t, err, "Couldn't send message to h1")
-	require.NotZero(t, sentLen)
-
-	roster := <-proc.sendRoster
-	if !roster.ID.IsNil() {
-		t.Fatal("List should be empty")
-	}
-
-	// Now add the list to h2 and try again
-	h2.AddRoster(el)
-	sentLen, err = h1.Send(h2.ServerIdentity, &RequestRoster{RosterID: el.ID})
-	require.Nil(t, err, "Couldn't send message to h2")
-	require.NotZero(t, sentLen)
-
-	msg := <-proc.sendRoster
-	if !msg.ID.Equal(el.ID) {
-		t.Fatal("List should be equal to original list")
-	}
-
-	sentLen, err = h1.Send(h2.ServerIdentity, &RequestRoster{RosterID: el.ID})
-	require.Nil(t, err, "Couldn't send message to h2")
-	require.NotZero(t, sentLen)
-
-	// check if we receive the Roster then
-	ros := <-proc.sendRoster
-	packet := network.Envelope{
-		ServerIdentity: h2.ServerIdentity,
-		Msg:            ros,
-		MsgType:        SendRosterMsgID,
-	}
-	h1.overlay.Process(&packet)
-	list, ok := h1.Roster(el.ID)
-	assert.True(t, ok)
-	assert.Equal(t, list.ID, el.ID)
+	return []network.MessageTypeID{TreeMarshalTypeID}
 }
 
 // Test propagation of tree - both known and unknown
 func TestOverlayTreePropagation(t *testing.T) {
 	local := NewLocalTest(tSuite)
-	hosts, el, tree := local.GenTree(2, false)
+	hosts, _, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
 	h2 := hosts[1]
-	// Suppose both hosts have the list available, but not the tree
-	h1.AddRoster(el)
-	h2.AddRoster(el)
 
 	proc := newOverlayProc()
 	h1.RegisterProcessor(proc, SendTreeMsgID)
@@ -326,10 +272,12 @@ func TestOverlayTreePropagation(t *testing.T) {
 	require.Nil(t, err, "Couldn't send message to h2")
 	require.NotZero(t, sentLen)
 
-	msg := <-proc.treeMarshal
-	if !msg.RosterID.IsNil() {
-		t.Fatal("List should be empty")
-	}
+	/*
+		msg := <-proc.responseTree
+		if !msg.TreeMarshal.RosterID.IsNil() {
+			t.Fatal("List should be empty")
+		}
+	*/
 
 	// Now add the list to h2 and try again
 	h2.AddTree(tree)
@@ -337,16 +285,16 @@ func TestOverlayTreePropagation(t *testing.T) {
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
 
-	msg = <-proc.treeMarshal
-	assert.Equal(t, msg.TreeID, tree.ID)
+	msg := <-proc.responseTree
+	assert.Equal(t, msg.TreeMarshal.TreeID, tree.ID)
 
 	sentLen, err = h1.Send(h2.ServerIdentity, &RequestTree{TreeID: tree.ID})
 	require.Nil(t, err)
 	require.NotZero(t, sentLen)
 
 	// check if we receive the tree then
-	var tm *TreeMarshal
-	tm = <-proc.treeMarshal
+	var tm *ResponseTree
+	tm = <-proc.responseTree
 	packet := network.Envelope{
 		ServerIdentity: h2.ServerIdentity,
 		Msg:            tm,
@@ -370,13 +318,11 @@ func TestOverlayTreePropagation(t *testing.T) {
 // h2 respond with the entitylist
 func TestOverlayRosterTreePropagation(t *testing.T) {
 	local := NewLocalTest(tSuite)
-	hosts, el, tree := local.GenTree(2, false)
+	hosts, _, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
 	h2 := hosts[1]
 
-	// h2 knows the entity list
-	h2.AddRoster(el)
 	// and the tree
 	h2.AddTree(tree)
 	// make the communcation happen
@@ -385,11 +331,10 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	require.NotZero(t, sentLen)
 
 	proc := newOverlayProc()
-	h1.RegisterProcessor(proc, SendRosterMsgID)
 	h1.RegisterProcessor(proc, SendTreeMsgID)
 
 	// check if we have the tree
-	treeM := <-proc.treeMarshal
+	treeM := <-proc.responseTree
 
 	packet := network.Envelope{
 		ServerIdentity: h2.ServerIdentity,
@@ -398,25 +343,8 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	}
 	// give it to overlay
 	h1.overlay.Process(&packet)
-	// the tree should not be there because we don't have the Roster associated
-	// yet
-	if _, ok := h1.GetTree(tree.ID); ok {
-		t.Fatal("Tree should Not be there")
-	}
-	// check if we receive the Roster then
-	roster := <-proc.sendRoster
 
-	packet = network.Envelope{
-		ServerIdentity: h2.ServerIdentity,
-		Msg:            roster,
-		MsgType:        SendRosterMsgID,
-	}
-	h1.overlay.Process(&packet)
-
-	// check if we have the roster now  & the tree
-	if _, ok := h1.Roster(el.ID); !ok {
-		t.Fatal("Roster should be here")
-	}
+	// check if we have the tree
 	if _, ok := h1.GetTree(tree.ID); !ok {
 		t.Fatal("Tree should be there")
 	}

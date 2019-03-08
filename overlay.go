@@ -19,10 +19,7 @@ const cacheSize = 1000
 type Overlay struct {
 	server *Server
 
-	treeCache   *treeCacheTTL
-	rosterCache *rosterCacheTTL
-	// cache for relating token(~Node) to TreeNode
-	treeNodeCache *treeNodeCacheTTL
+	treeCache *treeCacheTTL
 
 	// TreeNodeInstance part
 	instances         map[TokenID]*TreeNodeInstance
@@ -57,8 +54,6 @@ func NewOverlay(c *Server) *Overlay {
 	o := &Overlay{
 		server:             c,
 		treeCache:          newTreeCache(expirationTime, cacheSize),
-		rosterCache:        newRosterCache(expirationTime, cacheSize),
-		treeNodeCache:      newTreeNodeCache(expirationTime, cacheSize),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
 		protocolInstances:  make(map[TokenID]ProtocolInstance),
@@ -68,12 +63,10 @@ func NewOverlay(c *Server) *Overlay {
 	o.protoIO = newMessageProxyStore(c.suite, c, o)
 	// messages going to protocol instances
 	c.RegisterProcessor(o,
-		ProtocolMsgID,      // protocol instance's messages
-		RequestTreeMsgID,   // request a tree
-		SendTreeMsgID,      // send a tree back to a request
-		RequestRosterMsgID, // request a roster
-		SendRosterMsgID,    // send a roster back to request
-		ConfigMsgID)        // fetch config information
+		ProtocolMsgID,    // protocol instance's messages
+		RequestTreeMsgID, // request a tree
+		SendTreeMsgID,    // send a tree back to a request
+		ConfigMsgID)      // fetch config information
 	return o
 }
 
@@ -96,12 +89,8 @@ func (o *Overlay) Process(env *network.Envelope) {
 	switch {
 	case info.RequestTree != nil:
 		o.handleRequestTree(env.ServerIdentity, info.RequestTree, io)
-	case info.TreeMarshal != nil:
-		o.handleSendTree(env.ServerIdentity, info.TreeMarshal, io)
-	case info.RequestRoster != nil:
-		o.handleRequestRoster(env.ServerIdentity, info.RequestRoster, io)
-	case info.Roster != nil:
-		o.handleSendRoster(env.ServerIdentity, info.Roster)
+	case info.ResponseTree != nil:
+		o.handleSendTree(env.ServerIdentity, info.ResponseTree, io)
 	default:
 		typ := network.MessageType(inner)
 		protoMsg := &ProtocolMsg{
@@ -300,21 +289,11 @@ func (o *Overlay) RegisterTree(t *Tree) {
 	o.checkPendingMessages(t)
 }
 
-// RegisterRoster puts an entityList in the map
-func (o *Overlay) RegisterRoster(r *Roster) {
-	o.rosterCache.Set(r)
-}
-
 // TreeNodeFromToken returns the treeNode corresponding to a token
 func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	if t == nil {
 		return nil, errors.New("didn't find tree-node: No token given")
 	}
-	// First, check the cache
-	if tn := o.treeNodeCache.GetFromToken(t); tn != nil {
-		return tn, nil
-	}
-	// If cache has not, then search the tree
 	tree := o.treeCache.Get(t.TreeID)
 	if tree == nil {
 		return nil, errors.New("didn't find tree")
@@ -323,8 +302,7 @@ func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	if tn == nil {
 		return nil, errors.New("didn't find treenode")
 	}
-	// Since we found treeNode, cache it.
-	o.treeNodeCache.Set(tree, tn)
+
 	return tn, nil
 }
 
@@ -341,19 +319,20 @@ func (o *Overlay) Tx() uint64 {
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
 	tid := req.TreeID
 	tree := o.treeCache.Get(tid)
-	var err error
-	var treeM *TreeMarshal
-	var msg interface{}
-	if tree != nil {
-		treeM = tree.MakeTreeMarshal()
-	} else {
+	if tree == nil {
 		// XXX Take care here for we must verify at the other side that
 		// the tree is Nil. Should we think of a way of sending back an
 		// "error" ?
-		treeM = (&Tree{}).MakeTreeMarshal()
+		log.Error("couldn't find the tree")
 	}
-	msg, err = io.Wrap(nil, &OverlayMsg{
-		TreeMarshal: treeM,
+
+	treeM := tree.MakeTreeMarshal()
+
+	msg, err := io.Wrap(nil, &OverlayMsg{
+		ResponseTree: &ResponseTree{
+			TreeMarshal: treeM,
+			Roster:      tree.Roster,
+		},
 	})
 
 	if err != nil {
@@ -367,76 +346,24 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 	}
 }
 
-func (o *Overlay) handleSendTree(si *network.ServerIdentity, tm *TreeMarshal, io MessageProxy) {
-	if tm.TreeID.IsNil() {
+func (o *Overlay) handleSendTree(si *network.ServerIdentity, rt *ResponseTree, io MessageProxy) {
+	if rt.TreeMarshal == nil || rt.TreeMarshal.TreeID.IsNil() {
 		log.Error("Received an empty Tree")
 		return
 	}
-	roster := o.rosterCache.Get(tm.RosterID)
-	// The roster does not exists, we should request that, too
-	if roster == nil {
-		msg, err := io.Wrap(nil, &OverlayMsg{
-			RequestRoster: &RequestRoster{tm.RosterID},
-		})
-		if err != nil {
-			log.Error("could not wrap RequestRoster:", err)
-		}
-		if _, err := o.server.Send(si, msg); err != nil {
-			log.Error("Requesting Roster in SendTree failed", err)
-		}
-		// put the tree marshal into pending queue so when we receive the
-		// entitylist we can create the real Tree.
-		o.addPendingTreeMarshal(tm)
+
+	if rt.Roster == nil {
+		log.Error("received an empty roster")
 		return
 	}
 
-	tree, err := tm.MakeTree(roster)
+	tree, err := rt.TreeMarshal.MakeTree(rt.Roster)
 	if err != nil {
 		log.Error("Couldn't create tree:", err)
 		return
 	}
 	log.Lvl4("Received new tree")
 	o.RegisterTree(tree)
-}
-
-func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRoster, io MessageProxy) {
-	id := req.RosterID
-	roster := o.rosterCache.Get(id)
-	var err error
-	var msg interface{}
-	if roster == nil {
-		// XXX Bad reaction to request...
-		log.Lvl2("Requested entityList that we don't have")
-		roster = &Roster{}
-	}
-
-	msg, err = io.Wrap(nil, &OverlayMsg{
-		Roster: roster,
-	})
-
-	if err != nil {
-		log.Error("error wraping up roster:", err)
-		return
-	}
-
-	_, err = o.server.Send(si, msg)
-	if err != nil {
-		log.Error("Couldn't send empty entity list from host:",
-			o.server.ServerIdentity.String(),
-			err)
-		return
-	}
-}
-
-func (o *Overlay) handleSendRoster(si *network.ServerIdentity, roster *Roster) {
-	if roster.ID.IsNil() {
-		log.Lvl2("Received an empty Roster")
-	} else {
-		o.RegisterRoster(roster)
-		// Check if some trees can be constructed from this entitylist
-		o.checkPendingTreeMarshal(roster)
-	}
-	log.Lvl4("Received new entityList")
 }
 
 // handleConfigMessage stores the config message so it can be dispatched
@@ -615,7 +542,6 @@ func (o *Overlay) NewTreeNodeInstanceFromProtocol(t *Tree, tn *TreeNode, protoID
 	}
 	tni := o.newTreeNodeInstanceFromToken(tn, tok, io)
 	o.RegisterTree(t)
-	o.RegisterRoster(t.Roster)
 	return tni
 }
 
@@ -632,7 +558,6 @@ func (o *Overlay) NewTreeNodeInstanceFromService(t *Tree, tn *TreeNode, protoID 
 	}
 	tni := o.newTreeNodeInstanceFromToken(tn, tok, io)
 	o.RegisterTree(t)
-	o.RegisterRoster(t.Roster)
 	return tni
 }
 
@@ -722,12 +647,8 @@ func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, e
 	switch true {
 	case info.RequestTree != nil:
 		returnMsg = info.RequestTree
-	case info.RequestRoster != nil:
-		returnMsg = info.RequestRoster
-	case info.TreeMarshal != nil:
-		returnMsg = info.TreeMarshal
-	case info.Roster != nil:
-		returnMsg = info.Roster
+	case info.ResponseTree != nil:
+		returnMsg = info.ResponseTree
 	default:
 		panic("overlay: default wrapper has nothing to wrap")
 	}
@@ -756,12 +677,8 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 		returnMsg = protoMsg
 	case *RequestTree:
 		returnOverlay.RequestTree = inner
-	case *RequestRoster:
-		returnOverlay.RequestRoster = inner
-	case *TreeMarshal:
-		returnOverlay.TreeMarshal = inner
-	case *Roster:
-		returnOverlay.Roster = inner
+	case *ResponseTree:
+		returnOverlay.ResponseTree = inner
 	default:
 		err = errors.New("default protoIO: unwraping an unknown message type")
 	}

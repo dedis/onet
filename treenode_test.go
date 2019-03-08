@@ -121,8 +121,6 @@ func TestConfigPropagation(t *testing.T) {
 			ProtocolMsgID,
 			RequestTreeMsgID,
 			SendTreeMsgID,
-			RequestRosterMsgID,
-			SendRosterMsgID,
 			ConfigMsgID)
 	}
 

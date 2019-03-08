@@ -12,14 +12,8 @@ var ProtocolMsgID = network.RegisterMessage(ProtocolMsg{})
 // RequestTreeMsgID of RequestTree message as registered in network
 var RequestTreeMsgID = network.RegisterMessage(RequestTree{})
 
-// RequestRosterMsgID of RequestRoster message as registered in network
-var RequestRosterMsgID = network.RegisterMessage(RequestRoster{})
-
 // SendTreeMsgID of TreeMarshal message as registered in network
-var SendTreeMsgID = TreeMarshalTypeID
-
-// SendRosterMsgID of Roster message as registered in network
-var SendRosterMsgID = RosterTypeID
+var SendTreeMsgID = network.RegisterMessage(ResponseTree{})
 
 // ConfigMsgID of the generic config message
 var ConfigMsgID = network.RegisterMessage(ConfigMsg{})
@@ -139,10 +133,8 @@ type TreeNodeInfo struct {
 type OverlayMsg struct {
 	TreeNodeInfo *TreeNodeInfo
 
-	RequestTree   *RequestTree
-	TreeMarshal   *TreeMarshal
-	RequestRoster *RequestRoster
-	Roster        *Roster
+	RequestTree  *RequestTree
+	ResponseTree *ResponseTree
 }
 
 // RequestTree is used to ask the parent for a given Tree
@@ -151,9 +143,10 @@ type RequestTree struct {
 	TreeID TreeID
 }
 
-// RequestRoster is used to ask the parent for a given Roster
-type RequestRoster struct {
-	RosterID RosterID
+// ResponseTree contains the information to build a tree
+type ResponseTree struct {
+	TreeMarshal *TreeMarshal
+	Roster      *Roster
 }
 
 // RosterUnknown is used in case the entity list is unknown
