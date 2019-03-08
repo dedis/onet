@@ -9,7 +9,7 @@ func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
 }
 
 func (c *Server) GetTree(id TreeID) (*Tree, bool) {
-	t := c.overlay.treeCache.Get(id)
+	t := c.overlay.treeStorage[id]
 	return t, t != nil
 }
 

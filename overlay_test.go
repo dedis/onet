@@ -205,26 +205,6 @@ func TestOverlayCatastrophicFailure(t *testing.T) {
 	assert.Contains(t, stderr, "Dispatch(): root dispatch panic")
 }
 
-// Test when a peer receives a New Roster, it can create the trees that are
-// waiting on this specific entitiy list, to be constructed.
-func TestOverlayPendingTreeMarshal(t *testing.T) {
-	local := NewLocalTest(tSuite)
-	hosts, el, tree := local.GenTree(2, false)
-	defer local.CloseAll()
-	h1 := hosts[0]
-
-	// Add the marshalled version of the tree
-	local.addPendingTreeMarshal(h1, tree.MakeTreeMarshal())
-	if _, ok := h1.GetTree(tree.ID); ok {
-		t.Fatal("host 1 should not have the tree definition yet.")
-	}
-	// Now make it check
-	local.checkPendingTreeMarshal(h1, el)
-	if _, ok := h1.GetTree(tree.ID); !ok {
-		t.Fatal("Host 1 should have the tree definition now.")
-	}
-}
-
 // overlayProc is a Processor which handles the management packet of Overlay,
 // i.e. Roster & Tree management.
 // Each type of message will be sent trhough the appropriate channel
