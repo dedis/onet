@@ -423,6 +423,13 @@ func (l *LocalTest) addPendingTreeMarshal(c *Server, tm *TreeMarshal) {
 	c.overlay.addPendingTreeMarshal(tm)
 }
 
+// checkPendingTreeMarshal looks whether there are any treeMarshals to be
+// called
+func (l *LocalTest) checkPendingTreeMarshal(c *Server, el *Roster) {
+	l.panicClosed()
+	c.overlay.checkPendingTreeMarshal(el)
+}
+
 // GetPrivate returns the private key of a server
 func (l *LocalTest) GetPrivate(c *Server) kyber.Scalar {
 	return c.private

@@ -12,8 +12,20 @@ var ProtocolMsgID = network.RegisterMessage(ProtocolMsg{})
 // RequestTreeMsgID of RequestTree message as registered in network
 var RequestTreeMsgID = network.RegisterMessage(RequestTree{})
 
+// ResponseTreeMsgID of TreeMarshal message as registered in network
+var ResponseTreeMsgID = network.RegisterMessage(ResponseTree{})
+
 // SendTreeMsgID of TreeMarshal message as registered in network
-var SendTreeMsgID = network.RegisterMessage(ResponseTree{})
+// Deprecated: use ResponseTreeMsgID
+var SendTreeMsgID = TreeMarshalTypeID
+
+// RequestRosterMsgID of RequestRoster message as registered in network
+// Deprecated: only the tree is sent, not anymore the roster
+var RequestRosterMsgID = network.RegisterMessage(RequestRoster{})
+
+// SendRosterMsgID of Roster message as registered in network
+// Deprecated: only the tree is sent, not anymore the roster
+var SendRosterMsgID = RosterTypeID
 
 // ConfigMsgID of the generic config message
 var ConfigMsgID = network.RegisterMessage(ConfigMsg{})
@@ -133,14 +145,28 @@ type TreeNodeInfo struct {
 type OverlayMsg struct {
 	TreeNodeInfo *TreeNodeInfo
 
+	// Deprecated: roster is not sent/requested anymore, only the tree
+	RequestRoster *RequestRoster
+	// Deprecated: roster is not sent/requested anymore, only the tree
+	Roster *Roster
+
 	RequestTree  *RequestTree
 	ResponseTree *ResponseTree
+	// Deprecated: use ResponseTree to send the tree and the roster
+	TreeMarshal *TreeMarshal
+}
+
+// RequestRoster is used to ask the parent for a given Roster
+type RequestRoster struct {
+	RosterID RosterID
 }
 
 // RequestTree is used to ask the parent for a given Tree
 type RequestTree struct {
 	// The treeID of the tree we want
 	TreeID TreeID
+	// Version of the request tree
+	Version uint32
 }
 
 // ResponseTree contains the information to build a tree

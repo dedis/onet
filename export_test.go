@@ -8,6 +8,16 @@ func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	return c.overlay.StartProtocol(name, t, NilServiceID)
 }
 
+func (c *Server) Roster(id RosterID) (*Roster, bool) {
+	for _, tree := range c.overlay.treeStorage {
+		if tree.Roster.ID.Equal(id) {
+			return tree.Roster, true
+		}
+	}
+
+	return nil, false
+}
+
 func (c *Server) GetTree(id TreeID) (*Tree, bool) {
 	t := c.overlay.treeStorage[id]
 	return t, t != nil
