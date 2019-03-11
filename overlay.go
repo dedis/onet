@@ -287,6 +287,14 @@ func (o *Overlay) savePendingMsg(onetMsg *ProtocolMsg, io MessageProxy) {
 func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, io MessageProxy) error {
 	o.savePendingMsg(onetMsg, io)
 
+	// try to prepare the message before locking the storage
+	msg, err := io.Wrap(nil, &OverlayMsg{
+		RequestTree: &RequestTree{TreeID: onetMsg.To.TreeID, Version: 1},
+	})
+	if err != nil {
+		return err
+	}
+
 	// granular lock because the following logic can be slow with the
 	// request
 	o.treeStorageLock.Lock()
@@ -300,19 +308,16 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 	o.treeStorage[onetMsg.To.TreeID] = nil
 	o.treeStorageLock.Unlock()
 
-	var msg interface{}
-	om := &OverlayMsg{
-		RequestTree: &RequestTree{TreeID: onetMsg.To.TreeID, Version: 1},
-	}
-	msg, err := io.Wrap(nil, om)
+	// no need to record sentLen because Overlay uses Server's CounterIO
+	_, err = o.server.Send(si, msg)
 	if err != nil {
+		o.treeStorageLock.Lock()
+		delete(o.treeStorage, onetMsg.To.TreeID)
+		o.treeStorageLock.Unlock()
 		return err
 	}
 
-	// no need to record sentLen because Overlay uses Server's CounterIO
-	_, err = o.server.Send(si, msg)
-	// TODO: delete treeID on error so it will be requested again
-	return err
+	return nil
 }
 
 // RegisterTree takes a tree and puts it in the map
@@ -367,6 +372,7 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 	treeM := tree.MakeTreeMarshal()
 
 	if req.Version == 0 {
+		log.Warnf("[DEPRECATION] got an old version of the RequestTree from %s", si)
 		o.handleRequestTreeDeprecated(si, treeM, io)
 		return
 	}
@@ -447,6 +453,7 @@ func (o *Overlay) handleSendTreeMarshal(si *network.ServerIdentity, tm *TreeMars
 	o.handleSendTree(si, rt, io)
 }
 
+// Receive a tree from a peer
 func (o *Overlay) handleSendTree(si *network.ServerIdentity, rt *ResponseTree, io MessageProxy) {
 	if rt.TreeMarshal == nil || rt.TreeMarshal.TreeID.IsNil() {
 		log.Error("received an empty tree")

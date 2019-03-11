@@ -348,6 +348,33 @@ func TestOverlayTreePropagation(t *testing.T) {
 	}
 }
 
+// Tests if a tree can be requested even after a failure
+func TestOverlayTreeFailure(t *testing.T) {
+	local := NewLocalTest(tSuite)
+	hosts, _, tree := local.GenTree(3, false)
+	defer local.CloseAll()
+
+	h1 := hosts[0]
+	h1.overlay.treeStorage[tree.ID] = nil
+	h2 := hosts[1]
+	h2.AddTree(tree)
+	h3 := hosts[2]
+	h3.Close()
+
+	proc := newOverlayProc()
+	h1.RegisterProcessor(proc, ResponseTreeMsgID)
+
+	_, err := h1.Send(h3.ServerIdentity, &RequestTree{TreeID: tree.ID, Version: 1})
+	require.NotNil(t, err)
+
+	_, err = h1.Send(h2.ServerIdentity, &RequestTree{TreeID: tree.ID, Version: 1})
+	require.Nil(t, err)
+
+	// check if we have the tree
+	treeM := <-proc.responseTree
+	require.NotNil(t, treeM)
+}
+
 // Tests a tree propagation with an unknown and known roster
 // Deprecated: check the deprecation is still working
 func TestOverlayRosterTreePropagation(t *testing.T) {
@@ -361,7 +388,7 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	// and the tree
 	h2.AddTree(tree)
 	// make the communcation happen
-	sentLen, err := h1.Send(h2.ServerIdentity, &RequestTree{TreeID: tree.ID, Version: 0})
+	sentLen, err := h1.Send(h2.ServerIdentity, &RequestTree{TreeID: tree.ID})
 	require.Nil(t, err, "Could not send tree request to host2")
 	require.NotZero(t, sentLen)
 
