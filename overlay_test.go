@@ -245,6 +245,8 @@ func TestOverlayTreePropagation(t *testing.T) {
 
 	proc := newOverlayProc()
 	h1.RegisterProcessor(proc, SendTreeMsgID)
+	// h1 needs to expect the tree
+	h1.Overlay().treeStorage[tree.ID] = nil
 	//h2.RegisterProcessor(proc, proc.Types()...)
 
 	// Check that h2 sends back an empty tree if it is unknown
@@ -301,6 +303,7 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	hosts, _, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
+	h1.Overlay().treeStorage[tree.ID] = nil
 	h2 := hosts[1]
 
 	// and the tree
