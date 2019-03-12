@@ -173,13 +173,17 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 }
 
 // Tree returns the tree of that node. Because the storage keeps the tree around
-// until the protocol is done, this will never return a nil value if the call
-// happens before the call of TreeNodeInstance.Done().
+// until the protocol is done, this will never return a nil value. It will panic
+// if the tree is nil.
 func (n *TreeNodeInstance) Tree() *Tree {
-	n.overlay.treeStorageLock.Lock()
-	defer n.overlay.treeStorageLock.Unlock()
+	tree := n.overlay.treeStorage.Get(n.token.TreeID)
+	if tree == nil {
+		panic("tree should never be nil when called during a protocol; " +
+			"it might be that Tree() has been called after Done() which " +
+			"is wrong or the tree has not correctly been passed.")
+	}
 
-	return n.overlay.treeStorage[n.token.TreeID]
+	return tree
 }
 
 // Roster returns the entity-list

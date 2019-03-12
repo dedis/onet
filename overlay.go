@@ -20,10 +20,7 @@ const globalProtocolTimeout = 10 * time.Minute
 type Overlay struct {
 	server *Server
 
-	treeStorage        map[TreeID]*Tree
-	treeStorageLock    sync.Mutex
-	treeStorageClosing chan bool
-	treeStorageCloser  sync.Once
+	treeStorage *treeStorage
 
 	// TreeNodeInstance part
 	instances         map[TokenID]*TreeNodeInstance
@@ -57,8 +54,7 @@ type Overlay struct {
 func NewOverlay(c *Server) *Overlay {
 	o := &Overlay{
 		server:             c,
-		treeStorage:        make(map[TreeID]*Tree),
-		treeStorageClosing: make(chan bool),
+		treeStorage:        newTreeStorage(globalProtocolTimeout),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
 		protocolInstances:  make(map[TokenID]ProtocolInstance),
@@ -131,9 +127,7 @@ func (o *Overlay) Process(env *network.Envelope) {
 // io is the messageProxy to use if a specific wireformat protocol is used.
 // It can be nil: in that case it fall backs to default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
-	o.treeStorageLock.Lock()
-	tree := o.treeStorage[onetMsg.To.TreeID]
-	o.treeStorageLock.Unlock()
+	tree := o.treeStorage.Get(onetMsg.To.TreeID)
 	if tree == nil {
 		// request anyway because we need to store the pending message
 		// the following routine will take care of requesting once
@@ -155,7 +149,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 	// if the TreeNodeInstance is not there, creates it
 	if !ok {
 		log.Lvlf4("Creating TreeNodeInstance at %s %x", o.server.ServerIdentity, onetMsg.To.ID())
-		tn, err := o.TreeNodeFromToken(onetMsg.To)
+		tn, err := o.TreeNodeFromTree(tree, onetMsg.To.TreeNodeID)
 		if err != nil {
 			return errors.New("No TreeNode defined in this tree here")
 		}
@@ -295,25 +289,18 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 		return err
 	}
 
-	// granular lock because the following logic can be slow with the
-	// request
-	o.treeStorageLock.Lock()
-	if _, ok := o.treeStorage[onetMsg.To.TreeID]; ok {
+	if o.treeStorage.IsRegistered(onetMsg.To.TreeID) {
 		// request already sent
-		o.treeStorageLock.Unlock()
 		return nil
 	}
 
 	// register the tree as known (can be stored)
-	o.treeStorage[onetMsg.To.TreeID] = nil
-	o.treeStorageLock.Unlock()
+	o.treeStorage.Register(onetMsg.To.TreeID)
 
 	// no need to record sentLen because Overlay uses Server's CounterIO
 	_, err = o.server.Send(si, msg)
 	if err != nil {
-		o.treeStorageLock.Lock()
-		delete(o.treeStorage, onetMsg.To.TreeID)
-		o.treeStorageLock.Unlock()
+		o.treeStorage.Unregister(onetMsg.To.TreeID)
 		return err
 	}
 
@@ -322,22 +309,28 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 
 // RegisterTree takes a tree and puts it in the map
 func (o *Overlay) RegisterTree(t *Tree) {
-	o.treeStorageLock.Lock()
-	o.treeStorage[t.ID] = t
-	o.treeStorageLock.Unlock()
+	o.treeStorage.Set(t)
 
 	o.checkPendingMessages(t)
 }
 
-// TreeNodeFromToken returns the treeNode corresponding to a token
-func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
-	o.treeStorageLock.Lock()
-	defer o.treeStorageLock.Unlock()
+// TreeNodeFromTree returns the treeNode corresponding to the id
+func (o *Overlay) TreeNodeFromTree(tree *Tree, id TreeNodeID) (*TreeNode, error) {
+	tn := tree.Search(id)
+	if tn == nil {
+		return nil, errors.New("didn't find treenode")
+	}
 
+	return tn, nil
+}
+
+// TreeNodeFromToken returns the treeNode corresponding to a token
+// Deprecated: only the overlay should create treeNodes but use TreeNodeFromTree if really
+func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	if t == nil {
 		return nil, errors.New("didn't find tree-node: No token given")
 	}
-	tree := o.treeStorage[t.TreeID]
+	tree := o.treeStorage.Get(t.TreeID)
 	if tree == nil {
 		return nil, errors.New("didn't find tree")
 	}
@@ -359,10 +352,9 @@ func (o *Overlay) Tx() uint64 {
 	return o.server.Tx()
 }
 
+// Send the tree or do nothing when it is not known
 func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree, io MessageProxy) {
-	o.treeStorageLock.Lock()
-	tree := o.treeStorage[req.TreeID]
-	o.treeStorageLock.Unlock()
+	tree := o.treeStorage.Get(req.TreeID)
 	if tree == nil {
 		// XXX Should we think of a way of sending back an "error" ?
 		log.Error("couldn't find the tree")
@@ -395,6 +387,7 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 	}
 }
 
+// Deprecated: a new handler has been written to handle RequestTree messages
 func (o *Overlay) handleRequestTreeDeprecated(si *network.ServerIdentity, tm *TreeMarshal, io MessageProxy) {
 	msg, err := io.Wrap(nil, &OverlayMsg{TreeMarshal: tm})
 	if err != nil {
@@ -415,11 +408,7 @@ func (o *Overlay) handleSendTreeMarshal(si *network.ServerIdentity, tm *TreeMars
 		return
 	}
 
-	o.treeStorageLock.Lock()
-	_, ok := o.treeStorage[tm.TreeID]
-	o.treeStorageLock.Unlock()
-
-	if !ok {
+	if !o.treeStorage.IsRegistered(tm.TreeID) {
 		// we only accept known trees to prevent a denial of service
 		// by filling up the storage
 		log.Error("ignoring unknown tree")
@@ -465,11 +454,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, rt *ResponseTree, i
 		return
 	}
 
-	o.treeStorageLock.Lock()
-	_, ok := o.treeStorage[rt.TreeMarshal.TreeID]
-	o.treeStorageLock.Unlock()
-
-	if !ok {
+	if !o.treeStorage.IsRegistered(rt.TreeMarshal.TreeID) {
 		// we only accept known trees to prevent a denial of service
 		// by filling up the storage
 		log.Error("ignoring unknown tree")
@@ -487,12 +472,7 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, rt *ResponseTree, i
 
 // Deprecated: roster is not sent anymore, only the tree
 func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRoster, io MessageProxy) {
-	var ro *Roster
-	for _, tree := range o.treeStorage {
-		if tree.Roster.ID.Equal(req.RosterID) {
-			ro = tree.Roster
-		}
-	}
+	ro := o.treeStorage.GetRoster(req.RosterID)
 
 	if ro == nil {
 		// XXX Bad reaction to request...
@@ -629,23 +609,8 @@ func (o *Overlay) cleanTreeStorage(token *Token) {
 		}
 	}
 
-	o.treeStorageLock.Lock()
-	defer o.treeStorageLock.Unlock()
-
 	if notUsed {
-		go func() {
-			select {
-			// other distant node instances of the protocol could ask for the tree even
-			// after we're done locally and then it needs to be kept around for some time
-			// TODO: could this be optimized ?!
-			case <-time.After(globalProtocolTimeout):
-				o.treeStorageLock.Lock()
-				delete(o.treeStorage, token.TreeID)
-				o.treeStorageLock.Unlock()
-			case <-o.treeStorageClosing:
-				return
-			}
-		}()
+		o.treeStorage.Remove(token.TreeID)
 	}
 }
 
@@ -655,17 +620,15 @@ func (o *Overlay) suite() network.Suite {
 
 // Close calls all nodes, deletes them from the list and closes them
 func (o *Overlay) Close() {
-	// force cleaning routines to shutdown
-	o.treeStorageCloser.Do(func() {
-		close(o.treeStorageClosing)
-	})
-
 	o.instancesLock.Lock()
 	defer o.instancesLock.Unlock()
 	for _, tni := range o.instances {
 		log.Lvl4(o.server.Address(), "Closing TNI", tni.TokenID())
 		o.nodeDelete(tni.Token())
 	}
+
+	// force cleaning routines to shutdown
+	o.treeStorage.Close()
 }
 
 // CreateProtocol creates a ProtocolInstance, registers it to the Overlay.

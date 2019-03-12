@@ -309,7 +309,7 @@ func TestOverlayTreePropagation(t *testing.T) {
 	proc := newOverlayProc()
 	h1.RegisterProcessor(proc, ResponseTreeMsgID)
 	// h1 needs to expect the tree
-	h1.Overlay().treeStorage[tree.ID] = nil
+	h1.Overlay().treeStorage.Register(tree.ID)
 
 	// Check that h2 does nothing and doesn't crash
 	sentLen, err := h1.Send(h2.ServerIdentity, &RequestTree{TreeID: tree.ID, Version: 1})
@@ -355,7 +355,7 @@ func TestOverlayTreeFailure(t *testing.T) {
 	defer local.CloseAll()
 
 	h1 := hosts[0]
-	h1.overlay.treeStorage[tree.ID] = nil
+	h1.overlay.treeStorage.Register(tree.ID)
 	h2 := hosts[1]
 	h2.AddTree(tree)
 	h3 := hosts[2]
@@ -382,7 +382,7 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	hosts, ro, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
-	h1.Overlay().treeStorage[tree.ID] = nil
+	h1.Overlay().treeStorage.Register(tree.ID)
 	h2 := hosts[1]
 
 	// and the tree
@@ -439,7 +439,7 @@ func TestOverlayRosterTreePropagation(t *testing.T) {
 	}
 
 	h1.overlay.instances[TokenID{}] = &TreeNodeInstance{overlay: h1.overlay, token: &Token{TreeID: tree.ID}}
-	h1.overlay.treeStorage[tree2.ID] = nil
+	h1.overlay.treeStorage.Register(tree2.ID)
 	h1.overlay.Process(&packet)
 	if _, ok := h1.GetTree(tree2.ID); !ok {
 		t.Fatal("Tree should be there")
@@ -459,7 +459,7 @@ func TestOverlayHandlersBadParameters(t *testing.T) {
 
 	h.overlay.handleSendTreeMarshal(h.ServerIdentity, &TreeMarshal{}, nil)
 	h.overlay.handleSendTreeMarshal(h.ServerIdentity, tree.MakeTreeMarshal(), nil)
-	require.Equal(t, 0, len(h.overlay.treeStorage))
+	require.Equal(t, 0, len(h.overlay.treeStorage.trees))
 
 	h.overlay.handleSendRoster(h.ServerIdentity, &Roster{})
 }
