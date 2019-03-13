@@ -35,7 +35,7 @@ func ReadTomlConfig(conf interface{}, filename string, dirOpt ...string) error {
 
 	_, err = toml.Decode(string(buf), conf)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("failed to parse " + filename + ": " + err.Error())
 	}
 
 	return nil

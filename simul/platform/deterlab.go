@@ -184,7 +184,7 @@ func (d *Deterlab) Build(build string, arg ...string) error {
 			}
 			if err != nil {
 				KillGo()
-				log.Lvl1(out)
+				log.Error(out)
 				log.Fatal(err)
 			}
 		}(p)
