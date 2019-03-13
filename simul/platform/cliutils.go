@@ -5,12 +5,10 @@ package platform
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"go.dedis.ch/onet/v3/log"
 )
@@ -100,9 +98,14 @@ func Build(path, out, goarch, goos string, buildArgs ...string) (string, error) 
 	buildBuffer := bufio.NewWriter(&b)
 	wd, _ := os.Getwd()
 	log.Lvl4("In directory", wd)
-	// we have to cd into the directory to do the build when using go
-	// modules, not sure about the exact reason for this behaviour yet
-	cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf("(cd %s && go build -v %s -o %s)", path, strings.Join(buildArgs, " "), out))
+	var args []string
+	args = append(args, "build", "-v")
+	args = append(args, buildArgs...)
+	args = append(args, "-o", out)
+	cmd = exec.Command("go", args...)
+	// we have to change the working directory to do the build when using
+	// go modules, not sure about the exact reason for this behaviour yet
+	cmd.Dir = path
 	log.Lvl4("Building", cmd.Args, "in", path)
 	cmd.Stdout = buildBuffer
 	cmd.Stderr = buildBuffer
