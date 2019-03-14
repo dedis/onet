@@ -325,7 +325,8 @@ func (o *Overlay) TreeNodeFromTree(tree *Tree, id TreeNodeID) (*TreeNode, error)
 }
 
 // TreeNodeFromToken returns the treeNode corresponding to a token
-// Deprecated: only the overlay should create treeNodes but use TreeNodeFromTree if really
+// Deprecated: only the overlay should create treeNodes but use
+// TreeNodeFromTree if you need to create one treeNode
 func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	if t == nil {
 		return nil, errors.New("didn't find tree-node: No token given")
@@ -599,7 +600,8 @@ func (o *Overlay) nodeDelete(token *Token) {
 }
 
 // checks if another instance is using the same tree and clean it
-// only if not
+// only if not. Note that this function assumes that o.instances
+// is locked (e.g. Overlay.nodeDone)
 func (o *Overlay) cleanTreeStorage(token *Token) {
 	notUsed := true
 	for _, inst := range o.instances {
