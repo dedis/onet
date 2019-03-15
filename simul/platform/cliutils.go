@@ -101,8 +101,11 @@ func Build(path, out, goarch, goos string, buildArgs ...string) (string, error) 
 	var args []string
 	args = append(args, "build", "-v")
 	args = append(args, buildArgs...)
-	args = append(args, "-o", out, path)
+	args = append(args, "-o", out)
 	cmd = exec.Command("go", args...)
+	// we have to change the working directory to do the build when using
+	// go modules, not sure about the exact reason for this behaviour yet
+	cmd.Dir = path
 	log.Lvl4("Building", cmd.Args, "in", path)
 	cmd.Stdout = buildBuffer
 	cmd.Stderr = buildBuffer
