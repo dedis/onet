@@ -364,7 +364,6 @@ func (s *SimulationBFTree) CreateTree(sc *SimulationConfig) error {
 // Node - standard registers the entityList and the Tree with that Overlay,
 // so we don't have to pass that around for the experiments.
 func (s *SimulationBFTree) Node(sc *SimulationConfig) error {
-	sc.Overlay.RegisterRoster(sc.Roster)
 	sc.Overlay.RegisterTree(sc.Tree)
 	return nil
 }

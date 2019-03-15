@@ -172,17 +172,23 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	return err
 }
 
-// Tree returns the tree of that node
+// Tree returns the tree of that node. Because the storage keeps the tree around
+// until the protocol is done, this will never return a nil value. It will panic
+// if the tree is nil.
 func (n *TreeNodeInstance) Tree() *Tree {
-	return n.overlay.treeCache.GetFromToken(n.token)
+	tree := n.overlay.treeStorage.Get(n.token.TreeID)
+	if tree == nil {
+		panic("tree should never be nil when called during a protocol; " +
+			"it might be that Tree() has been called after Done() which " +
+			"is wrong or the tree has not correctly been passed.")
+	}
+
+	return tree
 }
 
 // Roster returns the entity-list
 func (n *TreeNodeInstance) Roster() *Roster {
-	if t := n.Tree(); t != nil {
-		return t.Roster
-	}
-	return nil
+	return n.Tree().Roster
 }
 
 // Suite can be used to get the kyber.Suite associated with the service. It can
