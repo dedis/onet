@@ -432,6 +432,7 @@ func TestTreeNode_SubtreeCount(t *testing.T) {
 	}
 }
 
+// Deprecated: the ID should be gotten using GetID
 func TestRoster_ID(t *testing.T) {
 	names := genLocalhostPeerNames(10, 2000)
 	ro := genRoster(tSuite, names)
@@ -439,10 +440,37 @@ func TestRoster_ID(t *testing.T) {
 
 	assert.True(t, ro.ID.Equal(ro2.ID))
 
+	// check missing service identities
+	tt := []*network.ServerIdentity{}
+	for _, id := range ro.List {
+		tt = append(tt, network.NewServerIdentity(id.Public, id.Address))
+	}
+
+	ro3 := NewRoster(tt)
+	assert.False(t, ro3.ID.Equal(ro.ID))
+}
+
+func TestRoster_GetID(t *testing.T) {
+	names := genLocalhostPeerNames(10, 2000)
+	ro := genRoster(tSuite, names)
+	ro2 := NewRoster(ro.List)
+
+	roID, err := ro.GetID()
+	require.NoError(t, err)
+	ro2ID, err := ro2.GetID()
+	require.NoError(t, err)
+	require.True(t, roID.Equal(ro2ID))
+	ok, _ := ro.Equal(ro2)
+	require.True(t, ok)
+
 	// check unordered service identities
 	ro.List[0].ServiceIdentities[0], ro.List[0].ServiceIdentities[1] = ro.List[0].ServiceIdentities[1], ro.List[0].ServiceIdentities[0]
 	ro3 := NewRoster(ro.List)
-	assert.True(t, ro.ID.Equal(ro3.ID))
+	ro3ID, err := ro3.GetID()
+	require.NoError(t, err)
+	require.True(t, roID.Equal(ro3ID))
+	ok, _ = ro.Equal(ro3)
+	require.True(t, ok)
 
 	// check missing service identities
 	tt := []*network.ServerIdentity{}
@@ -451,7 +479,11 @@ func TestRoster_ID(t *testing.T) {
 	}
 
 	ro4 := NewRoster(tt)
-	assert.False(t, ro4.ID.Equal(ro.ID))
+	ro4ID, err := ro4.GetID()
+	require.NoError(t, err)
+	require.False(t, ro4ID.Equal(roID))
+	ok, _ = ro.Equal(ro4)
+	require.False(t, ok)
 }
 
 func TestRoster_GenerateNaryTree(t *testing.T) {
