@@ -120,6 +120,21 @@ func NewServiceIdentityFromPair(name string, suite suites.Suite, kp *key.Pair) S
 	return NewServiceIdentity(name, suite, kp.Public, kp.Private)
 }
 
+// ServiceIdentities provides definitions to sort the array by service name
+type ServiceIdentities []ServiceIdentity
+
+func (srvids ServiceIdentities) Len() int {
+	return len(srvids)
+}
+
+func (srvids ServiceIdentities) Swap(i, j int) {
+	srvids[i], srvids[j] = srvids[j], srvids[i]
+}
+
+func (srvids ServiceIdentities) Less(i, j int) bool {
+	return strings.Compare(srvids[i].Name, srvids[j].Name) == -1
+}
+
 // String returns a canonical representation of the ServerIdentityID.
 func (eId ServerIdentityID) String() string {
 	return uuid.UUID(eId).String()

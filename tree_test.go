@@ -439,13 +439,19 @@ func TestRoster_ID(t *testing.T) {
 
 	assert.True(t, ro.ID.Equal(ro2.ID))
 
+	// check unordered service identities
+	ro.List[0].ServiceIdentities[0], ro.List[0].ServiceIdentities[1] = ro.List[0].ServiceIdentities[1], ro.List[0].ServiceIdentities[0]
+	ro3 := NewRoster(ro.List)
+	assert.True(t, ro.ID.Equal(ro3.ID))
+
+	// check missing service identities
 	tt := []*network.ServerIdentity{}
 	for _, id := range ro.List {
 		tt = append(tt, network.NewServerIdentity(id.Public, id.Address))
 	}
 
-	ro3 := NewRoster(tt)
-	assert.False(t, ro3.ID.Equal(ro.ID))
+	ro4 := NewRoster(tt)
+	assert.False(t, ro4.ID.Equal(ro.ID))
 }
 
 func TestRoster_GenerateNaryTree(t *testing.T) {
@@ -688,17 +694,20 @@ func genRoster(suite suites.Suite, names []network.Address) *Roster {
 	for _, n := range names {
 		kp := key.NewKeyPair(suite)
 		srvid := network.NewServerIdentity(kp.Public, n)
-		srvid.ServiceIdentities = []network.ServiceIdentity{genServiceIdentity(suite)}
+		srvid.ServiceIdentities = []network.ServiceIdentity{
+			genServiceIdentity("ServiceTest", suite),
+			genServiceIdentity("AnotherServiceTest", suite),
+		}
 
 		ids = append(ids, srvid)
 	}
 	return NewRoster(ids)
 }
 
-func genServiceIdentity(suite suites.Suite) network.ServiceIdentity {
+func genServiceIdentity(name string, suite suites.Suite) network.ServiceIdentity {
 	kp := key.NewKeyPair(suite)
 
-	return network.NewServiceIdentityFromPair("ServiceTest", suite, kp)
+	return network.NewServiceIdentityFromPair(name, suite, kp)
 }
 
 func genLocalTree(count, port int) (*Tree, *Roster) {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
@@ -420,6 +421,7 @@ func NewRoster(ids []*network.ServerIdentity) *Roster {
 			log.Error(err)
 		}
 
+		sort.Sort(network.ServiceIdentities(id.ServiceIdentities))
 		for _, srvid := range id.ServiceIdentities {
 			_, err = srvid.Public.MarshalTo(h)
 			if err != nil {
