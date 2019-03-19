@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
@@ -377,6 +378,7 @@ func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, ro *Roster) (*TreeNode
 // A Roster is a list of ServerIdentity we choose to run some tree on it ( and
 // therefor some protocols). Access is not safe from multiple goroutines.
 type Roster struct {
+	// Deprecated: ID can be generated using the list of server identities. Use GetID instead.
 	ID RosterID
 	// List is the list of actual entities.
 	List      []*network.ServerIdentity
@@ -449,6 +451,28 @@ func NewRoster(ids []*network.ServerIdentity) *Roster {
 		r.Aggregate = agg
 	}
 	return r
+}
+
+// GetID generates the ID for the list of server identities of the roster
+func (ro *Roster) GetID() (RosterID, error) {
+	h := sha256.New()
+	for _, id := range ro.List {
+		_, err := id.Public.MarshalTo(h)
+		if err != nil {
+			return RosterID{}, err
+		}
+
+		// order is important for the hash
+		sort.Sort(network.ServiceIdentities(id.ServiceIdentities))
+		for _, srvid := range id.ServiceIdentities {
+			_, err = srvid.Public.MarshalTo(h)
+			if err != nil {
+				return RosterID{}, err
+			}
+		}
+	}
+
+	return RosterID(uuid.NewV5(uuid.NamespaceURL, hex.EncodeToString(h.Sum(nil)))), nil
 }
 
 // Search searches the Roster for the given ServerIdentityID and returns the
@@ -754,6 +778,21 @@ func (ro *Roster) Contains(pubs []kyber.Point) bool {
 	}
 
 	return true
+}
+
+// Equal checks if two roster are the same by checking the generated ID
+func (ro *Roster) Equal(other *Roster) (bool, error) {
+	roID, err := ro.GetID()
+	if err != nil {
+		return false, err
+	}
+
+	otherID, err := other.GetID()
+	if err != nil {
+		return false, err
+	}
+
+	return roID.Equal(otherID), nil
 }
 
 // Concat makes a new roster using an existing one and a list
