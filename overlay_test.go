@@ -201,7 +201,7 @@ func TestOverlayCatastrophicFailure(t *testing.T) {
 
 	stderr := log.GetStdErr()
 	assert.Contains(t, stderr, "Start(): start panic")
-	assert.Contains(t, stderr, "Dispatch(): dispatch panic")
+	assert.Contains(t, stderr, "Panic in call to protocol")
 	assert.Contains(t, stderr, "Dispatch(): root dispatch panic")
 }
 

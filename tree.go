@@ -14,7 +14,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	uuid "gopkg.in/satori/go.uuid.v1"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 // In this file we define the main structures used for a running protocol
@@ -515,6 +515,22 @@ func (ro *Roster) ServicePublics(name string) []kyber.Point {
 	}
 
 	return res
+}
+
+// ServiceAggregate returns the sum of all public keys of a given service. This
+// is often used as the aggregate public key.
+// If one or more of the service public keys are not present, it will return an error.
+func (ro Roster) ServiceAggregate(name string) (kyber.Point, error) {
+	for _, si := range ro.List {
+		if !si.HasServiceKeyPair(name) {
+			return nil, errors.New("not all nodes have this service keypair")
+		}
+	}
+	aggregate := ro.List[0].ServicePublic(name).Clone().Null()
+	for _, p := range ro.ServicePublics(name) {
+		aggregate.Add(aggregate, p)
+	}
+	return aggregate, nil
 }
 
 // GenerateBigNaryTree creates a tree where each node has N children.

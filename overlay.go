@@ -171,7 +171,8 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			defer func() {
 				if r := recover(); r != nil {
 					svc := ServiceFactory.Name(tni.Token().ServiceID)
-					log.Errorf("Panic in %v %s.Dispatch(): %v", svc, o.server.ServerIdentity, r)
+					log.Errorf("Panic in call to protocol <%s>.Dispatch() from service <%s> at address %s: %v",
+						tni.ProtocolName(), svc, o.server.ServerIdentity, r)
 				}
 			}()
 
