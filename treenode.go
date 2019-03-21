@@ -653,6 +653,18 @@ func (n *TreeNodeInstance) Public() kyber.Point {
 	return n.Host().ServerIdentity.ServicePublic(serviceName)
 }
 
+// Aggregate returns the sum of all public key of the roster for this TreeNodeInstance, either the specific
+// or the default if one or more of the nodes don't have the service-public key available.
+func (n *TreeNodeInstance) Aggregate() kyber.Point {
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+
+	agg, err := n.Roster().ServiceAggregate(serviceName)
+	if err != nil {
+		return n.Roster().Aggregate
+	}
+	return agg
+}
+
 // Publics makes a list of public keys for the service
 // associated with the instance
 func (n *TreeNodeInstance) Publics() []kyber.Point {
