@@ -78,6 +78,7 @@ func TestServiceIdentity(t *testing.T) {
 	kp2 := key.NewKeyPair(tSuite)
 	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", tSuite, pub, priv))
 	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentityFromPair("b", tSuite, kp2))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", tSuite, pub, nil))
 
 	require.Equal(t, pub, si.ServicePublic("a"))
 	require.Equal(t, priv, si.ServicePrivate("a"))
@@ -88,4 +89,9 @@ func TestServiceIdentity(t *testing.T) {
 	require.True(t, si.HasServiceKeyPair("a"))
 	require.True(t, si.HasServiceKeyPair("b"))
 	require.False(t, si.HasServiceKeyPair("c"))
+
+	require.True(t, si.HasServicePublic("a"))
+	require.True(t, si.HasServicePublic("b"))
+	require.False(t, si.HasServicePublic("c"))
+	require.True(t, si.HasServicePublic("d"))
 }

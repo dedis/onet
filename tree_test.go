@@ -648,6 +648,15 @@ func TestTreeNode_AggregatePublic(t *testing.T) {
 	}
 }
 
+func TestRoster_ServiceAggregate(t *testing.T) {
+	names := genLocalhostPeerNames(3, 2000)
+	ro := genRoster(tSuite, names)
+	_, err := ro.ServiceAggregate("unknown")
+	require.Error(t, err)
+	_, err = ro.ServiceAggregate("ServiceTest")
+	require.NoError(t, err)
+}
+
 // BenchmarkTreeMarshal will be the benchmark for the conversion between TreeMarshall and Tree
 func BenchmarkTreeMarshal(b *testing.B) {
 	tree, _ := genLocalTree(1000, 0)
