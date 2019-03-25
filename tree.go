@@ -522,7 +522,7 @@ func (ro *Roster) ServicePublics(name string) []kyber.Point {
 // If one or more of the service public keys are not present, it will return an error.
 func (ro Roster) ServiceAggregate(name string) (kyber.Point, error) {
 	for _, si := range ro.List {
-		if !si.HasServiceKeyPair(name) {
+		if !si.HasServicePublic(name) {
 			return nil, errors.New("not all nodes have this service keypair")
 		}
 	}

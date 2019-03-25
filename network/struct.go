@@ -236,6 +236,17 @@ func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
 	return false
 }
 
+// HasServicePublic returns true if the public key is
+// generated for the given service. The default public key is ignored.
+func (si *ServerIdentity) HasServicePublic(name string) bool {
+	for _, srvid := range si.ServiceIdentities {
+		if srvid.Name == name && srvid.Public != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // Toml converts an ServerIdentity to a Toml-structure
 func (si *ServerIdentity) Toml(suite Suite) *ServerIdentityToml {
 	var buf bytes.Buffer
