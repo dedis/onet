@@ -2,6 +2,8 @@ package network
 
 import (
 	"crypto/rand"
+	"go.dedis.ch/kyber/v3/pairing"
+	"go.dedis.ch/kyber/v3/pairing/bn256"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -81,16 +83,21 @@ func TestUnmarshalRegister(t *testing.T) {
 }
 
 func TestMarshalKyberTypes(t *testing.T) {
-	bn256 := suites.MustFind("bn256.adapter")
-	ed25519 := suites.MustFind("Ed25519")
-
 	RegisterMessages(&TestRegisterS3{})
+	testMKT(t, pairing.NewSuiteBn256())
+	testMKT(t, bn256.NewSuiteG1())
+	testMKT(t, bn256.NewSuiteG2())
+	testMKT(t, bn256.NewSuiteGT())
+}
+
+func testMKT(t *testing.T, s kyber.Group) {
+	ed25519 := suites.MustFind("Ed25519")
 
 	obj := &TestRegisterS3{
 		P1: ed25519.Point(),
-		P2: bn256.Point(),
+		P2: s.Point(),
 		C1: TestContainer1{P: ed25519.Point(), S: ed25519.Scalar()},
-		C2: TestContainer2{P: bn256.Point(), S: bn256.Scalar()},
+		C2: TestContainer2{P: s.Point(), S: s.Scalar()},
 	}
 
 	buff, err := Marshal(obj)

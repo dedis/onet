@@ -4,22 +4,26 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"go.dedis.ch/kyber/v3/pairing/bn256"
+	"go.dedis.ch/kyber/v3/suites"
 	"reflect"
 	"sync"
 
 	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/protobuf"
-	uuid "gopkg.in/satori/go.uuid.v1"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {
-	bn256 := suites.MustFind("bn256.adapter")
-	ed25519 := suites.MustFind("Ed25519")
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteG1().Point() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteG1().Scalar() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteG2().Point() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteG2().Scalar() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteGT().Point() })
+	protobuf.RegisterInterface(func() interface{} { return bn256.NewSuiteGT().Scalar() })
 
-	protobuf.RegisterInterface(func() interface{} { return bn256.Point() })
-	protobuf.RegisterInterface(func() interface{} { return bn256.Scalar() })
+	ed25519 := suites.MustFind("Ed25519")
 	protobuf.RegisterInterface(func() interface{} { return ed25519.Point() })
 	protobuf.RegisterInterface(func() interface{} { return ed25519.Scalar() })
 }
