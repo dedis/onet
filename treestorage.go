@@ -11,6 +11,7 @@ type treeStorage struct {
 	wg            sync.WaitGroup
 	trees         map[TreeID]*Tree
 	cancellations map[TreeID]chan struct{}
+	closed        bool
 }
 
 func newTreeStorage(t time.Duration) *treeStorage {
@@ -18,6 +19,7 @@ func newTreeStorage(t time.Duration) *treeStorage {
 		timeout:       t,
 		trees:         make(map[TreeID]*Tree),
 		cancellations: make(map[TreeID]chan struct{}),
+		closed:        false,
 	}
 }
 
@@ -76,6 +78,11 @@ func (ts *treeStorage) Remove(id TreeID) {
 	ts.Lock()
 	defer ts.Unlock()
 
+	if ts.closed {
+		// server is closing so we avoid creating new goroutines
+		return
+	}
+
 	_, ok := ts.cancellations[id]
 	if ok {
 		// already planned to be removed
@@ -124,6 +131,9 @@ func (ts *treeStorage) GetRoster(id RosterID) *Roster {
 func (ts *treeStorage) Close() {
 	ts.Lock()
 	defer ts.Unlock()
+
+	// prevent further call to remove because the server is closing anyway
+	ts.closed = true
 
 	for k, c := range ts.cancellations {
 		c <- struct{}{}

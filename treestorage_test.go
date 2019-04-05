@@ -104,6 +104,9 @@ func TestTreeStorage_Close(t *testing.T) {
 	// make sure several calls are ok
 	store.Close()
 
+	// this should not create a new goroutine
+	store.Remove(trees[0].ID)
+
 	checkLeakingGoroutines(t)
 }
 
