@@ -77,8 +77,8 @@ Mininet has support for setting up delays and bandwidth for each simulation.
 You can use the following two variables:
 - `Delay`[ms] - the delay between two hosts - the round-trip delay will be
 the double of this
-- `Bandwidth`[MBps] - the bandwidth in both sending and receiving direction
-for each host
+- `Bandwidth`[Mbps] - the bandwidth in both sending and receiving direction
+for each host, measured in mega bits per second
 
 You can put these variables either globally at the top of the .toml file or
 set them up for each line in the experiment (see the exapmles below).
