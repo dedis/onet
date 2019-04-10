@@ -85,7 +85,7 @@ type ServerIdentity struct {
 	private kyber.Scalar
 	// The URL where the WebSocket interface can be found. (If not set, then default is http, on port+1.)
 	// optional
-	URL string
+	URL string `protobuf:"opt"`
 }
 
 // ServerIdentityID uniquely identifies an ServerIdentity struct

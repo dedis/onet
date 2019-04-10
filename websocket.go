@@ -17,7 +17,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
-	"gopkg.in/tylerb/graceful.v1"
+	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
 // WebSocket handles incoming client-requests using the websocket
@@ -324,7 +324,10 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			} else {
 				u.Scheme = "ws"
 			}
-			u.Path += "/" + c.service + "/" + path
+			if !strings.HasSuffix(u.Path, "/") {
+				u.Path += "/"
+			}
+			u.Path += c.service + "/" + path
 			serverURL = u.String()
 			header = http.Header{"Origin": []string{dst.URL}}
 		} else {
