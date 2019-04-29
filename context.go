@@ -253,7 +253,11 @@ func (c *Context) SaveVersion(version int) error {
 // Additionally, the user should not create buckets directly on the DB but always
 // call this function to create new buckets to avoid bucket name conflicts.
 func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
-	fullName := append(append(c.bucketName, byte('_')), name...)
+	// make a copy to insure c.bucketName is not written
+	bucketName := make([]byte, len(c.bucketName))
+	copy(bucketName, c.bucketName)
+
+	fullName := append(append(bucketName, byte('_')), name...)
 	err := c.manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(fullName)
 		if err != nil {
