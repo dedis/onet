@@ -25,6 +25,7 @@ import (
 // - Address: The external address of the conode, used by others to connect to this one
 // - ListenAddress: The address this conode is listening on
 // - Description: The description
+// - URL: The URL where this server can be contacted externally.
 // - WebSocketTLSCertificate: TLS certificate for the WebSocket
 // - WebSocketTLSCertificateKey: TLS certificate key for the WebSocket
 type CothorityConfig struct {
@@ -35,6 +36,7 @@ type CothorityConfig struct {
 	Address                    network.Address
 	ListenAddress              string
 	Description                string
+	URL                        string
 	WebSocketTLSCertificate    CertificateURL
 	WebSocketTLSCertificateKey CertificateURL
 }
@@ -64,38 +66,64 @@ func (hc *CothorityConfig) Save(file string) error {
 	return nil
 }
 
-// ParseCothority parses the config file into a CothorityConfig.
-// It returns the CothorityConfig, the Host so we can already use it, and an error if
-// the file is inaccessible or has wrong values in it.
-func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
+// LoadCothority loads a conode config from the given file.
+func LoadCothority(file string) (*CothorityConfig, error) {
 	hc := &CothorityConfig{}
 	_, err := toml.DecodeFile(file, hc)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Backwards compatibility with configs before we included the suite name
 	if hc.Suite == "" {
 		hc.Suite = "Ed25519"
 	}
+	return hc, nil
+}
+
+// GetServerIdentity will convert a CothorityConfig into a *network.ServerIdentity.
+// It can give an error if there is a problem parsing the strings from the CothorityConfig.
+func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) {
 	suite, err := suites.Find(hc.Suite)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Try to decode the Hex values
 	private, err := encoding.StringHexToScalar(suite, hc.Private)
 	if err != nil {
-		return nil, nil, fmt.Errorf("parsing private key: %v", err)
+		return nil, fmt.Errorf("parsing private key: %v", err)
 	}
 	point, err := encoding.StringHexToPoint(suite, hc.Public)
 	if err != nil {
-		return nil, nil, fmt.Errorf("parsing public key: %v", err)
+		return nil, fmt.Errorf("parsing public key: %v", err)
 	}
 	si := network.NewServerIdentity(point, hc.Address)
 	si.SetPrivate(private)
 	si.Description = hc.Description
 	si.ServiceIdentities = parseServiceConfig(hc.Services)
+	si.URL = hc.URL
+
+	return si, nil
+}
+
+// ParseCothority parses the config file into a CothorityConfig.
+// It returns the CothorityConfig, the Host so we can already use it, and an error if
+// the file is inaccessible or has wrong values in it.
+func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
+	hc, err := LoadCothority(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	suite, err := suites.Find(hc.Suite)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	si, err := hc.GetServerIdentity()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
 	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
