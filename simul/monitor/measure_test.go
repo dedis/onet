@@ -7,8 +7,10 @@ import (
 )
 
 type DummyCounterIO struct {
-	rvalue uint64
-	wvalue uint64
+	rvalue    uint64
+	wvalue    uint64
+	msgrvalue uint64
+	msgwvalue uint64
 }
 
 func (dm *DummyCounterIO) Rx() uint64 {
@@ -21,9 +23,19 @@ func (dm *DummyCounterIO) Tx() uint64 {
 	return dm.wvalue
 }
 
+func (dm *DummyCounterIO) MsgRx() uint64 {
+	dm.msgrvalue++
+	return dm.msgrvalue
+}
+
+func (dm *DummyCounterIO) MsgTx() uint64 {
+	dm.msgwvalue++
+	return dm.msgwvalue
+}
+
 func TestCounterIOMeasureRecord(t *testing.T) {
 	mon, _ := setupMonitor(t)
-	dm := &DummyCounterIO{0, 0}
+	dm := &DummyCounterIO{0, 0, 0, 0}
 	// create the counter measure
 	cm := NewCounterIOMeasure("dummy", dm)
 	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
@@ -54,6 +66,13 @@ func TestCounterIOMeasureRecord(t *testing.T) {
 	}
 	if re == nil || re.Avg() != 10 {
 		t.Fatal("Stats doesn't have the right value (read)")
+	}
+	mwr, mre := stat.Value("dummy_msg_tx"), stat.Value("dummy_msg_rx")
+	if mwr == nil || mwr.Avg() != 1 {
+		t.Fatal("Stats doesn't have the right value (msg written)")
+	}
+	if mre == nil || mre.Avg() != 1 {
+		t.Fatal("Stats doesn't have the right value (msg read)")
 	}
 	EndAndCleanup()
 	time.Sleep(100 * time.Millisecond)

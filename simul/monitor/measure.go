@@ -141,32 +141,40 @@ func (tm *TimeMeasure) reset() {
 // CounterIO is an interface that can be used to count how many bytes does an
 // object have written and how many bytes does it have read. For example it is
 // implemented by cothority/network/ Conn  + Host to know how many bytes a
-// connection / Host has written /read
+// connection / Host has written /read.
 type CounterIO interface {
-	// Rx returns the number of bytes read by this interface
+	// Rx returns the number of bytes read by this interface.
 	Rx() uint64
-	// Tx returns the number of bytes transmitted / written by this interface
+	// Tx returns the number of bytes transmitted / written by this interface.
 	Tx() uint64
+	// MsgRx returns the number of messages read by this interface.
+	MsgRx() uint64
+	// MsgTx returns the number of messages transmitted / written by this interface.
+	MsgTx() uint64
 }
 
 // CounterIOMeasure is a struct that takes a CounterIO and can send the
 // measurements to the monitor. Each time Record() is called, the measurements
 // are put back to 0 (while the CounterIO still sends increased bytes number).
 type CounterIOMeasure struct {
-	name    string
-	counter CounterIO
-	baseTx  uint64
-	baseRx  uint64
+	name      string
+	counter   CounterIO
+	baseTx    uint64
+	baseRx    uint64
+	baseMsgTx uint64
+	baseMsgRx uint64
 }
 
 // NewCounterIOMeasure returns an CounterIOMeasure fresh. The base value are set
-// to the current value of counter.Rx() and counter.Tx()
+// to the current value of counter.Rx() and counter.Tx().
 func NewCounterIOMeasure(name string, counter CounterIO) *CounterIOMeasure {
 	return &CounterIOMeasure{
-		name:    name,
-		counter: counter,
-		baseTx:  counter.Tx(),
-		baseRx:  counter.Rx(),
+		name:      name,
+		counter:   counter,
+		baseTx:    counter.Tx(),
+		baseRx:    counter.Rx(),
+		baseMsgTx: counter.MsgTx(),
+		baseMsgRx: counter.MsgRx(),
 	}
 }
 
@@ -182,13 +190,22 @@ func (cm *CounterIOMeasure) Record() {
 	bTx := cm.counter.Tx()
 	written := newSingleMeasure(cm.name+"_tx", float64(bTx-cm.baseTx))
 
-	// send them both
+	bMsgRx := cm.counter.MsgRx()
+	readMsg := newSingleMeasure(cm.name+"_msg_rx", float64(bMsgRx-cm.baseMsgRx))
+	bMsgTx := cm.counter.MsgTx()
+	writtenMsg := newSingleMeasure(cm.name+"_msg_tx", float64(bMsgTx-cm.baseMsgTx))
+
+	// send them
 	read.Record()
 	written.Record()
+	readMsg.Record()
+	writtenMsg.Record()
 
 	// reset counters
 	cm.baseRx = bRx
 	cm.baseTx = bTx
+	cm.baseMsgRx = bMsgRx
+	cm.baseMsgTx = bMsgTx
 }
 
 // Send transmits the given struct over the network.
