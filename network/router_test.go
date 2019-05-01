@@ -537,6 +537,10 @@ func TestRouterRxTx(t *testing.T) {
 		return len(router1.connections[si2]) == 0
 	})
 	require.Equal(t, rx, router1.Rx())
+	require.Equal(t, uint64(1), router1.MsgRx())
+	require.Equal(t, uint64(0), router1.MsgTx())
+	require.Equal(t, uint64(1), router2.MsgTx())
+	require.Equal(t, uint64(0), router2.MsgRx())
 	defer router1.Stop()
 }
 

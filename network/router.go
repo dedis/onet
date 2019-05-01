@@ -49,7 +49,8 @@ type Router struct {
 	connectionErrorHandlers []func(*ServerIdentity)
 
 	// keep bandwidth of closed connections
-	traffic counterSafe
+	traffic    counterSafe
+	msgTraffic counterSafe
 	// If paused is not nil, then handleConn will stop processing. When unpaused
 	// it will break the connection. This is for testing node failure cases.
 	paused chan bool
@@ -170,6 +171,9 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 	if msg == nil {
 		return 0, errors.New("Can't send nil-packet")
 	}
+
+	// Update the message counter with the new message about to be sent.
+	r.msgTraffic.updateTx(1)
 
 	// If sending to ourself, directly dispatch it
 	if e.ID.Equal(r.ServerIdentity.ID) {
@@ -337,6 +341,9 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 
 		packet.ServerIdentity = remote
 
+		// Update the message counter with the new message about to be processed.
+		r.msgTraffic.updateRx(1)
+
 		if err := r.Dispatch(packet); err != nil {
 			log.Lvl3("Error dispatching:", err)
 		}
@@ -421,6 +428,18 @@ func (r *Router) Rx() uint64 {
 	}
 	rx += r.traffic.Rx()
 	return rx
+}
+
+// MsgTx implements monitor/CounterIO.
+// It returns the number of messages transmitted by the interface.
+func (r *Router) MsgTx() uint64 {
+	return r.msgTraffic.Tx()
+}
+
+// MsgRx implements monitor/CounterIO.
+// It returns the number of messages received by the interface.
+func (r *Router) MsgRx() uint64 {
+	return r.msgTraffic.Rx()
 }
 
 // Listening returns true if this router is started.
