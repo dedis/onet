@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -102,7 +103,19 @@ func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) 
 	si.SetPrivate(private)
 	si.Description = hc.Description
 	si.ServiceIdentities = parseServiceConfig(hc.Services)
-	si.URL = hc.URL
+	if hc.WebSocketTLSCertificateKey != "" {
+		if hc.URL != "" {
+			si.URL = strings.Replace(hc.URL, "http://", "https://", 0)
+		} else {
+			p, err := strconv.Atoi(si.Address.Port())
+			if err != nil {
+				return nil, err
+			}
+			si.URL = fmt.Sprintf("https://%s:%d", si.Address.Host(), p+1)
+		}
+	} else {
+		si.URL = hc.URL
+	}
 
 	return si, nil
 }
