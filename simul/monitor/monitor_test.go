@@ -41,6 +41,8 @@ func TestReadyNormal(t *testing.T) {
 	if updated == fresh {
 		t.Fatal("Stats not updated ?")
 	}
+
+	mon.Stop()
 }
 
 func TestKeyOrder(t *testing.T) {

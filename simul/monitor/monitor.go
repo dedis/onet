@@ -48,7 +48,8 @@ type Monitor struct {
 	mutexConn sync.Mutex
 
 	// Current stats
-	stats *Stats
+	stats   *Stats
+	buckets *BucketStats
 
 	// channel to give new measures
 	measures chan *singleMeasure
@@ -66,12 +67,19 @@ func NewMonitor(stats *Stats) *Monitor {
 	return &Monitor{
 		conns:        make(map[string]net.Conn),
 		stats:        stats,
+		buckets:      newBucketStats(),
 		SinkPort:     DefaultSinkPort,
 		measures:     make(chan *singleMeasure),
 		done:         make(chan string),
 		listenerLock: new(sync.Mutex),
 		sinkPortChan: make(chan uint16, 1),
 	}
+}
+
+// InsertBucket creates a bucket at the given index that will use the rules
+// to filter the incoming measures
+func (m *Monitor) InsertBucket(index int, rules []string, stats *Stats) {
+	m.buckets.Set(index, rules, stats)
 }
 
 // Listen will start listening for incoming connections on this address
@@ -164,7 +172,6 @@ func (m *Monitor) Stop() {
 		}
 	}
 	m.mutexConn.Unlock()
-
 }
 
 // handleConnection will decode the data received and aggregates it into its
@@ -201,9 +208,11 @@ func (m *Monitor) handleConnection(conn net.Conn) {
 	m.done <- conn.RemoteAddr().String()
 }
 
-// updateMeasures will add that specific measure to the global stats
-// in a concurrently safe manner
+// updateBucket will add that specific measure to all the bucket
+// that match the network address.
 func (m *Monitor) update(meas *singleMeasure) {
-	// updating
+	// global stats
 	m.stats.Update(meas)
+	// per bucket stats if defined
+	m.buckets.Update(meas)
 }

@@ -53,7 +53,8 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		server := sc.Server
 		log.Lvl3(serverAddress, "Starting server", server.ServerIdentity.Address)
 		if measureNodeBW {
-			measures[i] = monitor.NewCounterIOMeasure("bandwidth", server)
+			hostIndex, _ := sc.Roster.Search(server.ServerIdentity.ID)
+			measures[i] = monitor.NewCounterIOMeasureWithHost("bandwidth", server, hostIndex)
 		}
 		// Launch a server and notifies when it's done
 		wgServer.Add(1)

@@ -2,6 +2,7 @@ package simul
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -116,25 +117,19 @@ func RunTests(deployP platform.Platform, name string, runconfigs []*platform.Run
 	}
 
 	mkTestDir()
-	var f *os.File
 	args := os.O_CREATE | os.O_RDWR | os.O_TRUNC
 	// If a range is given, we only append
 	if simRange != "" {
 		args = os.O_CREATE | os.O_RDWR | os.O_APPEND
 	}
-	f, err := os.OpenFile(testFile(name), args, 0660)
-	if err != nil {
-		log.Fatal("error opening test file:", err)
-	}
+	files := []*os.File{}
 	defer func() {
-		if err := f.Close(); err != nil {
-			log.Error("Couln't close", f.Name())
+		for _, f := range files {
+			if err := f.Close(); err != nil {
+				log.Error("Couln't close", f.Name())
+			}
 		}
 	}()
-	err = f.Sync()
-	if err != nil {
-		log.Fatal("error syncing test file:", err)
-	}
 
 	start, stop := getStartStop(len(runconfigs))
 	for i, rc := range runconfigs {
@@ -152,46 +147,80 @@ func RunTests(deployP platform.Platform, name string, runconfigs []*platform.Run
 			log.Error("Error running test:", err)
 			continue
 		}
-		log.Lvl1("Test results:", stats)
+		log.Lvl1("Test results:", stats[0])
 
-		if i == 0 {
-			stats.WriteHeader(f)
-		}
-		if rc.Get("IndividualStats") != "" {
-			err := stats.WriteIndividualStats(f)
-			log.ErrFatal(err)
-		} else {
-			stats.WriteValues(f)
-		}
-		err = f.Sync()
-		if err != nil {
-			log.Fatal("error syncing data to test file:", err)
+		for j, bucketStat := range stats {
+			if j >= len(files) {
+				f, err := os.OpenFile(testFile(name, j), args, 0660)
+				if err != nil {
+					log.Fatal("error opening test file:", err)
+				}
+				err = f.Sync()
+				if err != nil {
+					log.Fatal("error syncing test file:", err)
+				}
+
+				files = append(files, f)
+			}
+			f := files[j]
+
+			if i == 0 {
+				bucketStat.WriteHeader(f)
+			}
+			if rc.Get("IndividualStats") != "" {
+				err := bucketStat.WriteIndividualStats(f)
+				log.ErrFatal(err)
+			} else {
+				bucketStat.WriteValues(f)
+			}
+			err = f.Sync()
+			if err != nil {
+				log.Fatal("error syncing data to test file:", err)
+			}
 		}
 	}
 }
 
 // RunTest a single test - takes a test-file as a string that will be copied
 // to the deterlab-server
-func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats, error) {
+func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stats, error) {
 	CheckHosts(rc)
 	rc.Delete("simulation")
-	rs := monitor.NewStats(rc.Map(), "hosts", "bf")
+	stats := []*monitor.Stats{
+		// this is the global bucket
+		monitor.NewStats(rc.Map(), "hosts", "bf"),
+	}
 
 	if err := deployP.Cleanup(); err != nil {
 		log.Error(err)
-		return rs, err
+		return nil, err
 	}
 
 	if err := deployP.Deploy(rc); err != nil {
 		log.Error(err)
-		return rs, err
+		return nil, err
 	}
 
-	monitor := monitor.NewMonitor(rs)
-	monitor.SinkPort = uint16(monitorPort)
+	m := monitor.NewMonitor(stats[0])
+	m.SinkPort = uint16(monitorPort)
+	defer m.Stop()
+
+	// create the buckets that will split the statistics of the hosts
+	// according to the configuration file
+	buckets, err := rc.GetBuckets()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, rules := range buckets {
+		bs := monitor.NewStats(rc.Map(), "hosts", "bf")
+		stats = append(stats, bs)
+		m.InsertBucket(i, rules, bs)
+	}
+
 	done := make(chan error)
 	go func() {
-		if err := monitor.Listen(); err != nil {
+		if err := m.Listen(); err != nil {
 			log.Error("error while closing monitor: " + err.Error())
 		}
 	}()
@@ -209,7 +238,6 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats,
 			if err := deployP.Cleanup(); err != nil {
 				log.Lvl3("Couldn't cleanup platform:", err)
 			}
-			monitor.Stop()
 			done <- err
 		}
 		done <- nil
@@ -226,10 +254,9 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) (*monitor.Stats,
 		if err != nil {
 			return nil, err
 		}
-		return rs, nil
+		return stats, nil
 	case <-time.After(timeout):
-		monitor.Stop()
-		return rs, errors.New("Simulation timeout")
+		return nil, errors.New("Simulation timeout")
 	}
 }
 
@@ -299,8 +326,8 @@ func mkTestDir() {
 	}
 }
 
-func testFile(name string) string {
-	return "test_data/" + name + ".csv"
+func testFile(name string, index int) string {
+	return fmt.Sprintf("../test_data/%s_%d.csv", name, index)
 }
 
 // returns a tuple of start and stop configurations to run
