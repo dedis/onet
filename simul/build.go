@@ -209,13 +209,17 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 	// according to the configuration file
 	buckets, err := rc.GetBuckets()
 	if err != nil {
-		return nil, err
-	}
+		if err != platform.ErrorFieldNotPresent {
+			return nil, err
+		}
 
-	for i, rules := range buckets {
-		bs := monitor.NewStats(rc.Map(), "hosts", "bf")
-		stats = append(stats, bs)
-		m.InsertBucket(i, rules, bs)
+		// Do nothing, there won't be any bucket.
+	} else {
+		for i, rules := range buckets {
+			bs := monitor.NewStats(rc.Map(), "hosts", "bf")
+			stats = append(stats, bs)
+			m.InsertBucket(i, rules, bs)
+		}
 	}
 
 	done := make(chan error)
@@ -327,7 +331,12 @@ func mkTestDir() {
 }
 
 func testFile(name string, index int) string {
-	return fmt.Sprintf("../test_data/%s_%d.csv", name, index)
+	if index == 0 {
+		// don't add the bucket index if it is the global one
+		return fmt.Sprintf("test_data/%s.csv", name)
+	}
+
+	return fmt.Sprintf("test_data/%s_%d.csv", name, index)
 }
 
 // returns a tuple of start and stop configurations to run
