@@ -39,6 +39,21 @@ If you use the `onet.SimulationBFTree`, the following variables are also availab
 - `Depth` - the depth of the tree in levels below the root-node
 - `Rounds` - for how many rounds the simulation should run
 
+### Statistics for subset of hosts
+
+Buckets of statistics can be defined using the following variable:
+
+- `Buckets` - indices range of the buckets
+
+The parameter is a string where the buckets are separated with spaces and the ranges
+by a dash (e.g. `Buckets = "0:5 5:10-15:20"` that will create a bucket with hosts 0
+to 4 and another one with hosts 5 to 9 and 15 to 19). Range indices can be compared
+to Go slices so that the lower index is inclusive and the higher is exclusive.
+
+A file will be written per bucket and the global one containing the statistics of all
+the conodes will always be present independantly from the parameter. Each file will have
+the bucket number as suffix.
+
 ### Simulations with long setup-times and multiple measurements
 
 Per default, all rounds of an individual simulation-run will be averaged and
