@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"reflect"
@@ -143,6 +144,53 @@ func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
 	return nil
 }
 
+// RegisterRESTHandler will store the given handler that will be used by the
+// service. WebSocket will then forward requests to
+// "ws://service_name/struct_name" to the given function f, which must be in
+// the following form: func(msg interface{})(ret interface{}, err error)
+//
+//  * msg is a pointer to a structure to the message sent. * ret is a pointer
+//  to a struct of the return-message. * err is an error, it can be nil, or any
+//  type that implements error.
+//
+// struct_name is stripped of its package-name, so a structure like
+// network.Body will be converted to Body.
+func (p *ServiceProcessor) RegisterRESTHandler(f interface{}) error {
+	if err := p.handlerInputCheck(f); err != nil {
+		return err
+	}
+
+	// check output
+	ft := reflect.TypeOf(f)
+	if ft.NumOut() != 2 {
+		return errors.New("Need 2 return values: network.Body and error")
+	}
+	// first output
+	ret := ft.Out(0)
+	if ret.Kind() != reflect.Interface {
+		if ret.Kind() != reflect.Ptr {
+			return errors.New("1st return value must be a *pointer* to a struct or an interface")
+		}
+		if ret.Elem().Kind() != reflect.Struct {
+			return errors.New("1st return value must be a pointer to a *struct* or an interface")
+		}
+	}
+	// second output
+	if !ft.Out(1).Implements(errType) {
+		return errors.New("2nd return value has to implement error, but is: " +
+			ft.Out(1).String())
+	}
+
+	cr := ft.In(0)
+	log.Lvl4("Registering REST handler", cr.String())
+	pm := strings.Split(cr.Elem().String(), ".")[1]
+	// TODO new path for the REST handler
+	// TODO refactor to remove code copying
+	p.handlers["v3/"+pm] = serviceHandler{f, cr.Elem(), false}
+
+	return nil
+}
+
 func (p *ServiceProcessor) handlerInputCheck(f interface{}) error {
 	ft := reflect.TypeOf(f)
 	if ft.Kind() != reflect.Func {
@@ -208,7 +256,14 @@ type StreamingTunnel struct {
 // ProcessClientRequest implements the Service interface, see the interface
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
-	mh, ok := p.handlers[path]
+	mh, ok := p.handlers[path] // TODO check the path for REST ??
+	var useJSON bool
+	if strings.HasPrefix(path, "v3/") {
+		useJSON = true
+		if mh.streaming {
+			return nil, nil, errors.New("streaming is not supported for REST requests")
+		}
+	}
 	reply, stopServiceChan, err := func() (interface{}, chan bool, error) {
 		if !ok {
 			err := errors.New("The requested message hasn't been registered: " + path)
@@ -216,10 +271,15 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 			return nil, nil, err
 		}
 		msg := reflect.New(mh.msgType).Interface()
-		err := protobuf.DecodeWithConstructors(buf, msg,
-			network.DefaultConstructors(p.Context.server.Suite()))
-		if err != nil {
-			return nil, nil, err
+		if useJSON {
+			if err := json.Unmarshal(buf, msg); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if err := protobuf.DecodeWithConstructors(buf, msg,
+				network.DefaultConstructors(p.Context.server.Suite())); err != nil {
+				return nil, nil, err
+			}
 		}
 
 		to := reflect.TypeOf(mh.handler).In(0)
@@ -287,7 +347,11 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 		return nil, &StreamingTunnel{outChan, stopServiceChan}, nil
 	}
 
-	buf, err = protobuf.Encode(reply)
+	if useJSON {
+		buf, err = json.Marshal(reply)
+	} else {
+		buf, err = protobuf.Encode(reply)
+	}
 	if err != nil {
 		log.Error(err)
 		return nil, nil, errors.New("")

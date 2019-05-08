@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -130,6 +131,11 @@ func (w *WebSocket) registerService(service string, s Service) error {
 		serviceName: service,
 	}
 	w.mux.Handle(fmt.Sprintf("/%s/", service), h)
+	h2 := &restHandler{
+		service:     s,
+		serviceName: service,
+	}
+	w.mux.Handle(fmt.Sprintf("/v3/%s/", service), h2)
 	return nil
 }
 
@@ -241,6 +247,37 @@ outerReadLoop:
 		websocket.FormatCloseMessage(4000, err.Error()),
 		time.Now().Add(time.Millisecond*500))
 	return
+}
+
+type restHandler struct {
+	serviceName string
+	service     Service
+}
+
+func (h *restHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "only POST is supported", http.StatusBadRequest)
+		return
+	}
+	// TODO make v3 a variable
+	path := strings.TrimPrefix(r.URL.Path, "/v3/"+h.serviceName+"/")
+	buf, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	// TODO have a nicer way to introduce the "v3/"
+	reply, tun, err := h.service.ProcessClientRequest(r, "v3/"+path, buf)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if tun != nil {
+		http.Error(w, "streaming not supported in REST", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(reply)
 }
 
 type destination struct {
