@@ -215,7 +215,7 @@ func (d *Deterlab) Cleanup() error {
 
 		err := SSHRunStdout(d.Login, d.Host, "test -f remote/users && ( cd remote; ./users -kill )")
 		if err != nil {
-			log.Lvl1("NOT-Normal error from cleanup")
+			log.Lvl1("NOT-Normal error from cleanup", err.Error())
 			sshKill <- "error"
 		}
 		sshKill <- "stopped"

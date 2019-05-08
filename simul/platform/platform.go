@@ -150,8 +150,10 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 	// Decoding of the first part of the run config file
 	// where the config wont change for the whole set of the simulation's tests
 	scanner := bufio.NewScanner(file)
+	line := 0
 	for scanner.Scan() {
 		text := scanner.Text()
+		line++
 		log.Lvl3("Decoding", text)
 		// end of the first part
 		if text == "" {
@@ -164,7 +166,7 @@ func ReadRunFile(p Platform, filename string) []*RunConfig {
 		// checking if format is good
 		vals := strings.Split(text, "=")
 		if len(vals) != 2 {
-			log.Fatal("Simulation file:", filename, " is not properly formatted ( key = value )")
+			log.Fatal("Simulation file:", filename, "line", line, "is not properly formatted ( key = value )")
 		}
 		// fill in the general config
 		masterConfig.Put(strings.TrimSpace(vals[0]), strings.TrimSpace(vals[1]))

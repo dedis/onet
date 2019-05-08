@@ -15,6 +15,7 @@ require (
 	go.dedis.ch/protobuf v1.0.6
 	go.etcd.io/bbolt v1.3.2
 	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
+	golang.org/x/sys v0.0.0-20190124100055-b90733256f2e
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/satori/go.uuid.v1 v1.2.0
 	gopkg.in/tylerb/graceful.v1 v1.2.15
