@@ -12,6 +12,10 @@ import (
 	"go.dedis.ch/onet/v3/log"
 )
 
+// InvalidHostIndex is the default value when the measure is not assigned
+// to a specific host
+const InvalidHostIndex = -1
+
 var global struct {
 	// Sink is the server address where all measures are transmitted to for
 	// further analysis.
@@ -87,7 +91,7 @@ func ConnectSink(addr string) error {
 
 // RecordSingleMeasure sends the pair name - value to the monitor directly.
 func RecordSingleMeasure(name string, value float64) {
-	RecordSingleMeasureWithHost(name, value, -1)
+	RecordSingleMeasureWithHost(name, value, InvalidHostIndex)
 }
 
 // RecordSingleMeasureWithHost sends the pair name - value with the host index
@@ -98,7 +102,7 @@ func RecordSingleMeasureWithHost(name string, value float64, host int) {
 }
 
 func newSingleMeasure(name string, value float64) *singleMeasure {
-	return newSingleMeasureWithHost(name, value, -1)
+	return newSingleMeasureWithHost(name, value, InvalidHostIndex)
 }
 
 func newSingleMeasureWithHost(name string, value float64, host int) *singleMeasure {
@@ -117,7 +121,7 @@ func (s *singleMeasure) Record() {
 
 // NewTimeMeasure return *TimeMeasure
 func NewTimeMeasure(name string) *TimeMeasure {
-	return NewTimeMeasureWithHost(name, -1)
+	return NewTimeMeasureWithHost(name, InvalidHostIndex)
 }
 
 // NewTimeMeasureWithHost makes a time measure bounded to a host index.
@@ -187,7 +191,7 @@ type CounterIOMeasure struct {
 // NewCounterIOMeasure returns a CounterIOMeasure fresh. The base value are set
 // to the current value of counter.Rx() and counter.Tx().
 func NewCounterIOMeasure(name string, counter CounterIO) *CounterIOMeasure {
-	return NewCounterIOMeasureWithHost(name, counter, -1)
+	return NewCounterIOMeasureWithHost(name, counter, InvalidHostIndex)
 }
 
 // NewCounterIOMeasureWithHost returns a CounterIOMeasure bounded to a host index. The

@@ -2,9 +2,60 @@ package monitor
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
+
+func TestSingleMeasure(t *testing.T) {
+	mon, stats := setupMonitor(t)
+	mon.InsertBucket(0, []string{"0:1"}, NewStats(nil))
+
+	RecordSingleMeasure("a", 1)
+	RecordSingleMeasureWithHost("a", 5, 0)
+
+	time.Sleep(100 * time.Millisecond)
+
+	stats.Collect()
+	require.NotNil(t, stats.Value("a"))
+	require.Equal(t, 3.0, stats.Value("a").Avg())
+
+	b := mon.buckets.Get(0)
+	require.NotNil(t, b.Value(("a")))
+	require.Equal(t, 5.0, b.Value("a").Avg())
+
+	EndAndCleanup()
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestTimeMeasure(t *testing.T) {
+	mon, stats := setupMonitor(t)
+	mon.InsertBucket(0, []string{"0:1"}, NewStats(nil))
+
+	NewTimeMeasure("a").Record()
+	tm := NewTimeMeasureWithHost("a", 0)
+
+	time.Sleep(50 * time.Millisecond)
+	tm.Record()
+
+	time.Sleep(100 * time.Millisecond)
+
+	stats.Collect()
+	v := stats.Value("a_wall")
+	require.NotNil(t, v)
+	// the value is in seconds
+	require.True(t, v.Min() > 0 && v.Min() < 0.05, fmt.Sprintf("%v < 0.05", v.Min()))
+
+	b := mon.buckets.Get(0)
+	require.NotNil(t, b.Value("a_wall"))
+	// the value is in seconds
+	require.True(t, b.Value("a_wall").Min() > 0.05, fmt.Sprintf("%v > 0.05", v.Min()))
+
+	EndAndCleanup()
+	time.Sleep(100 * time.Millisecond)
+}
 
 type DummyCounterIO struct {
 	rvalue    uint64
@@ -35,9 +86,10 @@ func (dm *DummyCounterIO) MsgTx() uint64 {
 
 func TestCounterIOMeasureRecord(t *testing.T) {
 	mon, _ := setupMonitor(t)
+	mon.InsertBucket(0, []string{"0:1"}, NewStats(nil))
 	dm := &DummyCounterIO{0, 0, 0, 0}
 	// create the counter measure
-	cm := NewCounterIOMeasure("dummy", dm)
+	cm := NewCounterIOMeasureWithHost("dummy", dm, 0)
 	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
 		t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d", cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
 		t.Fatal("Tx() / Rx() not working ?")
@@ -74,6 +126,11 @@ func TestCounterIOMeasureRecord(t *testing.T) {
 	if mre == nil || mre.Avg() != 1 {
 		t.Fatal("Stats doesn't have the right value (msg read)")
 	}
+
+	// check the bucket is filled
+	b := mon.buckets.Get(0)
+	require.Equal(t, 10.0, b.Value("dummy_tx").Avg())
+
 	EndAndCleanup()
 	time.Sleep(100 * time.Millisecond)
 }
