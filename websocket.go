@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -29,7 +29,7 @@ import (
 type WebSocket struct {
 	services  map[string]Service
 	server    *graceful.Server
-	mux       *http.ServeMux
+	mux       *mux.Router
 	startstop chan bool
 	started   bool
 	TLSConfig *tls.Config // can only be modified before Start is called
@@ -45,7 +45,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	}
 	webHost, err := getWSHostPort(si, true)
 	log.ErrFatal(err)
-	w.mux = http.NewServeMux()
+	w.mux = mux.NewRouter()
 	w.mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
 		log.Lvl4("ok?", r.RemoteAddr)
 		ok := []byte("ok\n")
@@ -131,11 +131,34 @@ func (w *WebSocket) registerService(service string, s Service) error {
 		serviceName: service,
 	}
 	w.mux.Handle(fmt.Sprintf("/%s/", service), h)
-	h2 := &restHandler{
-		service:     s,
-		serviceName: service,
+	return nil
+}
+
+func (w *WebSocket) registerRESTHandlers(paths []string, methods []string, hs []func(http.ResponseWriter, *http.Request)) error {
+	// the registration is per-service, so check that the paths have the same prefix
+	if len(paths) == 0 {
+		return nil
 	}
-	w.mux.Handle(fmt.Sprintf("/v3/%s/", service), h2)
+	tokens := strings.Split(paths[0], "/")
+	if len(tokens) == 0 {
+		return errors.New("bad path")
+	}
+	serName := tokens[0]
+	if len(serName) == 0 {
+		return errors.New("empty service name")
+	}
+	// register the paths with the handlers
+	for i, path := range paths {
+		if !strings.HasPrefix(path, serName+"/") {
+			return errors.New("all handlers must have the same service name: " + serName)
+		}
+		// NOTE: path may contain regex
+		w.mux.HandleFunc(path, hs[i]).Methods(methods[i])
+	}
+	return nil
+}
+
+func handlerGenerator(f interface{}) func(http.ResponseWriter, *http.Request) {
 	return nil
 }
 
@@ -247,37 +270,6 @@ outerReadLoop:
 		websocket.FormatCloseMessage(4000, err.Error()),
 		time.Now().Add(time.Millisecond*500))
 	return
-}
-
-type restHandler struct {
-	serviceName string
-	service     Service
-}
-
-func (h *restHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		http.Error(w, "only POST is supported", http.StatusBadRequest)
-		return
-	}
-	// TODO make v3 a variable
-	path := strings.TrimPrefix(r.URL.Path, "/v3/"+h.serviceName+"/")
-	buf, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	// TODO have a nicer way to introduce the "v3/"
-	reply, tun, err := h.service.ProcessClientRequest(r, "v3/"+path, buf)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if tun != nil {
-		http.Error(w, "streaming not supported in REST", http.StatusBadRequest)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(reply)
 }
 
 type destination struct {
