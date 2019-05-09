@@ -134,34 +134,6 @@ func (w *WebSocket) registerService(service string, s Service) error {
 	return nil
 }
 
-func (w *WebSocket) registerRESTHandlers(paths []string, methods []string, hs []func(http.ResponseWriter, *http.Request)) error {
-	// the registration is per-service, so check that the paths have the same prefix
-	if len(paths) == 0 {
-		return nil
-	}
-	tokens := strings.Split(paths[0], "/")
-	if len(tokens) == 0 {
-		return errors.New("bad path")
-	}
-	serName := tokens[0]
-	if len(serName) == 0 {
-		return errors.New("empty service name")
-	}
-	// register the paths with the handlers
-	for i, path := range paths {
-		if !strings.HasPrefix(path, serName+"/") {
-			return errors.New("all handlers must have the same service name: " + serName)
-		}
-		// NOTE: path may contain regex
-		w.mux.HandleFunc(path, hs[i]).Methods(methods[i])
-	}
-	return nil
-}
-
-func handlerGenerator(f interface{}) func(http.ResponseWriter, *http.Request) {
-	return nil
-}
-
 // stop the websocket and free the port.
 func (w *WebSocket) stop() {
 	w.Lock()
