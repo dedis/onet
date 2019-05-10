@@ -245,6 +245,12 @@ func (d *Localhost) Wait() error {
 	case <-time.After(wait):
 		log.Lvl1("Quitting after waiting", wait)
 	}
+
+	err = os.Chdir(d.localDir)
+	if err != nil {
+		log.Error("Fail to restore the cwd: " + err.Error())
+	}
+
 	monitor.EndAndCleanup()
 	log.Lvl2("Processes finished")
 	return err

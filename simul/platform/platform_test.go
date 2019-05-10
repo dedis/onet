@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 )
 
@@ -131,4 +132,19 @@ func main() {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestBuckets(t *testing.T) {
+	cfg := NewRunConfig()
+
+	_, err := cfg.GetBuckets()
+	require.Error(t, err)
+
+	cfg.Put("buckets", "0:2-0:5 1:10 2:10")
+
+	buckets, err := cfg.GetBuckets()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(buckets))
+	require.Equal(t, 2, len(buckets[0]))
+	require.Equal(t, 1, len(buckets[1]))
 }

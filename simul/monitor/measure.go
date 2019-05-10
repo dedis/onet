@@ -12,6 +12,10 @@ import (
 	"go.dedis.ch/onet/v3/log"
 )
 
+// InvalidHostIndex is the default value when the measure is not assigned
+// to a specific host
+const InvalidHostIndex = -1
+
 var global struct {
 	// Sink is the server address where all measures are transmitted to for
 	// further analysis.
@@ -47,6 +51,7 @@ type Measure interface {
 type singleMeasure struct {
 	Name  string
 	Value float64
+	Host  int
 }
 
 // TimeMeasure represents a measure regarding time: It includes the wallclock
@@ -58,6 +63,7 @@ type TimeMeasure struct {
 	// non exported fields
 	// name of the time measure (basename)
 	name string
+	host int
 	// last time
 	lastWallTime time.Time
 }
@@ -85,14 +91,25 @@ func ConnectSink(addr string) error {
 
 // RecordSingleMeasure sends the pair name - value to the monitor directly.
 func RecordSingleMeasure(name string, value float64) {
-	sm := newSingleMeasure(name, value)
+	RecordSingleMeasureWithHost(name, value, InvalidHostIndex)
+}
+
+// RecordSingleMeasureWithHost sends the pair name - value with the host index
+// to the monitor directly.
+func RecordSingleMeasureWithHost(name string, value float64, host int) {
+	sm := newSingleMeasureWithHost(name, value, host)
 	sm.Record()
 }
 
 func newSingleMeasure(name string, value float64) *singleMeasure {
+	return newSingleMeasureWithHost(name, value, InvalidHostIndex)
+}
+
+func newSingleMeasureWithHost(name string, value float64, host int) *singleMeasure {
 	return &singleMeasure{
 		Name:  name,
 		Value: value,
+		Host:  host,
 	}
 }
 
@@ -104,7 +121,12 @@ func (s *singleMeasure) Record() {
 
 // NewTimeMeasure return *TimeMeasure
 func NewTimeMeasure(name string) *TimeMeasure {
-	tm := &TimeMeasure{name: name}
+	return NewTimeMeasureWithHost(name, InvalidHostIndex)
+}
+
+// NewTimeMeasureWithHost makes a time measure bounded to a host index.
+func NewTimeMeasureWithHost(name string, host int) *TimeMeasure {
+	tm := &TimeMeasure{name: name, host: host}
 	tm.reset()
 	return tm
 }
@@ -118,7 +140,7 @@ func NewTimeMeasure(name string) *TimeMeasure {
 // - user time: *name*_user
 func (tm *TimeMeasure) Record() {
 	// Wall time measurement
-	tm.Wall = newSingleMeasure(tm.name+"_wall", float64(time.Since(tm.lastWallTime))/1.0e9)
+	tm.Wall = newSingleMeasureWithHost(tm.name+"_wall", float64(time.Since(tm.lastWallTime))/1.0e9, tm.host)
 	// CPU time measurement
 	tm.CPU.Value, tm.User.Value = getDiffRTime(tm.CPU.Value, tm.User.Value)
 	// send data
@@ -133,8 +155,8 @@ func (tm *TimeMeasure) Record() {
 // reset reset the time fields of this time measure
 func (tm *TimeMeasure) reset() {
 	cpuTimeSys, cpuTimeUser := getRTime()
-	tm.CPU = newSingleMeasure(tm.name+"_system", cpuTimeSys)
-	tm.User = newSingleMeasure(tm.name+"_user", cpuTimeUser)
+	tm.CPU = newSingleMeasureWithHost(tm.name+"_system", cpuTimeSys, tm.host)
+	tm.User = newSingleMeasureWithHost(tm.name+"_user", cpuTimeUser, tm.host)
 	tm.lastWallTime = time.Now()
 }
 
@@ -158,6 +180,7 @@ type CounterIO interface {
 // are put back to 0 (while the CounterIO still sends increased bytes number).
 type CounterIOMeasure struct {
 	name      string
+	host      int
 	counter   CounterIO
 	baseTx    uint64
 	baseRx    uint64
@@ -165,11 +188,18 @@ type CounterIOMeasure struct {
 	baseMsgRx uint64
 }
 
-// NewCounterIOMeasure returns an CounterIOMeasure fresh. The base value are set
+// NewCounterIOMeasure returns a CounterIOMeasure fresh. The base value are set
 // to the current value of counter.Rx() and counter.Tx().
 func NewCounterIOMeasure(name string, counter CounterIO) *CounterIOMeasure {
+	return NewCounterIOMeasureWithHost(name, counter, InvalidHostIndex)
+}
+
+// NewCounterIOMeasureWithHost returns a CounterIOMeasure bounded to a host index. The
+// base value are set to the current value of counter.Rx() and counter.Tx().
+func NewCounterIOMeasureWithHost(name string, counter CounterIO, host int) *CounterIOMeasure {
 	return &CounterIOMeasure{
 		name:      name,
+		host:      host,
 		counter:   counter,
 		baseTx:    counter.Tx(),
 		baseRx:    counter.Rx(),
@@ -185,15 +215,15 @@ func (cm *CounterIOMeasure) Record() {
 	bRx := cm.counter.Rx()
 	// TODO Later on, we might want to do a check on the conversion between
 	// uint64 -> float64, as the MAX values are not the same.
-	read := newSingleMeasure(cm.name+"_rx", float64(bRx-cm.baseRx))
+	read := newSingleMeasureWithHost(cm.name+"_rx", float64(bRx-cm.baseRx), cm.host)
 	// creates the  written measure
 	bTx := cm.counter.Tx()
-	written := newSingleMeasure(cm.name+"_tx", float64(bTx-cm.baseTx))
+	written := newSingleMeasureWithHost(cm.name+"_tx", float64(bTx-cm.baseTx), cm.host)
 
 	bMsgRx := cm.counter.MsgRx()
-	readMsg := newSingleMeasure(cm.name+"_msg_rx", float64(bMsgRx-cm.baseMsgRx))
+	readMsg := newSingleMeasureWithHost(cm.name+"_msg_rx", float64(bMsgRx-cm.baseMsgRx), cm.host)
 	bMsgTx := cm.counter.MsgTx()
-	writtenMsg := newSingleMeasure(cm.name+"_msg_tx", float64(bMsgTx-cm.baseMsgTx))
+	writtenMsg := newSingleMeasureWithHost(cm.name+"_msg_tx", float64(bMsgTx-cm.baseMsgTx), cm.host)
 
 	// send them
 	read.Record()

@@ -255,6 +255,22 @@ func (r *RunConfig) GetDuration(field string) (time.Duration, error) {
 	return time.ParseDuration(val)
 }
 
+// GetBuckets returns the list of buckets defined in the configuration
+// file to split the statistics
+func (r *RunConfig) GetBuckets() ([][]string, error) {
+	val := r.Get("buckets")
+	if val == "" {
+		return nil, ErrorFieldNotPresent
+	}
+
+	bb := [][]string{}
+	for _, b := range strings.Fields(val) {
+		bb = append(bb, strings.Split(b, "-"))
+	}
+
+	return bb, nil
+}
+
 // Put inserts a new field - value relationship
 func (r *RunConfig) Put(field, value string) {
 	r.Lock()
