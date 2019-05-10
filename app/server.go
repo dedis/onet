@@ -113,7 +113,7 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 			tryIP := publicAddress
 			log.Info("Check if the address", tryIP, "is reachable from the Internet by binding to", serverBinding, ".")
 			if err := tryConnect(tryIP, serverBinding); err != nil {
-				log.Error("Could not connect to your public IP")
+				log.Error(err)
 				publicAddress = askReachableAddress(portStr)
 			} else {
 				publicAddress = tryIP
@@ -314,12 +314,18 @@ func tryConnect(ip, binding network.Address) error {
 		return err
 	}
 
-	// ask the check
+	// Ask the check. Since the public adress may not be available at this time
+	// we set up a timeout of 10 seconds.
 	url := fmt.Sprintf("%s?port=%d", portscan, port)
-	resp, err := http.Get(url)
+	log.Infof("Trying for 10 sec to get the public IP (%s)...", url)
+	timeout := time.Duration(10 * time.Second)
+	client := http.Client{
+		Timeout: timeout,
+	}
+	resp, err := client.Get(url)
 	// can't get the public ip then ask the user for a reachable one
 	if err != nil {
-		return errors.New("Could not get your public IP address")
+		return errors.New("...could not get your public IP address")
 	}
 
 	buff, err := ioutil.ReadAll(resp.Body)
