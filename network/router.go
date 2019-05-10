@@ -334,6 +334,12 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 				r.triggerConnectionErrorHandlers(remote)
 				return
 			}
+			if err == ErrUnknown {
+				// The error might not be recoverable so the connection is dropped
+				log.Lvlf5("%v drops %v connection: unknown", r.ServerIdentity, remote)
+				r.triggerConnectionErrorHandlers(remote)
+				return
+			}
 			// Temporary error, continue.
 			log.Lvl3(r.ServerIdentity, "Error with connection", address, "=>", err)
 			continue

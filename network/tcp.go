@@ -266,6 +266,8 @@ func handleError(err error) error {
 	if netErr.Timeout() {
 		return ErrTimeout
 	}
+
+	log.Errorf("Unknown error caught: %s", err.Error())
 	return ErrUnknown
 }
 

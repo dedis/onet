@@ -560,3 +560,48 @@ func waitTimeout(timeout time.Duration, repeat int,
 	}
 
 }
+
+type testConn struct{}
+
+func (c *testConn) Receive() (*Envelope, error) {
+	return nil, ErrUnknown
+}
+
+func (c *testConn) Close() error {
+	return nil
+}
+
+func (c *testConn) Local() Address {
+	return ""
+}
+
+func (c *testConn) Remote() Address {
+	return ""
+}
+
+func (c *testConn) Rx() uint64 {
+	return 0
+}
+
+func (c *testConn) Tx() uint64 {
+	return 0
+}
+
+func (c *testConn) Send(msg Message) (uint64, error) {
+	return 0, nil
+}
+
+func (c *testConn) Type() ConnType {
+	return "testConn"
+}
+
+// This test insures that an unknown error cannot end up as an infinite loop
+// when handling a connection
+func TestRouterHandleUnknownError(t *testing.T) {
+	router, err := NewTestRouterTCP(0)
+	require.NoError(t, err)
+
+	router.wg.Add(1)
+	// The test will leak 1 goroutine if the connection is not dropped
+	go router.handleConn(router.ServerIdentity, &testConn{})
+}
