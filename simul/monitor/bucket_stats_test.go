@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestBucketStats_Rules tests that a bucket rule can be used
+// as expected and that it matches the correct hosts only.
 func TestBucketStats_Rules(t *testing.T) {
 	rr := bucketRules{}
 	r, err := newBucketRule("0:1")
@@ -36,6 +38,8 @@ func TestBucketStats_Rules(t *testing.T) {
 	require.Error(t, err)
 }
 
+// TestBucketStats_Buckets tests that the buckets are correctly
+// created and that the measures are correctly splitted.
 func TestBucketStats_Buckets(t *testing.T) {
 	b := newBucketStats()
 

@@ -151,7 +151,7 @@ func RunTests(deployP platform.Platform, name string, runconfigs []*platform.Run
 
 		for j, bucketStat := range stats {
 			if j >= len(files) {
-				f, err := os.OpenFile(testFile(name, j), args, 0660)
+				f, err := os.OpenFile(generateResultFileName(name, j), args, 0660)
 				if err != nil {
 					log.Fatal("error opening test file:", err)
 				}
@@ -260,7 +260,7 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 		}
 		return stats, nil
 	case <-time.After(timeout):
-		return nil, errors.New("Simulation timeout")
+		return nil, errors.New("simulation timeout")
 	}
 }
 
@@ -330,7 +330,7 @@ func mkTestDir() {
 	}
 }
 
-func testFile(name string, index int) string {
+func generateResultFileName(name string, index int) string {
 	if index == 0 {
 		// don't add the bucket index if it is the global one
 		return fmt.Sprintf("test_data/%s.csv", name)

@@ -51,7 +51,7 @@ to 4 and another one with hosts 5 to 9 and 15 to 19). Range indices can be compa
 to Go slices so that the lower index is inclusive and the higher is exclusive.
 
 A file will be written per bucket and the global one containing the statistics of all
-the conodes will always be present independantly from the parameter. Each file will have
+the conodes will always be present independently from the parameter. Each file will have
 the bucket number as suffix.
 
 ### Simulations with long setup-times and multiple measurements

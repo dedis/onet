@@ -14,7 +14,7 @@ type bucketRule struct {
 	high int
 }
 
-// newBucketRule takes a string and parse it to instantiate
+// newBucketRule takes a string and parses it to instantiate
 // a bucket rule.
 func newBucketRule(r string) (rule bucketRule, err error) {
 	parts := strings.Split(r, ":")
@@ -61,7 +61,7 @@ func (rr bucketRules) Match(host int) bool {
 	return false
 }
 
-// BucketStats split the statistics into buckets according to network addresses
+// BucketStats splits the statistics into buckets according to network addresses
 // and associated rules
 type BucketStats struct {
 	rules   map[int]bucketRules
