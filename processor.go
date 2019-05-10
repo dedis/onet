@@ -1,13 +1,17 @@
 package onet
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
@@ -125,43 +129,102 @@ func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
 	return nil
 }
 
-// RegisterCustomRESTHandler ...
-func (p *ServiceProcessor) RegisterCustomRESTHandler(f func(http.ResponseWriter, *http.Request), path string, methods ...string) error {
-	// TODO check that the path begins with a version
-	p.server.WebSocket.mux.HandleFunc(path, f).Methods(methods...)
-	return nil
+// getRouter returns the gorilla mutiplexing router. If we need to support
+// arbitrary registration of REST API, we could make this method public.
+func (p *ServiceProcessor) getRouter() *mux.Router {
+	return p.server.WebSocket.mux
 }
 
-// RegisterRESTHandler ...
-func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, serviceName, method string) error {
+type kindGET int
+
+const (
+	invalidGET kindGET = iota
+	emptyGET
+	intGET
+	sliceGET
+)
+
+// prepareHandlerGET check whether the first argument of f has any fields; if
+// it does then make sure the number of fields is either 0 or 1; if there is 1
+// field then it has to be an int or a slice of bytes.
+func prepareHandlerGET(f interface{}) (kindGET, string, error) {
+	in0 := reflect.TypeOf(f).In(0).Elem()
+	if in0.Kind() != reflect.Struct {
+		return invalidGET, "", errors.New("input argument must be a struct")
+	}
+	if in0.NumField() == 0 {
+		return emptyGET, "", nil
+	} else if in0.NumField() == 1 {
+		// we support int and byte slices only
+		if in0.Field(0).Type.Kind() == reflect.Slice && in0.Field(0).Type.Elem().Kind() == reflect.Uint8 {
+			return sliceGET, in0.Field(0).Name, nil
+		} else if in0.Field(0).Type.Kind() == reflect.Int {
+			return intGET, in0.Field(0).Name, nil
+		}
+		return invalidGET, "", errors.New("only byte slices and int are supported")
+	}
+	return invalidGET, "", errors.New("number of fields must be 0 or 1")
+}
+
+// RegisterRESTHandler takes an interface of type
+// func(msg interface{})(ret interface{}, err error),
+// where msg and ret must be pointers to structs.
+// Then registers ... TODO
+func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespace, method string) error {
+	// TODO can we automatically figure out the service name?
+	// TODO support more methods
+	if method != "GET" && method != "POST" && method != "PUT" {
+		return errors.New("invalid REST method")
+	}
+	if since < 3 {
+		return errors.New("earliest supported API level must be greater or equal to 3")
+	}
 	path, sh, err := createServiceHandler(f)
 	if err != nil {
 		return err
 	}
-	// check whether the first argument of f has any fields
-	// if it does then treat the final part of the URL as the input (hex encoded)
-	// otherwise create an empty object
+	var k kindGET
+	var fieldNameGET string
+	if method == "GET" {
+		k, fieldNameGET, err = prepareHandlerGET(f)
+		if err != nil {
+			return err
+		}
+	}
 	h := func(w http.ResponseWriter, r *http.Request) {
 		var msgBuf []byte
 		switch r.Method {
 		case "GET":
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		case "POST":
+			if k == emptyGET {
+				msgBuf = []byte("{}")
+			} else if k == intGET {
+				num := mux.Vars(r)["id"]
+				msgBuf = []byte(fmt.Sprintf("{\"%s\": %s}", fieldNameGET, num))
+			} else if k == sliceGET {
+				byteBuf, err := hex.DecodeString(mux.Vars(r)["id"])
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				encoded := base64.StdEncoding.EncodeToString(byteBuf)
+				msgBuf = []byte(fmt.Sprintf("{\"%s\": \"%s\"}", fieldNameGET, encoded))
+			} else {
+				http.Error(w, "invalid GET", http.StatusBadRequest)
+				return
+			}
+		case "POST", "PUT":
+			if r.Header.Get("Content-Type") != "application/json" {
+				http.Error(w, "content type needs to be application/json", http.StatusBadRequest)
+				return
+			}
 			var err error
 			msgBuf, err = ioutil.ReadAll(r.Body)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-		case "PUT":
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
-		case "DELETE":
-			http.Error(w, "unsupported", http.StatusBadRequest)
-			return
 		default:
-			http.Error(w, "invalid method "+method, http.StatusBadRequest)
+			http.Error(w, "unsupported method: "+r.Method, http.StatusBadRequest)
 			return
 		}
 
@@ -170,9 +233,14 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, serviceName, metho
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		out, _, err := callInterfaceFunc(f, msg, false)
+		out, tun, err := callInterfaceFunc(f, msg, false)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if tun != nil {
+			http.Error(w, "streaming requests are not supported", http.StatusBadRequest)
+			return
 		}
 		reply, err := json.Marshal(out)
 		if err != nil {
@@ -182,8 +250,14 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, serviceName, metho
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(reply)
 	}
-	// TODO can we automatically figure out the service name?
-	return p.RegisterCustomRESTHandler(h, "/v3/"+serviceName+"/"+path, method)
+	suffixID := ""
+	if k == intGET || k == sliceGET {
+		suffixID = "/{id}"
+	}
+	// TODO when we have version 4 or later, add a loop here to register
+	// the API for versions from `since` to the latest version.
+	p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", since, namespace, path)+suffixID, h).Methods(method)
+	return nil
 }
 
 func createServiceHandler(f interface{}) (string, serviceHandler, error) {
