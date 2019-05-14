@@ -24,7 +24,6 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		log.Lvl2(err, serverAddress)
 		return nil
 	}
-	measures := make([]*monitor.CounterIOMeasure, len(scs))
 	if monitorAddress != "" {
 		if err := monitor.ConnectSink(monitorAddress); err != nil {
 			log.Error("Couldn't connect monitor to sink:", err)
@@ -52,23 +51,14 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		// Starting all servers for that server
 		server := sc.Server
 		log.Lvl3(serverAddress, "Starting server", server.ServerIdentity.Address)
-		if measureNodeBW {
-			hostIndex, _ := sc.Roster.Search(server.ServerIdentity.ID)
-			measures[i] = monitor.NewCounterIOMeasureWithHost("bandwidth", server, hostIndex)
-		}
 		// Launch a server and notifies when it's done
 		wgServer.Add(1)
-		go func(c *onet.Server, m monitor.Measure) {
+		go func(c *onet.Server) {
 			ready <- true
 			defer wgServer.Done()
 			c.Start()
-			// record bandwidth, except if we're measuring every
-			// round individually
-			if measureNodeBW {
-				m.Record()
-			}
 			log.Lvl3(serverAddress, "Simulation closed server", c.ServerIdentity)
-		}(server, measures[i])
+		}(server)
 		// wait to be sure the goroutine started
 		<-ready
 
@@ -143,12 +133,27 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		wgSimulInit.Wait()
 		syncWait.Record()
 		log.Lvl1("Starting new node", simul)
+
+		// Start measuring the bandwidth of the servers
+		measures := make([]*monitor.CounterIOMeasure, len(scs))
+		if measureNodeBW {
+			for i, sc := range scs {
+				hostIndex, _ := sc.Roster.Search(sc.Server.ServerIdentity.ID)
+				measures[i] = monitor.NewCounterIOMeasureWithHost("bandwidth", sc.Server, hostIndex)
+			}
+		}
+
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
 		err := rootSim.Run(rootSC)
 		if err != nil {
 			return errors.New("error from simulation run: " + err.Error())
 		}
 		measureNet.Record()
+		if measureNodeBW {
+			for _, m := range measures {
+				m.Record()
+			}
+		}
 
 		// Test if all ServerIdentities are used in the tree, else we'll run into
 		// troubles with CloseAll
