@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -29,7 +28,7 @@ import (
 type WebSocket struct {
 	services  map[string]Service
 	server    *graceful.Server
-	mux       *mux.Router
+	mux       *http.ServeMux
 	startstop chan bool
 	started   bool
 	TLSConfig *tls.Config // can only be modified before Start is called
@@ -45,7 +44,7 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	}
 	webHost, err := getWSHostPort(si, true)
 	log.ErrFatal(err)
-	w.mux = mux.NewRouter()
+	w.mux = http.NewServeMux()
 	w.mux.HandleFunc("/ok", func(w http.ResponseWriter, r *http.Request) {
 		log.Lvl4("ok?", r.RemoteAddr)
 		ok := []byte("ok\n")

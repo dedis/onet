@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path"
 	"reflect"
+	"regexp"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
@@ -131,7 +132,7 @@ func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
 
 // getRouter returns the gorilla mutiplexing router. If we need to support
 // arbitrary registration of REST API, we could make this method public.
-func (p *ServiceProcessor) getRouter() *mux.Router {
+func (p *ServiceProcessor) getRouter() *http.ServeMux {
 	return p.server.WebSocket.mux
 }
 
@@ -179,7 +180,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespa
 	if since < 3 {
 		return errors.New("earliest supported API level must be greater or equal to 3")
 	}
-	path, sh, err := createServiceHandler(f)
+	resource, sh, err := createServiceHandler(f)
 	if err != nil {
 		return err
 	}
@@ -198,10 +199,29 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespa
 			if k == emptyGET {
 				msgBuf = []byte("{}")
 			} else if k == intGET {
-				num := mux.Vars(r)["id"]
+				ok, err := regexp.MatchString(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource), r.URL.EscapedPath())
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				if !ok {
+					http.Error(w, "invalid path", http.StatusNotFound)
+					return
+				}
+				_, num := path.Split(r.URL.EscapedPath())
 				msgBuf = []byte(fmt.Sprintf("{\"%s\": %s}", fieldNameGET, num))
 			} else if k == sliceGET {
-				byteBuf, err := hex.DecodeString(mux.Vars(r)["id"])
+				ok, err := regexp.MatchString(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource), r.URL.EscapedPath())
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				if !ok {
+					http.Error(w, "invalid path", http.StatusNotFound)
+					return
+				}
+				_, hexStr := path.Split(r.URL.EscapedPath())
+				byteBuf, err := hex.DecodeString(hexStr)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
@@ -224,7 +244,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespa
 				return
 			}
 		default:
-			http.Error(w, "unsupported method: "+r.Method, http.StatusBadRequest)
+			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
 			return
 		}
 
@@ -250,13 +270,13 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespa
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(reply)
 	}
-	suffixID := ""
+	finalSlash := ""
 	if k == intGET || k == sliceGET {
-		suffixID = "/{id}"
+		finalSlash = "/"
 	}
 	// TODO when we have version 4 or later, add a loop here to register
 	// the API for versions from `since` to the latest version.
-	p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", since, namespace, path)+suffixID, h).Methods(method)
+	p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", since, namespace, resource)+finalSlash, h) //.Methods(method)
 	return nil
 }
 

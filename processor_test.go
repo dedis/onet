@@ -328,6 +328,7 @@ func TestProcessor_REST_Registration(t *testing.T) {
 	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong1, 3, "dummyService", "GET"))
 	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong2, 3, "dummyService", "GET"))
 	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong3, 3, "dummyService", "GET"))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET1, 3, "dummyService", "XXX"))
 }
 
 type bnPoint struct {
@@ -477,9 +478,11 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	require.Equal(t, int64(0xde), msg.I)
 
 	// wrong url
+	// NOTE: the error code is 400 because the websocket upgrade failed
+	// usually it should be 404
 	resp, err = c.Get(addr + "/v3/testService/doesnotexist")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 404)
+	require.Equal(t, resp.StatusCode, 400)
 
 	// wrong url (extra slash)
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef/")
@@ -489,12 +492,12 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	// wrong encoding of integer
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/one")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, 404)
 
 	// wrong encoding of byte slice (must be hex)
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/zzzz")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, 404)
 
 	// good post request
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "42"}`)))
