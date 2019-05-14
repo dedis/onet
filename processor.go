@@ -167,18 +167,38 @@ func prepareHandlerGET(f interface{}) (kindGET, string, error) {
 	return invalidGET, "", errors.New("number of fields must be 0 or 1")
 }
 
-// RegisterRESTHandler takes an interface of type
+// RegisterRESTHandler takes a callback of type
 // func(msg interface{})(ret interface{}, err error),
 // where msg and ret must be pointers to structs.
-// Then registers ... TODO
-func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespace, method string) error {
-	// TODO can we automatically figure out the service name?
+// For POST and PUT, the callback is registered on the URL
+// /v$version/$namespace/$msgStructName. The client should serialize the request
+// using JSON and set the conent type to application/json to use the service.
+// The response is also JSON encoded.
+//
+// For GET requests, the callback is registered on the same URL. But clients
+// can also query individual resources such as
+// /v$version/$namespace/$msgStructName/$id. For this to work, msg in the
+// callback must be a singleton struct with either an integer or a byte slice.
+// For integers, the client can directly query the integer resource, for byte
+// slices, the clients must query the hex encoded representation. Using an
+// empty struct for msg is also supported.
+//
+// The min/maxVersion argument represents the range of versions where the API
+// is present. If breaking changes must be made then they must use a new
+// version.
+func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method string, minVersion, maxVersion int) error {
 	// TODO support more methods
 	if method != "GET" && method != "POST" && method != "PUT" {
 		return errors.New("invalid REST method")
 	}
-	if since < 3 {
+	if minVersion > maxVersion {
+		return errors.New("min version is greater than max version")
+	}
+	if minVersion < 3 {
 		return errors.New("earliest supported API level must be greater or equal to 3")
+	}
+	if err := handlerInputCheck(f); err != nil {
+		return err
 	}
 	resource, sh, err := createServiceHandler(f)
 	if err != nil {
@@ -274,9 +294,9 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, since int, namespa
 	if k == intGET || k == sliceGET {
 		finalSlash = "/"
 	}
-	// TODO when we have version 4 or later, add a loop here to register
-	// the API for versions from `since` to the latest version.
-	p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", since, namespace, resource)+finalSlash, h) //.Methods(method)
+	for v := minVersion; v <= maxVersion; v++ {
+		p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", v, namespace, resource)+finalSlash, h)
+	}
 	return nil
 }
 

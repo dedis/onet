@@ -287,19 +287,19 @@ func newTestService(c *Context) (Service, error) {
 		panic(err.Error())
 	}
 
-	if err := ts.RegisterRESTHandler(procRestMsgGET1, 3, testServiceName, "GET"); err != nil {
+	if err := ts.RegisterRESTHandler(procRestMsgGET1, testServiceName, "GET", 3, 3); err != nil {
 		panic(err.Error())
 	}
-	if err := ts.RegisterRESTHandler(procRestMsgGET2, 3, testServiceName, "GET"); err != nil {
+	if err := ts.RegisterRESTHandler(procRestMsgGET2, testServiceName, "GET", 3, 3); err != nil {
 		panic(err.Error())
 	}
-	if err := ts.RegisterRESTHandler(procRestMsgGET3, 3, testServiceName, "GET"); err != nil {
+	if err := ts.RegisterRESTHandler(procRestMsgGET3, testServiceName, "GET", 3, 3); err != nil {
 		panic(err.Error())
 	}
-	if err := ts.RegisterRESTHandler(procRestMsgPOSTString, 3, testServiceName, "POST"); err != nil {
+	if err := ts.RegisterRESTHandler(procRestMsgPOSTString, testServiceName, "POST", 3, 3); err != nil {
 		panic(err.Error())
 	}
-	if err := ts.RegisterRESTHandler(procRestMsgPOSTPoint, 3, testServiceName, "POST"); err != nil {
+	if err := ts.RegisterRESTHandler(procRestMsgPOSTPoint, testServiceName, "POST", 3, 3); err != nil {
 		panic(err.Error())
 	}
 	return ts, nil
@@ -318,17 +318,31 @@ func TestProcessor_REST_Registration(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET1, 3, "dummyService", "GET"))
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET2, 3, "dummyService", "GET"))
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET3, 3, "dummyService", "GET"))
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTString, 3, "dummyService", "POST"))
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTPoint, 3, "dummyService", "POST"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, 2, "dummyService", "GET"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, 1, "dummyService", "GET"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong1, 3, "dummyService", "GET"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong2, 3, "dummyService", "GET"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong3, 3, "dummyService", "GET"))
-	require.Error(t, p.RegisterRESTHandler(procRestMsgGET1, 3, "dummyService", "XXX"))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "GET", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET2, "dummyService", "GET", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 3, 3))
+
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTString, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTPoint, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg2, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg3, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg4, "dummyService", "POST", 3, 3))
+
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 3, 2))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 1, 2))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong1, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong2, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong3, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "XXX", 3, 3))
+
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong1, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong2, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong3, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong4, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong5, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong6, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong7, "dummyService", "POST", 3, 3))
 }
 
 type bnPoint struct {
