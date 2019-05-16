@@ -470,7 +470,7 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	// get with empty "body"
 	resp, err := c.Get(addr + "/v3/testService/restMsgGET1")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 200)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
 	msg := testMsg{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
 	require.Equal(t, int64(42), msg.I)
@@ -478,7 +478,7 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	// get by an integer
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/99")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 200)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
 	msg = testMsg{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
 	require.Equal(t, int64(99), msg.I)
@@ -486,53 +486,58 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	// get by byte slice, e.g., skipchain ID
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 200)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
 	msg = testMsg{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
 	require.Equal(t, int64(0xde), msg.I)
 
 	// wrong url
 	// NOTE: the error code is 400 because the websocket upgrade failed
-	// usually it should be 404
+	// usually it should be http.StatusNotFound
 	resp, err = c.Get(addr + "/v3/testService/doesnotexist")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
 
 	// wrong url (extra slash)
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef/")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 404)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
 
 	// wrong encoding of integer
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/one")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 404)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
 
 	// wrong encoding of byte slice (must be hex)
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/zzzz")
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 404)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
 
 	// good post request
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "42"}`)))
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 200)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&testMsg{}))
 
 	// wrong content type
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/text", bytes.NewReader([]byte(`{"S": "42"}`)))
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
 
 	// wrong value in body
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "43"}`)))
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
 
 	// wrong field name
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"T": "42"}`)))
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 400)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+
+	// wrong method
+	resp, err = c.Get(addr + "/v3/testService/restMsgPOSTString")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusMethodNotAllowed)
 
 	// test sending points
 	_, pk := bls.NewKeyPair(bn256.NewSuite(), random.New())
@@ -540,7 +545,7 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	require.NoError(t, err)
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTPoint", "application/json", bytes.NewReader(buf))
 	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, 200)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
 	respPoint := restMsgPOSTPoint{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&respPoint))
 	require.True(t, respPoint.bnPoint.P.Equal(pk))

@@ -186,6 +186,8 @@ func prepareHandlerGET(f interface{}) (kindGET, string, error) {
 // The min/maxVersion argument represents the range of versions where the API
 // is present. If breaking changes must be made then they must use a new
 // version.
+//
+// This method is experimental.
 func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method string, minVersion, maxVersion int) error {
 	// TODO support more methods
 	if method != "GET" && method != "POST" && method != "PUT" {
@@ -213,6 +215,10 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 		}
 	}
 	h := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
+			return
+		}
 		var msgBuf []byte
 		switch r.Method {
 		case "GET":
