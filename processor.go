@@ -222,10 +222,12 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 		var msgBuf []byte
 		switch r.Method {
 		case "GET":
-			if k == emptyGET {
+			switch k {
+			case emptyGET:
 				msgBuf = []byte("{}")
-			} else if k == intGET {
-				ok, err := regexp.MatchString(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource), r.URL.EscapedPath())
+			case intGET:
+				intRegex := fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource)
+				ok, err := regexp.MatchString(intRegex, r.URL.EscapedPath())
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -236,8 +238,9 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 				}
 				_, num := path.Split(r.URL.EscapedPath())
 				msgBuf = []byte(fmt.Sprintf("{\"%s\": %s}", fieldNameGET, num))
-			} else if k == sliceGET {
-				ok, err := regexp.MatchString(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource), r.URL.EscapedPath())
+			case sliceGET:
+				sliceRegex := fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource)
+				ok, err := regexp.MatchString(sliceRegex, r.URL.EscapedPath())
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
@@ -254,7 +257,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 				}
 				encoded := base64.StdEncoding.EncodeToString(byteBuf)
 				msgBuf = []byte(fmt.Sprintf("{\"%s\": \"%s\"}", fieldNameGET, encoded))
-			} else {
+			default:
 				http.Error(w, "invalid GET", http.StatusBadRequest)
 				return
 			}
