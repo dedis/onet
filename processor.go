@@ -214,6 +214,16 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 			return err
 		}
 	}
+
+	intRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource))
+	if err != nil {
+		return err
+	}
+	sliceRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource))
+	if err != nil {
+		return err
+	}
+
 	h := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != method {
 			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
@@ -226,26 +236,14 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 			case emptyGET:
 				msgBuf = []byte("{}")
 			case intGET:
-				intRegex := fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource)
-				ok, err := regexp.MatchString(intRegex, r.URL.EscapedPath())
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				if !ok {
+				if ok := intRegex.MatchString(r.URL.EscapedPath()); !ok {
 					http.Error(w, "invalid path", http.StatusNotFound)
 					return
 				}
 				_, num := path.Split(r.URL.EscapedPath())
 				msgBuf = []byte(fmt.Sprintf("{\"%s\": %s}", fieldNameGET, num))
 			case sliceGET:
-				sliceRegex := fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource)
-				ok, err := regexp.MatchString(sliceRegex, r.URL.EscapedPath())
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				if !ok {
+				if ok := sliceRegex.MatchString(r.URL.EscapedPath()); !ok {
 					http.Error(w, "invalid path", http.StatusNotFound)
 					return
 				}
