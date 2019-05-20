@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"path"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"go.dedis.ch/onet/v3/log"
@@ -207,9 +207,8 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 		return err
 	}
 	var k kindGET
-	var fieldNameGET string
 	if method == "GET" {
-		k, fieldNameGET, err = prepareHandlerGET(f)
+		k, _, err = prepareHandlerGET(f)
 		if err != nil {
 			return err
 		}
@@ -223,6 +222,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 	if err != nil {
 		return err
 	}
+	val0 := reflect.New(sh.msgType)
 
 	h := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != method {
@@ -241,7 +241,12 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 					return
 				}
 				_, num := path.Split(r.URL.EscapedPath())
-				msgBuf = []byte(fmt.Sprintf("{\"%s\": %s}", fieldNameGET, num))
+				numI64, err := strconv.Atoi(num)
+				if err != nil {
+					http.Error(w, "not a number", http.StatusBadRequest)
+					return
+				}
+				val0.Elem().Field(0).SetInt(int64(numI64))
 			case sliceGET:
 				if ok := sliceRegex.MatchString(r.URL.EscapedPath()); !ok {
 					http.Error(w, "invalid path", http.StatusNotFound)
@@ -253,8 +258,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 					http.Error(w, err.Error(), http.StatusBadRequest)
 					return
 				}
-				encoded := base64.StdEncoding.EncodeToString(byteBuf)
-				msgBuf = []byte(fmt.Sprintf("{\"%s\": \"%s\"}", fieldNameGET, encoded))
+				val0.Elem().Field(0).SetBytes(byteBuf)
 			default:
 				http.Error(w, "invalid GET", http.StatusBadRequest)
 				return
@@ -270,17 +274,16 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			if err := json.Unmarshal(msgBuf, val0.Interface()); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
 		default:
 			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
 			return
 		}
 
-		msg := reflect.New(sh.msgType).Interface()
-		if err := json.Unmarshal(msgBuf, msg); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		out, tun, err := callInterfaceFunc(f, msg, false)
+		out, tun, err := callInterfaceFunc(f, val0.Interface(), false)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
