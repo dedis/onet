@@ -1,9 +1,16 @@
 package onet
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"net/http"
+	"path"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"go.dedis.ch/onet/v3/log"
@@ -49,35 +56,15 @@ var errType = reflect.TypeOf((*error)(nil)).Elem()
 // struct_name is stripped of its package-name, so a structure like
 // network.Body will be converted to Body.
 func (p *ServiceProcessor) RegisterHandler(f interface{}) error {
-	if err := p.handlerInputCheck(f); err != nil {
+	if err := handlerInputCheck(f); err != nil {
 		return err
 	}
 
-	// check output
-	ft := reflect.TypeOf(f)
-	if ft.NumOut() != 2 {
-		return errors.New("Need 2 return values: network.Body and error")
+	pm, sh, err := createServiceHandler(f)
+	if err != nil {
+		return err
 	}
-	// first output
-	ret := ft.Out(0)
-	if ret.Kind() != reflect.Interface {
-		if ret.Kind() != reflect.Ptr {
-			return errors.New("1st return value must be a *pointer* to a struct or an interface")
-		}
-		if ret.Elem().Kind() != reflect.Struct {
-			return errors.New("1st return value must be a pointer to a *struct* or an interface")
-		}
-	}
-	// second output
-	if !ft.Out(1).Implements(errType) {
-		return errors.New("2nd return value has to implement error, but is: " +
-			ft.Out(1).String())
-	}
-
-	cr := ft.In(0)
-	log.Lvl4("Registering handler", cr.String())
-	pm := strings.Split(cr.Elem().String(), ".")[1]
-	p.handlers[pm] = serviceHandler{f, cr.Elem(), false}
+	p.handlers[pm] = sh
 
 	return nil
 }
@@ -99,7 +86,7 @@ func (p *ServiceProcessor) RegisterHandler(f interface{}) error {
 // struct_name is stripped of its package-name, so a structure like
 // network.Body will be converted to Body.
 func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
-	if err := p.handlerInputCheck(f); err != nil {
+	if err := handlerInputCheck(f); err != nil {
 		return err
 	}
 
@@ -143,7 +130,218 @@ func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
 	return nil
 }
 
-func (p *ServiceProcessor) handlerInputCheck(f interface{}) error {
+// getRouter returns the gorilla mutiplexing router. If we need to support
+// arbitrary registration of REST API, we could make this method public.
+func (p *ServiceProcessor) getRouter() *http.ServeMux {
+	return p.server.WebSocket.mux
+}
+
+type kindGET int
+
+const (
+	invalidGET kindGET = iota
+	emptyGET
+	intGET
+	sliceGET
+)
+
+// prepareHandlerGET check whether the first argument of f has any fields; if
+// it does then make sure the number of fields is either 0 or 1; if there is 1
+// field then it has to be an int or a slice of bytes.
+func prepareHandlerGET(f interface{}) (kindGET, string, error) {
+	in0 := reflect.TypeOf(f).In(0).Elem()
+	if in0.Kind() != reflect.Struct {
+		return invalidGET, "", errors.New("input argument must be a struct")
+	}
+	if in0.NumField() == 0 {
+		return emptyGET, "", nil
+	} else if in0.NumField() == 1 {
+		// we support int and byte slices only
+		if in0.Field(0).Type.Kind() == reflect.Slice && in0.Field(0).Type.Elem().Kind() == reflect.Uint8 {
+			return sliceGET, in0.Field(0).Name, nil
+		} else if in0.Field(0).Type.Kind() == reflect.Int {
+			return intGET, in0.Field(0).Name, nil
+		}
+		return invalidGET, "", errors.New("only byte slices and int are supported")
+	}
+	return invalidGET, "", errors.New("number of fields must be 0 or 1")
+}
+
+// RegisterRESTHandler takes a callback of type
+// func(msg interface{})(ret interface{}, err error),
+// where msg and ret must be pointers to structs.
+// For POST and PUT, the callback is registered on the URL
+// /v$version/$namespace/$msgStructName. The client should serialize the request
+// using JSON and set the conent type to application/json to use the service.
+// The response is also JSON encoded.
+//
+// For GET requests, the callback is registered on the same URL. But clients
+// can also query individual resources such as
+// /v$version/$namespace/$msgStructName/$id. For this to work, msg in the
+// callback must be a singleton struct with either an integer or a byte slice.
+// For integers, the client can directly query the integer resource, for byte
+// slices, the clients must query the hex encoded representation. Using an
+// empty struct for msg is also supported.
+//
+// The min/maxVersion argument represents the range of versions where the API
+// is present. If breaking changes must be made then they must use a new
+// version.
+//
+// This method is experimental.
+func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method string, minVersion, maxVersion int) error {
+	// TODO support more methods
+	if method != "GET" && method != "POST" && method != "PUT" {
+		return errors.New("invalid REST method")
+	}
+	if minVersion > maxVersion {
+		return errors.New("min version is greater than max version")
+	}
+	if minVersion < 3 {
+		return errors.New("earliest supported API level must be greater or equal to 3")
+	}
+	if err := handlerInputCheck(f); err != nil {
+		return err
+	}
+	resource, sh, err := createServiceHandler(f)
+	if err != nil {
+		return err
+	}
+	var k kindGET
+	if method == "GET" {
+		k, _, err = prepareHandlerGET(f)
+		if err != nil {
+			return err
+		}
+	}
+
+	intRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource))
+	if err != nil {
+		return err
+	}
+	sliceRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource))
+	if err != nil {
+		return err
+	}
+	val0 := reflect.New(sh.msgType)
+
+	h := func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
+			return
+		}
+		var msgBuf []byte
+		switch r.Method {
+		case "GET":
+			switch k {
+			case emptyGET:
+				msgBuf = []byte("{}")
+			case intGET:
+				if ok := intRegex.MatchString(r.URL.EscapedPath()); !ok {
+					http.Error(w, "invalid path", http.StatusNotFound)
+					return
+				}
+				_, num := path.Split(r.URL.EscapedPath())
+				numI64, err := strconv.Atoi(num)
+				if err != nil {
+					http.Error(w, "not a number", http.StatusBadRequest)
+					return
+				}
+				val0.Elem().Field(0).SetInt(int64(numI64))
+			case sliceGET:
+				if ok := sliceRegex.MatchString(r.URL.EscapedPath()); !ok {
+					http.Error(w, "invalid path", http.StatusNotFound)
+					return
+				}
+				_, hexStr := path.Split(r.URL.EscapedPath())
+				byteBuf, err := hex.DecodeString(hexStr)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusBadRequest)
+					return
+				}
+				val0.Elem().Field(0).SetBytes(byteBuf)
+			default:
+				http.Error(w, "invalid GET", http.StatusBadRequest)
+				return
+			}
+		case "POST", "PUT":
+			if r.Header.Get("Content-Type") != "application/json" {
+				http.Error(w, "content type needs to be application/json", http.StatusBadRequest)
+				return
+			}
+			var err error
+			msgBuf, err = ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := json.Unmarshal(msgBuf, val0.Interface()); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+		default:
+			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
+			return
+		}
+
+		out, tun, err := callInterfaceFunc(f, val0.Interface(), false)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if tun != nil {
+			http.Error(w, "streaming requests are not supported", http.StatusBadRequest)
+			return
+		}
+		reply, err := json.Marshal(out)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(reply)
+	}
+	finalSlash := ""
+	if k == intGET || k == sliceGET {
+		finalSlash = "/"
+	}
+	for v := minVersion; v <= maxVersion; v++ {
+		p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", v, namespace, resource)+finalSlash, h)
+	}
+	return nil
+}
+
+func createServiceHandler(f interface{}) (string, serviceHandler, error) {
+	// check output
+	ft := reflect.TypeOf(f)
+	if ft.NumOut() != 2 {
+		return "", serviceHandler{}, errors.New("Need 2 return values: network.Body and error")
+	}
+	// first output
+	ret := ft.Out(0)
+	if ret.Kind() != reflect.Interface {
+		if ret.Kind() != reflect.Ptr {
+			return "", serviceHandler{},
+				errors.New("1st return value must be a *pointer* to a struct or an interface")
+		}
+		if ret.Elem().Kind() != reflect.Struct {
+			return "", serviceHandler{},
+				errors.New("1st return value must be a pointer to a *struct* or an interface")
+		}
+	}
+	// second output
+	if !ft.Out(1).Implements(errType) {
+		return "", serviceHandler{},
+			errors.New("2nd return value has to implement error, but is: " + ft.Out(1).String())
+	}
+
+	cr := ft.In(0)
+	log.Lvl4("Registering handler", cr.String())
+	pm := strings.Split(cr.Elem().String(), ".")[1]
+
+	return pm, serviceHandler{f, cr.Elem(), false}, nil
+}
+
+func handlerInputCheck(f interface{}) error {
 	ft := reflect.TypeOf(f)
 	if ft.Kind() != reflect.Func {
 		return errors.New("Input is not a function")
@@ -205,6 +403,28 @@ type StreamingTunnel struct {
 	close chan bool
 }
 
+func callInterfaceFunc(handler, input interface{}, streaming bool) (interface{}, chan bool, error) {
+	to := reflect.TypeOf(handler).In(0)
+	f := reflect.ValueOf(handler)
+
+	arg := reflect.New(to.Elem())
+	arg.Elem().Set(reflect.ValueOf(input).Elem())
+	ret := f.Call([]reflect.Value{arg})
+
+	if streaming {
+		ierr := ret[2].Interface()
+		if ierr != nil {
+			return nil, nil, ierr.(error)
+		}
+		return ret[0].Interface(), ret[1].Interface().(chan bool), nil
+	}
+	ierr := ret[1].Interface()
+	if ierr != nil {
+		return nil, nil, ierr.(error)
+	}
+	return ret[0].Interface(), nil, nil
+}
+
 // ProcessClientRequest implements the Service interface, see the interface
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
@@ -216,31 +436,11 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 			return nil, nil, err
 		}
 		msg := reflect.New(mh.msgType).Interface()
-		err := protobuf.DecodeWithConstructors(buf, msg,
-			network.DefaultConstructors(p.Context.server.Suite()))
-		if err != nil {
+		if err := protobuf.DecodeWithConstructors(buf, msg,
+			network.DefaultConstructors(p.Context.server.Suite())); err != nil {
 			return nil, nil, err
 		}
-
-		to := reflect.TypeOf(mh.handler).In(0)
-		f := reflect.ValueOf(mh.handler)
-
-		arg := reflect.New(to.Elem())
-		arg.Elem().Set(reflect.ValueOf(msg).Elem())
-		ret := f.Call([]reflect.Value{arg})
-
-		if mh.streaming {
-			ierr := ret[2].Interface()
-			if ierr != nil {
-				return nil, nil, ierr.(error)
-			}
-			return ret[0].Interface(), ret[1].Interface().(chan bool), nil
-		}
-		ierr := ret[1].Interface()
-		if ierr != nil {
-			return nil, nil, ierr.(error)
-		}
-		return ret[0].Interface(), nil, nil
+		return callInterfaceFunc(mh.handler, msg, mh.streaming)
 	}()
 	if err != nil {
 		return nil, nil, err

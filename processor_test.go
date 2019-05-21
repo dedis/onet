@@ -1,11 +1,23 @@
 package onet
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v3/group/edwards25519"
+	"go.dedis.ch/kyber/v3/pairing/bn256"
+	"go.dedis.ch/kyber/v3/sign/bls"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/kyber/v3/util/random"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
@@ -185,7 +197,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 func TestProcessor_ProcessClientRequest(t *testing.T) {
 	local := NewTCPTest(tSuite)
 
-	// generate 5 hosts,
+	// generate 1 host
 	h := local.GenServers(1)[0]
 	defer local.CloseAll()
 
@@ -225,9 +237,11 @@ func procMsg2(msg *testMsg2) (network.Message, error) {
 	}
 	return nil, nil
 }
+
 func procMsg3(msg *testMsg3) (network.Message, error) {
 	return nil, nil
 }
+
 func procMsg4(msg *testMsg4) (*testMsg4, error) {
 	return msg, nil
 }
@@ -255,6 +269,7 @@ func procMsgWrong5(msg *testMsg) (*network.Message, error) {
 func procMsgWrong6(msg *testMsg) (int, error) {
 	return 10, nil
 }
+
 func procMsgWrong7(msg *testMsg) (testMsg, error) {
 	return *msg, nil
 }
@@ -271,6 +286,22 @@ func newTestService(c *Context) (Service, error) {
 	if err := ts.RegisterHandler(ts.ProcessMsg); err != nil {
 		panic(err.Error())
 	}
+
+	if err := ts.RegisterRESTHandler(procRestMsgGET1, testServiceName, "GET", 3, 3); err != nil {
+		panic(err.Error())
+	}
+	if err := ts.RegisterRESTHandler(procRestMsgGET2, testServiceName, "GET", 3, 3); err != nil {
+		panic(err.Error())
+	}
+	if err := ts.RegisterRESTHandler(procRestMsgGET3, testServiceName, "GET", 3, 3); err != nil {
+		panic(err.Error())
+	}
+	if err := ts.RegisterRESTHandler(procRestMsgPOSTString, testServiceName, "POST", 3, 3); err != nil {
+		panic(err.Error())
+	}
+	if err := ts.RegisterRESTHandler(procRestMsgPOSTPoint, testServiceName, "POST", 3, 3); err != nil {
+		panic(err.Error())
+	}
 	return ts, nil
 }
 
@@ -281,4 +312,308 @@ func (ts *testService) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (P
 func (ts *testService) ProcessMsg(msg *testMsg) (network.Message, error) {
 	ts.Msg = msg
 	return msg, nil
+}
+
+func TestProcessor_REST_Registration(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+	defer h1.Close()
+	p := NewServiceProcessor(&Context{server: h1})
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "GET", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET2, "dummyService", "GET", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 3, 3))
+
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTString, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTPoint, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg2, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg3, "dummyService", "POST", 3, 3))
+	require.NoError(t, p.RegisterRESTHandler(procMsg4, "dummyService", "POST", 3, 3))
+
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 3, 2))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 1, 2))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong1, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong2, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGETWrong3, "dummyService", "GET", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "XXX", 3, 3))
+
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong1, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong2, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong3, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong4, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong5, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong6, "dummyService", "POST", 3, 3))
+	require.Error(t, p.RegisterRESTHandler(procMsgWrong7, "dummyService", "POST", 3, 3))
+}
+
+type bnPoint struct {
+	P kyber.Point
+}
+
+type bnPointWrapper struct {
+	P []byte
+}
+
+func (p bnPoint) MarshalJSON() ([]byte, error) {
+	buf, err := p.P.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf(`{"P": "%s"}`, base64.StdEncoding.EncodeToString(buf))), nil
+}
+
+func (p *bnPoint) UnmarshalJSON(b []byte) error {
+	wrapper := bnPointWrapper{}
+	if err := json.Unmarshal(b, &wrapper); err != nil {
+		return err
+	}
+	suite := bn256.NewSuite()
+	g2 := suite.G2().Point()
+	if err := g2.UnmarshalBinary(wrapper.P); err != nil {
+		return err
+	}
+	p.P = g2
+	return nil
+}
+
+type edPoint struct {
+	P kyber.Point
+}
+
+type edPointWrapper struct {
+	P []byte
+}
+
+func (p edPoint) MarshalJSON() ([]byte, error) {
+	buf, err := p.P.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	return []byte(fmt.Sprintf(`{"P": "%s"}`, base64.StdEncoding.EncodeToString(buf))), nil
+}
+
+func (p *edPoint) UnmarshalJSON(b []byte) error {
+	wrapper := edPointWrapper{}
+	if err := json.Unmarshal(b, &wrapper); err != nil {
+		return err
+	}
+	suite := edwards25519.NewBlakeSHA256Ed25519()
+	point := suite.Point()
+	if err := point.UnmarshalBinary(wrapper.P); err != nil {
+		return err
+	}
+	p.P = point
+	return nil
+}
+
+type twoPoints struct {
+	PointEd edPoint
+	PointBn bnPoint
+}
+
+func TestMarshalJSON_bn(t *testing.T) {
+	suite := bn256.NewSuite()
+	_, pk := bls.NewKeyPair(suite, random.New())
+	p := bnPoint{pk}
+	buf, err := json.Marshal(&p)
+	require.NoError(t, err)
+
+	p2 := bnPoint{}
+	err = json.Unmarshal(buf, &p2)
+	require.NoError(t, err)
+
+	require.True(t, p2.P.Equal(pk))
+}
+
+func TestMarshalJSON_ed(t *testing.T) {
+	suite := edwards25519.NewBlakeSHA256Ed25519()
+	pk := key.NewKeyPair(suite).Public
+
+	p := edPoint{pk}
+	buf, err := json.Marshal(&p)
+	require.NoError(t, err)
+
+	p2 := edPoint{}
+	err = json.Unmarshal(buf, &p2)
+	require.NoError(t, err)
+
+	require.True(t, p2.P.Equal(pk))
+}
+
+func TestMarshalJSON_twoPoints(t *testing.T) {
+	pkEd := key.NewKeyPair(edwards25519.NewBlakeSHA256Ed25519()).Public
+	_, pkBn := bls.NewKeyPair(bn256.NewSuite(), random.New())
+
+	pTwo := twoPoints{edPoint{pkEd}, bnPoint{pkBn}}
+	buf, err := json.Marshal(&pTwo)
+	require.NoError(t, err)
+
+	pTwo2 := twoPoints{}
+	err = json.Unmarshal(buf, &pTwo2)
+	require.NoError(t, err)
+
+	require.True(t, pTwo2.PointEd.P.Equal(pkEd))
+	require.True(t, pTwo2.PointBn.P.Equal(pkBn))
+}
+
+func TestProcessor_REST_Handler(t *testing.T) {
+	local := NewTCPTest(tSuite)
+
+	// generate 1 host
+	h := local.GenServers(1)[0]
+	defer local.CloseAll()
+
+	c := http.Client{}
+	port, err := strconv.Atoi(h.ServerIdentity.Address.Port())
+	require.NoError(t, err)
+	addr := "http://" + h.ServerIdentity.Address.Host() + ":" + strconv.Itoa(port+1)
+
+	// get with empty "body"
+	resp, err := c.Get(addr + "/v3/testService/restMsgGET1")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
+	msg := testMsg{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
+	require.Equal(t, int64(42), msg.I)
+
+	// get by an integer
+	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/99")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
+	msg = testMsg{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
+	require.Equal(t, int64(99), msg.I)
+
+	// get by byte slice, e.g., skipchain ID
+	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
+	msg = testMsg{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&msg))
+	require.Equal(t, int64(0xde), msg.I)
+
+	// wrong url
+	// NOTE: the error code is 400 because the websocket upgrade failed
+	// usually it should be http.StatusNotFound
+	resp, err = c.Get(addr + "/v3/testService/doesnotexist")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+
+	// wrong url (extra slash)
+	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef/")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+
+	// wrong encoding of integer
+	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/one")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+
+	// wrong encoding of byte slice (must be hex)
+	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/zzzz")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+
+	// good post request
+	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "42"}`)))
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&testMsg{}))
+
+	// wrong content type
+	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/text", bytes.NewReader([]byte(`{"S": "42"}`)))
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+
+	// wrong value in body
+	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "43"}`)))
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+
+	// wrong field name
+	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"T": "42"}`)))
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+
+	// wrong method
+	resp, err = c.Get(addr + "/v3/testService/restMsgPOSTString")
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusMethodNotAllowed)
+
+	// test sending points
+	_, pk := bls.NewKeyPair(bn256.NewSuite(), random.New())
+	buf, err := json.Marshal(&restMsgPOSTPoint{bnPoint{pk}})
+	require.NoError(t, err)
+	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTPoint", "application/json", bytes.NewReader(buf))
+	require.NoError(t, err)
+	require.Equal(t, resp.StatusCode, http.StatusOK)
+	respPoint := restMsgPOSTPoint{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&respPoint))
+	require.True(t, respPoint.bnPoint.P.Equal(pk))
+}
+
+func procRestMsgGET1(s *restMsgGET1) (*testMsg, error) {
+	return &testMsg{42}, nil
+}
+
+func procRestMsgGET2(s *restMsgGET2) (*testMsg, error) {
+	return &testMsg{int64(s.X)}, nil
+}
+
+func procRestMsgGET3(s *restMsgGET3) (*testMsg, error) {
+	return &testMsg{int64(s.Xs[0])}, nil
+}
+
+func procRestMsgGETWrong1(s *restMsgGETWrong1) (*testMsg, error) {
+	return &testMsg{}, nil
+}
+
+func procRestMsgGETWrong2(s *restMsgGETWrong2) (*testMsg, error) {
+	return &testMsg{}, nil
+}
+
+func procRestMsgGETWrong3(s *restMsgGETWrong3) (*testMsg, error) {
+	return &testMsg{}, nil
+}
+
+func procRestMsgPOSTString(s *restMsgPOSTString) (*testMsg, error) {
+	if s.S != "42" {
+		return nil, errors.New("not the right answer")
+	}
+	return &testMsg{}, nil
+}
+
+func procRestMsgPOSTPoint(s *restMsgPOSTPoint) (*restMsgPOSTPoint, error) {
+	return &restMsgPOSTPoint{s.bnPoint}, nil
+}
+
+type restMsgGET1 struct {
+}
+
+type restMsgGET2 struct {
+	X int
+}
+
+type restMsgGET3 struct {
+	Xs []byte
+}
+
+type restMsgGETWrong1 struct {
+	X float64
+}
+
+type restMsgGETWrong2 struct {
+	X float64
+	Y float64
+}
+
+type restMsgGETWrong3 struct {
+	Xs []int
+}
+
+type restMsgPOSTString struct {
+	S string
+}
+
+type restMsgPOSTPoint struct {
+	bnPoint
 }
