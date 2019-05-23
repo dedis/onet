@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -502,16 +504,19 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/deadbeef/")
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+	checkJSONMsg(t, resp.Body, "invalid path")
 
 	// wrong encoding of integer
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET2/one")
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+	checkJSONMsg(t, resp.Body, "invalid path")
 
 	// wrong encoding of byte slice (must be hex)
 	resp, err = c.Get(addr + "/v3/testService/restMsgGET3/zzzz")
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusNotFound)
+	checkJSONMsg(t, resp.Body, "invalid path")
 
 	// good post request
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "42"}`)))
@@ -523,21 +528,25 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/text", bytes.NewReader([]byte(`{"S": "42"}`)))
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+	checkJSONMsg(t, resp.Body, "content type needs to be application/json")
 
 	// wrong value in body
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"S": "43"}`)))
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+	checkJSONMsg(t, resp.Body, "processing error")
 
 	// wrong field name
 	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTString", "application/json", bytes.NewReader([]byte(`{"T": "42"}`)))
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusBadRequest)
+	checkJSONMsg(t, resp.Body, "processing error")
 
 	// wrong method
 	resp, err = c.Get(addr + "/v3/testService/restMsgPOSTString")
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusMethodNotAllowed)
+	checkJSONMsg(t, resp.Body, "unsupported method")
 
 	// test sending points
 	_, pk := bls.NewKeyPair(bn256.NewSuite(), random.New())
@@ -549,6 +558,18 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	respPoint := restMsgPOSTPoint{}
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&respPoint))
 	require.True(t, respPoint.bnPoint.P.Equal(pk))
+}
+
+func checkJSONMsg(t *testing.T, r io.Reader, contains string) {
+	s, err := ioutil.ReadAll(r)
+	require.NoError(t, err)
+	type msg struct {
+		Message string `json:"message"`
+	}
+	var m msg
+	require.NoError(t, json.Unmarshal(s, &m))
+	require.NotEmpty(t, m.Message)
+	require.Contains(t, m.Message, contains)
 }
 
 func procRestMsgGET1(s *restMsgGET1) (*testMsg, error) {

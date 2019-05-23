@@ -226,7 +226,7 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 
 	h := func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != method {
-			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
+			http.Error(w, wrapJSONMsg("unsupported method: "+r.Method), http.StatusMethodNotAllowed)
 			return
 		}
 		var msgBuf []byte
@@ -237,64 +237,64 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 				msgBuf = []byte("{}")
 			case intGET:
 				if ok := intRegex.MatchString(r.URL.EscapedPath()); !ok {
-					http.Error(w, "invalid path", http.StatusNotFound)
+					http.Error(w, wrapJSONMsg("invalid path"), http.StatusNotFound)
 					return
 				}
 				_, num := path.Split(r.URL.EscapedPath())
 				numI64, err := strconv.Atoi(num)
 				if err != nil {
-					http.Error(w, "not a number", http.StatusBadRequest)
+					http.Error(w, wrapJSONMsg("not a number"), http.StatusBadRequest)
 					return
 				}
 				val0.Elem().Field(0).SetInt(int64(numI64))
 			case sliceGET:
 				if ok := sliceRegex.MatchString(r.URL.EscapedPath()); !ok {
-					http.Error(w, "invalid path", http.StatusNotFound)
+					http.Error(w, wrapJSONMsg("invalid path"), http.StatusNotFound)
 					return
 				}
 				_, hexStr := path.Split(r.URL.EscapedPath())
 				byteBuf, err := hex.DecodeString(hexStr)
 				if err != nil {
-					http.Error(w, err.Error(), http.StatusBadRequest)
+					http.Error(w, wrapJSONMsg(err.Error()), http.StatusBadRequest)
 					return
 				}
 				val0.Elem().Field(0).SetBytes(byteBuf)
 			default:
-				http.Error(w, "invalid GET", http.StatusBadRequest)
+				http.Error(w, wrapJSONMsg("invalid GET"), http.StatusBadRequest)
 				return
 			}
 		case "POST", "PUT":
 			if r.Header.Get("Content-Type") != "application/json" {
-				http.Error(w, "content type needs to be application/json", http.StatusBadRequest)
+				http.Error(w, wrapJSONMsg("content type needs to be application/json"), http.StatusBadRequest)
 				return
 			}
 			var err error
 			msgBuf, err = ioutil.ReadAll(r.Body)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, wrapJSONMsg(err.Error()), http.StatusBadRequest)
 				return
 			}
 			if err := json.Unmarshal(msgBuf, val0.Interface()); err != nil {
-				http.Error(w, err.Error(), http.StatusBadRequest)
+				http.Error(w, wrapJSONMsg("decoding error "+err.Error()), http.StatusBadRequest)
 				return
 			}
 		default:
-			http.Error(w, "unsupported method: "+r.Method, http.StatusMethodNotAllowed)
+			http.Error(w, wrapJSONMsg("unsupported method: "+r.Method), http.StatusMethodNotAllowed)
 			return
 		}
 
 		out, tun, err := callInterfaceFunc(f, val0.Interface(), false)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, wrapJSONMsg("processing error "+err.Error()), http.StatusBadRequest)
 			return
 		}
 		if tun != nil {
-			http.Error(w, "streaming requests are not supported", http.StatusBadRequest)
+			http.Error(w, wrapJSONMsg("streaming requests are not supported"), http.StatusBadRequest)
 			return
 		}
 		reply, err := json.Marshal(out)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, wrapJSONMsg(err.Error()), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -308,6 +308,10 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 		p.getRouter().HandleFunc(fmt.Sprintf("/v%d/%s/%s", v, namespace, resource)+finalSlash, h)
 	}
 	return nil
+}
+
+func wrapJSONMsg(s string) string {
+	return fmt.Sprintf(`{"message": "%s"}`, s)
 }
 
 func createServiceHandler(f interface{}) (string, serviceHandler, error) {
