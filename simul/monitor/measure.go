@@ -208,6 +208,14 @@ func NewCounterIOMeasureWithHost(name string, counter CounterIO, host int) *Coun
 	}
 }
 
+// Reset sets the base to the current value of the counter.
+func (cm *CounterIOMeasure) Reset() {
+	cm.baseTx = cm.counter.Tx()
+	cm.baseRx = cm.counter.Rx()
+	cm.baseMsgTx = cm.counter.MsgTx()
+	cm.baseMsgRx = cm.counter.MsgRx()
+}
+
 // Record send the actual number of bytes read and written (**name**_written &
 // **name**_read) and reset the counters.
 func (cm *CounterIOMeasure) Record() {

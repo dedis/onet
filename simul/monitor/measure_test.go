@@ -134,3 +134,31 @@ func TestCounterIOMeasureRecord(t *testing.T) {
 	EndAndCleanup()
 	time.Sleep(100 * time.Millisecond)
 }
+
+// Test that reset sets the values to the base ones
+func TestCounterIOMeasureReset(t *testing.T) {
+	dm := &DummyCounterIO{0, 0, 0, 0}
+	cm := NewCounterIOMeasureWithHost("dummy", dm, 0)
+
+	// increase the actual
+	dm.Tx()
+	dm.Rx()
+	dm.MsgRx()
+	dm.MsgTx()
+
+	// several resets should still get the base values
+	cm.Reset()
+	cm.Reset()
+
+	if cm.baseRx != dm.rvalue || cm.baseTx != dm.wvalue {
+		t.Logf("baseRx = %d vs rvalue = %d || baseTx = %d vs wvalue = %d",
+			cm.baseRx, dm.rvalue, cm.baseTx, dm.wvalue)
+		t.Fatal("Tx() / Rx() not working ?")
+	}
+
+	if cm.baseMsgRx != dm.msgrvalue || cm.baseMsgTx != dm.msgwvalue {
+		t.Logf("baseMsgRx = %d vs msgrvalue = %d || baseMsgTx = %d vs msgwvalue = %d",
+			cm.baseMsgRx, dm.msgrvalue, cm.baseMsgTx, dm.msgwvalue)
+		t.Fatal("MsgTx() / MsgRx() not working ?")
+	}
+}
