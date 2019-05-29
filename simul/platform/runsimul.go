@@ -39,6 +39,8 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 	var wgServer, wgSimulInit sync.WaitGroup
 	var ready = make(chan bool)
 	measureNodeBW := true
+	measuresLock := sync.Mutex{}
+	measures := make([]*monitor.CounterIOMeasure, len(scs))
 	if len(scs) > 0 {
 		cfg := &conf{}
 		_, err := toml.Decode(scs[0].Config, cfg)
@@ -50,13 +52,25 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 	for i, sc := range scs {
 		// Starting all servers for that server
 		server := sc.Server
+
+		if measureNodeBW {
+			hostIndex, _ := sc.Roster.Search(sc.Server.ServerIdentity.ID)
+			measures[i] = monitor.NewCounterIOMeasureWithHost("bandwidth", sc.Server, hostIndex)
+		}
+
 		log.Lvl3(serverAddress, "Starting server", server.ServerIdentity.Address)
 		// Launch a server and notifies when it's done
 		wgServer.Add(1)
+		measure := measures[i]
 		go func(c *onet.Server) {
 			ready <- true
 			defer wgServer.Done()
 			c.Start()
+			if measure != nil {
+				measuresLock.Lock()
+				measure.Record()
+				measuresLock.Unlock()
+			}
 			log.Lvl3(serverAddress, "Simulation closed server", c.ServerIdentity)
 		}(server)
 		// wait to be sure the goroutine started
@@ -71,6 +85,15 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		// to the Register-functions.
 		scTmp := sc
 		server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) error {
+			defer func() {
+				if measure != nil {
+					measuresLock.Lock()
+					// Remove the initialization of the simulation from this statistic
+					measure.Reset()
+					measuresLock.Unlock()
+				}
+			}()
+
 			err = sim.Node(scTmp)
 			log.ErrFatal(err)
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
@@ -80,6 +103,12 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
 			wgSimulInit.Done()
+			if measure != nil {
+				measuresLock.Lock()
+				// Reset the root bandwidth after the children sent the ACK.
+				measure.Reset()
+				measuresLock.Unlock()
+			}
 			return nil
 		})
 		if server.ServerIdentity.ID.Equal(sc.Tree.Root.ServerIdentity.ID) {
@@ -134,26 +163,12 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		syncWait.Record()
 		log.Lvl1("Starting new node", simul)
 
-		// Start measuring the bandwidth of the servers
-		measures := make([]*monitor.CounterIOMeasure, len(scs))
-		if measureNodeBW {
-			for i, sc := range scs {
-				hostIndex, _ := sc.Roster.Search(sc.Server.ServerIdentity.ID)
-				measures[i] = monitor.NewCounterIOMeasureWithHost("bandwidth", sc.Server, hostIndex)
-			}
-		}
-
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
 		err := rootSim.Run(rootSC)
 		if err != nil {
 			return errors.New("error from simulation run: " + err.Error())
 		}
 		measureNet.Record()
-		if measureNodeBW {
-			for _, m := range measures {
-				m.Record()
-			}
-		}
 
 		// Test if all ServerIdentities are used in the tree, else we'll run into
 		// troubles with CloseAll
