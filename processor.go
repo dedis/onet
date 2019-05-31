@@ -407,7 +407,13 @@ type StreamingTunnel struct {
 	close chan bool
 }
 
-func callInterfaceFunc(handler, input interface{}, streaming bool) (interface{}, chan bool, error) {
+func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interface{}, ch chan bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic with %v", r)
+		}
+	}()
+
 	to := reflect.TypeOf(handler).In(0)
 	f := reflect.ValueOf(handler)
 
@@ -418,15 +424,22 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (interface{},
 	if streaming {
 		ierr := ret[2].Interface()
 		if ierr != nil {
-			return nil, nil, ierr.(error)
+			err = ierr.(error)
+			return
 		}
-		return ret[0].Interface(), ret[1].Interface().(chan bool), nil
+
+		intf = ret[0].Interface()
+		ch = ret[1].Interface().(chan bool)
+		return
 	}
 	ierr := ret[1].Interface()
 	if ierr != nil {
-		return nil, nil, ierr.(error)
+		err = ierr.(error)
+		return
 	}
-	return ret[0].Interface(), nil, nil
+
+	intf = ret[0].Interface()
+	return
 }
 
 // ProcessClientRequest implements the Service interface, see the interface
