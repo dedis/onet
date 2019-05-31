@@ -30,7 +30,7 @@ const testServiceName = "testService"
 func init() {
 	RegisterNewService(testServiceName, newTestService)
 	ServiceFactory.ServiceID(testServiceName)
-	network.RegisterMessage(&testMsg{})
+	network.RegisterMessages(&testMsg{}, &testPanicMsg{})
 }
 
 func TestProcessor_AddMessage(t *testing.T) {
@@ -215,6 +215,19 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 	}
 }
 
+// Test that the panic will be recovered and announced with crashing the server.
+func TestProcessor_PanicClientRequest(t *testing.T) {
+	local := NewTCPTest(tSuite)
+
+	h := local.GenServers(1)[0]
+	defer local.CloseAll()
+
+	client := local.NewClient(testServiceName)
+	err := client.SendProtobuf(h.ServerIdentity, &testPanicMsg{}, struct{}{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "deadbeef")
+}
+
 type testMsg struct {
 	I int64
 }
@@ -223,6 +236,7 @@ type testMsg2 testMsg
 type testMsg3 testMsg
 type testMsg4 testMsg
 type testMsg5 testMsg
+type testPanicMsg struct{}
 
 func procMsg(msg *testMsg) (network.Message, error) {
 	// Return an error for testing
@@ -285,7 +299,7 @@ func newTestService(c *Context) (Service, error) {
 	ts := &testService{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
-	if err := ts.RegisterHandler(ts.ProcessMsg); err != nil {
+	if err := ts.RegisterHandlers(ts.ProcessMsg, ts.ProcessMsgPanic); err != nil {
 		panic(err.Error())
 	}
 
@@ -314,6 +328,10 @@ func (ts *testService) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (P
 func (ts *testService) ProcessMsg(msg *testMsg) (network.Message, error) {
 	ts.Msg = msg
 	return msg, nil
+}
+
+func (ts *testService) ProcessMsgPanic(msg *testPanicMsg) (network.Message, error) {
+	panic("deadbeef")
 }
 
 func TestProcessor_REST_Registration(t *testing.T) {
