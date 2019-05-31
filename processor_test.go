@@ -215,7 +215,7 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 	}
 }
 
-// Test that the panic will be recovered and announced with crashing the server.
+// Test that the panic will be recovered and announced without crashing the server.
 func TestProcessor_PanicClientRequest(t *testing.T) {
 	local := NewTCPTest(tSuite)
 
