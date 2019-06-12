@@ -34,13 +34,40 @@ func interestingGoroutines() (gs []string) {
 			strings.Contains(stack, "stackimpact-go/internal") ||
 			// stackimpact uses persistent http client conns
 			strings.Contains(stack, "created by net/http.(*Transport).dialConn") ||
-			strings.Contains(stack, "log.MainTest") {
+			strings.Contains(stack, "log.MainTest") ||
+			matchesUserInterestingGoroutine(stack) {
 			continue
 		}
+
 		gs = append(gs, stack)
 	}
 	sort.Strings(gs)
 	return
+}
+
+var userInterestingGoroutines []string
+
+// AddUserInterestingGoroutine can be called when the environment of some
+// specific tests leaks goroutines unknown to interestingGoroutines()
+func AddUserInterestingGoroutine(newGr string) {
+	// Don't add if it's already there
+	for _, gr := range userInterestingGoroutines {
+		if newGr == gr {
+			return
+		}
+	}
+
+	userInterestingGoroutines = append(userInterestingGoroutines, newGr)
+}
+
+func matchesUserInterestingGoroutine(stack string) bool {
+	for _, gr := range userInterestingGoroutines {
+		if strings.Contains(stack, gr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // AfterTest can be called to wait for leaking goroutines to finish. If
