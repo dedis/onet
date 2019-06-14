@@ -22,7 +22,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {

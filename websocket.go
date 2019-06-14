@@ -177,9 +177,7 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Error(err)
 		return
 	}
-	defer func() {
-		ws.Close()
-	}()
+	defer ws.Close()
 
 	// Loop for each message
 outerReadLoop:
@@ -210,8 +208,24 @@ outerReadLoop:
 					break
 				}
 			} else {
+				closing := make(chan bool)
+				go func() {
+					for {
+						// Listen for incoming messages to know if the client wants
+						// to close the stream.
+						_, _, err := ws.ReadMessage()
+						if err != nil {
+							close(closing)
+							return
+						}
+					}
+				}()
+
 				for {
 					select {
+					case <-closing:
+						close(tun.close)
+						return
 					case reply, ok := <-tun.out:
 						if !ok {
 							err = errors.New("service finished streaming")
@@ -238,7 +252,7 @@ outerReadLoop:
 	}
 
 	ws.WriteControl(websocket.CloseMessage,
-		websocket.FormatCloseMessage(4000, err.Error()),
+		websocket.FormatCloseMessage(websocket.CloseProtocolError, err.Error()),
 		time.Now().Add(time.Millisecond*500))
 	return
 }
@@ -510,7 +524,8 @@ func (c *Client) closeConn(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
 		delete(c.connections, dst)
-		conn.WriteMessage(websocket.CloseMessage, nil)
+		conn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closed"))
 		return conn.Close()
 	}
 	return nil
