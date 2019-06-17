@@ -476,6 +476,8 @@ func TestMarshalJSON_twoPoints(t *testing.T) {
 }
 
 func TestProcessor_REST_Handler(t *testing.T) {
+	log.AddUserUninterestingGoroutine("created by net/http.(*Transport).dialConn")
+
 	local := NewTCPTest(tSuite)
 
 	// generate 1 host

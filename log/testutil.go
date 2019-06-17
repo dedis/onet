@@ -31,16 +31,35 @@ func interestingGoroutines() (gs []string) {
 			strings.Contains(stack, "runtime.MHeap_Scavenger") ||
 			strings.Contains(stack, "graceful") ||
 			strings.Contains(stack, "sigqueue") ||
-			strings.Contains(stack, "stackimpact-go/internal") ||
-			// stackimpact uses persistent http client conns
-			strings.Contains(stack, "created by net/http.(*Transport).dialConn") ||
-			strings.Contains(stack, "log.MainTest") {
+			strings.Contains(stack, "log.MainTest") ||
+			matchesUserUninterestingGoroutine(stack) {
 			continue
 		}
+
 		gs = append(gs, stack)
 	}
 	sort.Strings(gs)
 	return
+}
+
+var userUninterestingGoroutines []string
+
+// AddUserUninterestingGoroutine can be called when the environment of some
+// specific tests leaks goroutines unknown to interestingGoroutines().
+// This function is not safe for concurrent execution. The caller should add
+// all of the desired exceptions before launching any goroutines.
+func AddUserUninterestingGoroutine(newGr string) {
+	userUninterestingGoroutines = append(userUninterestingGoroutines, newGr)
+}
+
+func matchesUserUninterestingGoroutine(stack string) bool {
+	for _, gr := range userUninterestingGoroutines {
+		if strings.Contains(stack, gr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // AfterTest can be called to wait for leaking goroutines to finish. If
