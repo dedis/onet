@@ -271,6 +271,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	timeoutLock.Lock()
 	tmp := timeout
 	timeout = timeoutForTest
+	dialTimeout = timeoutForTest
 	timeoutLock.Unlock()
 
 	defer func() {
@@ -349,6 +350,26 @@ func TestTCPConnTimeout(t *testing.T) {
 
 	assert.Nil(t, c.Close())
 	assert.Nil(t, ln.Stop())
+}
+
+func TestTCPDialTimeout(t *testing.T) {
+	oldDialTimeout := dialTimeout
+	SetTCPDialTimeout(100 * time.Millisecond)
+	defer SetTCPDialTimeout(oldDialTimeout)
+
+	addr := NewAddress(PlainTCP, "223.127.195.92:1234")
+	done := make(chan struct{}, 1)
+	go func() {
+		_, err := NewTCPConn(addr, tSuite)
+		require.Contains(t, err.Error(), "timeout")
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		require.Fail(t, "should have timed out after a short duration")
+	}
 }
 
 func TestTCPConnWithListener(t *testing.T) {

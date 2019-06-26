@@ -18,6 +18,9 @@ import (
 // received. sends and connects will timeout using this timeout as well.
 var timeout = 1 * time.Minute
 
+// dialTimeout is the timeout for connecting to an end point.
+var dialTimeout = 1 * time.Minute
+
 // Global lock for 'timeout' (because also used in 'tcp_test.go')
 // Using a 'RWMutex' to be as efficient as possible, because it will be used
 // quite a lot in 'Receive()'.
@@ -51,6 +54,12 @@ func NewTCPRouterWithListenAddr(sid *ServerIdentity, suite Suite,
 	return r, nil
 }
 
+// SetTCPDialTimeout sets the dialing timeout for the TCP connection. The
+// default is one minute. This function is not thread-safe.
+func SetTCPDialTimeout(dur time.Duration) {
+	dialTimeout = dur
+}
+
 // TCPConn implements the Conn interface using plain, unencrypted TCP.
 type TCPConn struct {
 	// The connection used
@@ -79,7 +88,7 @@ func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
 	netAddr := addr.NetworkAddress()
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
-		c, err = net.DialTimeout("tcp", netAddr, timeout)
+		c, err = net.DialTimeout("tcp", netAddr, dialTimeout)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,
