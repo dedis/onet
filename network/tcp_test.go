@@ -357,7 +357,9 @@ func TestTCPDialTimeout(t *testing.T) {
 	SetTCPDialTimeout(100 * time.Millisecond)
 	defer SetTCPDialTimeout(oldDialTimeout)
 
-	addr := NewAddress(PlainTCP, "223.127.195.92:1234")
+	// We're hoping that Cloudflare is not running a server on this address
+	// so we'll get a timeout error.
+	addr := NewAddress(PlainTCP, "1.1.1.2:1234")
 	done := make(chan struct{}, 1)
 	go func() {
 		_, err := NewTCPConn(addr, tSuite)
