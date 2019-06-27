@@ -271,6 +271,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	timeoutLock.Lock()
 	tmp := timeout
 	timeout = timeoutForTest
+	dialTimeout = timeoutForTest
 	timeoutLock.Unlock()
 
 	defer func() {
@@ -349,6 +350,28 @@ func TestTCPConnTimeout(t *testing.T) {
 
 	assert.Nil(t, c.Close())
 	assert.Nil(t, ln.Stop())
+}
+
+func TestTCPDialTimeout(t *testing.T) {
+	oldDialTimeout := dialTimeout
+	SetTCPDialTimeout(100 * time.Millisecond)
+	defer SetTCPDialTimeout(oldDialTimeout)
+
+	// We're hoping that Cloudflare is not running a server on this address
+	// so we'll get a timeout error.
+	addr := NewAddress(PlainTCP, "1.1.1.2:1234")
+	done := make(chan struct{}, 1)
+	go func() {
+		_, err := NewTCPConn(addr, tSuite)
+		require.Contains(t, err.Error(), "timeout")
+		done <- struct{}{}
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		require.Fail(t, "should have timed out after a short duration")
+	}
 }
 
 func TestTCPConnWithListener(t *testing.T) {
