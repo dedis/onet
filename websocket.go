@@ -393,29 +393,34 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 // Send will marshal the message into a ClientRequest message and send it.
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
 	c.Lock()
-	defer c.Unlock()
-
 	conn, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return nil, err
 	}
-	defer c.closeSingleUseConn(dst, path)
+	c.Unlock()
+
+	var rcv []byte
+	defer func() {
+		c.Lock()
+		c.closeSingleUseConn(dst, path)
+		c.rx += uint64(len(rcv))
+		c.tx += uint64(len(buf))
+		c.Unlock()
+	}()
 
 	log.Lvlf4("Sending %x to %s/%s", buf, c.service, path)
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
 		return nil, err
 	}
-	c.tx += uint64(len(buf))
 
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
 		return nil, err
 	}
-	_, rcv, err := conn.ReadMessage()
+	_, rcv, err = conn.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
 	log.Lvlf4("Received %x", rcv)
-	c.rx += uint64(len(rcv))
 	return rcv, nil
 }
 
@@ -471,10 +476,10 @@ type ParallelOptions struct {
 
 // GetList returns how many requests to start in parallel and a channel of nodes to be used.
 // If po == nil, it uses default values.
-func (po *ParallelOptions) GetList(roster *Roster) (parallel int, nodesChan chan *network.ServerIdentity) {
+func (po *ParallelOptions) GetList(nodes []*network.ServerIdentity) (parallel int, nodesChan chan *network.ServerIdentity) {
 	// Default values
-	parallel = (len(roster.List) + 1) / 2
-	askNodes := len(roster.List)
+	parallel = (len(nodes) + 1) / 2
+	askNodes := len(nodes)
 	startNode := 0
 	var ignoreNodes []*network.ServerIdentity
 	var perm []int
@@ -482,31 +487,31 @@ func (po *ParallelOptions) GetList(roster *Roster) (parallel int, nodesChan chan
 		if po.Parallel > 0 && po.Parallel < parallel {
 			parallel = po.Parallel
 		}
-		if po.StartNode > 0 && po.StartNode < len(roster.List) {
+		if po.StartNode > 0 && po.StartNode < len(nodes) {
 			startNode = po.StartNode
 			askNodes -= startNode
 		}
-		if po.AskNodes > 0 && po.AskNodes < len(roster.List) {
+		if po.AskNodes > 0 && po.AskNodes < len(nodes) {
 			askNodes = po.AskNodes
 		}
 		if askNodes < parallel {
 			parallel = askNodes
 		}
 		if po.DontShuffle {
-			for i := range roster.List {
+			for i := range nodes {
 				perm = append(perm, i)
 			}
 		}
 		ignoreNodes = po.IgnoreNodes
 	}
 	if len(perm) == 0 {
-		perm = rand.Perm(len(roster.List))
+		perm = rand.Perm(len(nodes))
 	}
 
 	nodesChan = make(chan *network.ServerIdentity, askNodes)
-	for i := range roster.List {
+	for i := range nodes {
 		addNode := true
-		node := roster.List[(startNode+perm[i])%len(roster.List)]
+		node := nodes[(startNode+perm[i])%len(nodes)]
 		for _, ignore := range ignoreNodes {
 			if node.Equal(ignore) {
 				addNode = false
@@ -535,7 +540,7 @@ func (po *ParallelOptions) Quit() bool {
 // answer. If all nodes return an error, only the first error is returned.
 // The behaviour of this method can be changed using the ParallelOptions argument. It is kept
 // as a structure for future enhancements. If opt is nil, then standard values will be taken.
-func (c *Client) SendProtobufParallel(roster *Roster, msg interface{}, ret interface{},
+func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
 	opt *ParallelOptions) (*network.ServerIdentity, error) {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
@@ -543,7 +548,7 @@ func (c *Client) SendProtobufParallel(roster *Roster, msg interface{}, ret inter
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
-	parallel, nodesChan := opt.GetList(roster)
+	parallel, nodesChan := opt.GetList(nodes)
 	errChan := make(chan error, parallel)
 	replyChan := make(chan []byte, parallel)
 	siChan := make(chan *network.ServerIdentity, parallel)

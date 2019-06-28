@@ -22,7 +22,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {
@@ -674,22 +674,23 @@ func TestParallelOptions_GetList(t *testing.T) {
 
 	var po *ParallelOptions
 	_, roster, _ := l.GenTree(3, false)
+	nodes := roster.List
 
-	count, list := po.GetList(roster)
+	count, list := po.GetList(nodes)
 	require.Equal(t, 2, count)
 	require.Equal(t, 3, len(list))
 	require.False(t, po.Quit())
 
 	po = &ParallelOptions{}
-	count, list = po.GetList(roster)
+	count, list = po.GetList(nodes)
 	require.Equal(t, 2, count)
 	require.Equal(t, 3, len(list))
 	require.False(t, po.Quit())
 
 	first := 0
 	for i := 0; i < 32; i++ {
-		_, list := po.GetList(roster)
-		if (<-list).Equal(roster.List[0]) {
+		_, list := po.GetList(nodes)
+		if (<-list).Equal(nodes[0]) {
 			first++
 		}
 	}
@@ -698,20 +699,20 @@ func TestParallelOptions_GetList(t *testing.T) {
 	po.DontShuffle = true
 	first = 0
 	for i := 0; i < 32; i++ {
-		_, list := po.GetList(roster)
-		if (<-list).Equal(roster.List[0]) {
+		_, list := po.GetList(nodes)
+		if (<-list).Equal(nodes[0]) {
 			first++
 		}
 	}
 	require.Equal(t, 32, first)
 
-	po.IgnoreNodes = append(po.IgnoreNodes, roster.List[0])
-	count, list = po.GetList(roster)
+	po.IgnoreNodes = append(po.IgnoreNodes, nodes[0])
+	count, list = po.GetList(nodes)
 	require.Equal(t, 2, count)
 	require.Equal(t, 2, len(list))
 
-	po.IgnoreNodes = append(po.IgnoreNodes, roster.List[1])
-	count, list = po.GetList(roster)
+	po.IgnoreNodes = append(po.IgnoreNodes, nodes[1])
+	count, list = po.GetList(nodes)
 	require.Equal(t, 2, count)
 	require.Equal(t, 1, len(list))
 
@@ -720,12 +721,12 @@ func TestParallelOptions_GetList(t *testing.T) {
 	require.True(t, po.Quit())
 
 	po.AskNodes = 1
-	count, list = po.GetList(roster)
+	count, list = po.GetList(nodes)
 	require.Equal(t, 1, count)
 	require.Equal(t, 1, len(list))
 
 	po.StartNode = 1
-	count, list = po.GetList(roster)
+	count, list = po.GetList(nodes)
 	require.Equal(t, 1, count)
 	require.Equal(t, 1, len(list))
 }
