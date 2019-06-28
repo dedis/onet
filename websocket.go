@@ -271,9 +271,10 @@ type destination struct {
 // Client is a struct used to communicate with a remote Service running on a
 // onet.Server. Using Send it can connect to multiple remote Servers.
 type Client struct {
-	service     string
-	connections map[destination]*websocket.Conn
-	suite       network.Suite
+	service         string
+	connections     map[destination]*websocket.Conn
+	connectionsLock map[destination]*sync.Mutex
+	suite           network.Suite
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
@@ -287,21 +288,19 @@ type Client struct {
 // connection will be started, until Close is called.
 func NewClient(suite network.Suite, s string) *Client {
 	return &Client{
-		service:     s,
-		connections: make(map[destination]*websocket.Conn),
-		suite:       suite,
+		service:         s,
+		connections:     make(map[destination]*websocket.Conn),
+		connectionsLock: make(map[destination]*sync.Mutex),
+		suite:           suite,
 	}
 }
 
 // NewClientKeep returns a Client that doesn't close the connection between
 // two messages if it's the same server.
 func NewClientKeep(suite network.Suite, s string) *Client {
-	return &Client{
-		service:     s,
-		keep:        true,
-		connections: make(map[destination]*websocket.Conn),
-		suite:       suite,
-	}
+	cl := NewClient(suite, s)
+	cl.keep = true
+	return cl
 }
 
 // Suite returns the cryptographic suite in use on this connection.
@@ -324,7 +323,9 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 	// TODO we are opening a new connection for every new path?
 	// not possible to use an existing connection for the same service?
 	dest := destination{dst, path}
+	c.Lock()
 	conn, ok := c.connections[dest]
+	c.Unlock()
 
 	if !ok {
 		d := &websocket.Dialer{}
@@ -385,19 +386,31 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		if err != nil {
 			return nil, err
 		}
+		c.Lock()
 		c.connections[dest] = conn
+		c.Unlock()
 	}
 	return conn, nil
 }
 
-// Send will marshal the message into a ClientRequest message and send it.
+// Send will marshal the message into a ClientRequest message and send it. It has a
+// very simple parallel sending mechanism included: if the send goes to a new or an
+// idle connection, the message is sent right away. If the current connection is busy,
+// it waits for it to be free.
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
 	c.Lock()
+	dest := destination{dst, path}
+	if c.connectionsLock[dest] == nil {
+		c.connectionsLock[dest] = &sync.Mutex{}
+	}
+	connLock := c.connectionsLock[dest]
+	c.Unlock()
+	connLock.Lock()
+	defer connLock.Unlock()
 	conn, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return nil, err
 	}
-	c.Unlock()
 
 	var rcv []byte
 	defer func() {
@@ -567,6 +580,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
 				reply, err := c.Send(node, path, buf)
 				if err != nil {
+					log.Lvl2("Error while sending to node:", node, err)
 					errChan <- err
 				} else {
 					finish.Do(func() { close(nodesChan) })
@@ -683,8 +697,11 @@ func (c *Client) closeConn(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
 		delete(c.connections, dst)
-		conn.WriteMessage(websocket.CloseMessage,
+		err := conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closed"))
+		if err != nil {
+			log.Error("Error while sending closing type:", err)
+		}
 		return conn.Close()
 	}
 	return nil

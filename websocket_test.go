@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -729,6 +731,32 @@ func TestParallelOptions_GetList(t *testing.T) {
 	count, list = po.GetList(nodes)
 	require.Equal(t, 1, count)
 	require.Equal(t, 1, len(list))
+}
+
+func TestClient_SendProtobufParallel(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+
+	_, err := RegisterNewService(dummyService3Name, func(c *Context) (Service, error) {
+		ds := &DummyService3{}
+		return ds, nil
+	})
+	require.Nil(t, err)
+	defer UnregisterService(dummyService3Name)
+
+	_, roster, _ := l.GenTree(3, false)
+	cl := NewClient(tSuite, dummyService3Name)
+	tests := 10
+	firstNodes := make([]*network.ServerIdentity, tests)
+	for i := 0; i < tests; i++ {
+		log.Lvl1("Sending", i)
+		firstNodes[i], err = cl.SendProtobufParallel(roster.List, &SimpleResponse{}, nil, nil)
+		require.Nil(t, err)
+	}
+	sort.Slice(firstNodes, func(i, j int) bool {
+		return bytes.Compare(firstNodes[i].ID[:], firstNodes[j].ID[:]) < 0
+	})
+	require.False(t, firstNodes[0].Equal(firstNodes[tests-1]))
 }
 
 const serviceWebSocket = "WebSocket"
