@@ -22,7 +22,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
-	uuid "gopkg.in/satori/go.uuid.v1"
+	"gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {
@@ -665,6 +665,69 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 	for i := range clients {
 		require.NoError(t, clients[i].Close())
 	}
+}
+
+// Tests the correct returning of values depending on the ParallelOptions structure
+func TestParallelOptions_GetList(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+
+	var po *ParallelOptions
+	_, roster, _ := l.GenTree(3, false)
+
+	count, list := po.GetList(roster)
+	require.Equal(t, 2, count)
+	require.Equal(t, 3, len(list))
+	require.False(t, po.Quit())
+
+	po = &ParallelOptions{}
+	count, list = po.GetList(roster)
+	require.Equal(t, 2, count)
+	require.Equal(t, 3, len(list))
+	require.False(t, po.Quit())
+
+	first := 0
+	for i := 0; i < 32; i++ {
+		_, list := po.GetList(roster)
+		if (<-list).Equal(roster.List[0]) {
+			first++
+		}
+	}
+	require.NotEqual(t, 0, first)
+	require.NotEqual(t, 32, first)
+	po.DontShuffle = true
+	first = 0
+	for i := 0; i < 32; i++ {
+		_, list := po.GetList(roster)
+		if (<-list).Equal(roster.List[0]) {
+			first++
+		}
+	}
+	require.Equal(t, 32, first)
+
+	po.IgnoreNodes = append(po.IgnoreNodes, roster.List[0])
+	count, list = po.GetList(roster)
+	require.Equal(t, 2, count)
+	require.Equal(t, 2, len(list))
+
+	po.IgnoreNodes = append(po.IgnoreNodes, roster.List[1])
+	count, list = po.GetList(roster)
+	require.Equal(t, 2, count)
+	require.Equal(t, 1, len(list))
+
+	po.IgnoreNodes = po.IgnoreNodes[0:1]
+	po.QuitError = true
+	require.True(t, po.Quit())
+
+	po.AskNodes = 1
+	count, list = po.GetList(roster)
+	require.Equal(t, 1, count)
+	require.Equal(t, 1, len(list))
+
+	po.StartNode = 1
+	count, list = po.GetList(roster)
+	require.Equal(t, 1, count)
+	require.Equal(t, 1, len(list))
 }
 
 const serviceWebSocket = "WebSocket"

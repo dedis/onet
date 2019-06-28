@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -439,6 +440,154 @@ func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret 
 			network.DefaultConstructors(c.suite))
 	}
 	return nil
+}
+
+// ParallelOptions defines how SendProtobufParallel behaves. Each field has a default
+// value that will be used if 'nil' is passed to SendProtobufParallel. For integers,
+// the default will also be used if the integer = 0.
+type ParallelOptions struct {
+	// Parallel indicates how many requests are sent in parallel.
+	//   Default: half of all nodes in the roster
+	Parallel int
+	// AskNodes indicates how many requests are sent in total.
+	//   Default: all nodes in the roster, except if StartNodes is set > 0
+	AskNodes int
+	// StartNode indicates where to start in the roster. If StartNode is > 0 and < len(roster),
+	// but AskNodes is 0, then AskNodes will be set to len(Roster)-StartNode.
+	//   Default: 0
+	StartNode int
+	// QuitError - if true, the first error received will be returned.
+	//   Default: false
+	QuitError bool
+	// IgnoreNodes is a set of nodes that will not be contacted. They are counted towards
+	// AskNodes and StartNode, but not contacted.
+	//   Default: false
+	IgnoreNodes []*network.ServerIdentity
+	// DontShuffle - if true, the nodes will be contacted in the same order as given in the Roster.
+	// StartNode will be applied before shuffling.
+	//   Default: false
+	DontShuffle bool
+}
+
+// GetList returns how many requests to start in parallel and a channel of nodes to be used.
+// If po == nil, it uses default values.
+func (po *ParallelOptions) GetList(roster *Roster) (parallel int, nodesChan chan *network.ServerIdentity) {
+	// Default values
+	parallel = (len(roster.List) + 1) / 2
+	askNodes := len(roster.List)
+	startNode := 0
+	var ignoreNodes []*network.ServerIdentity
+	var perm []int
+	if po != nil {
+		if po.Parallel > 0 && po.Parallel < parallel {
+			parallel = po.Parallel
+		}
+		if po.StartNode > 0 && po.StartNode < len(roster.List) {
+			startNode = po.StartNode
+			askNodes -= startNode
+		}
+		if po.AskNodes > 0 && po.AskNodes < len(roster.List) {
+			askNodes = po.AskNodes
+		}
+		if askNodes < parallel {
+			parallel = askNodes
+		}
+		if po.DontShuffle {
+			for i := range roster.List {
+				perm = append(perm, i)
+			}
+		}
+		ignoreNodes = po.IgnoreNodes
+	}
+	if len(perm) == 0 {
+		perm = rand.Perm(len(roster.List))
+	}
+
+	nodesChan = make(chan *network.ServerIdentity, askNodes)
+	for i := range roster.List {
+		addNode := true
+		node := roster.List[(startNode+perm[i])%len(roster.List)]
+		for _, ignore := range ignoreNodes {
+			if node.Equal(ignore) {
+				addNode = false
+				break
+			}
+		}
+		if addNode {
+			nodesChan <- node
+		}
+		if len(nodesChan) == askNodes {
+			break
+		}
+	}
+	return parallel, nodesChan
+}
+
+// Quit return false if po == nil, or the value in po.QuitError.
+func (po *ParallelOptions) Quit() bool {
+	if po == nil {
+		return false
+	}
+	return po.QuitError
+}
+
+// SendProtobufParallel sends the msg to a set of nodes in parallel and returns the first successful
+// answer. If all nodes return an error, only the first error is returned.
+// The behaviour of this method can be changed using the ParallelOptions argument. It is kept
+// as a structure for future enhancements. If opt is nil, then standard values will be taken.
+func (c *Client) SendProtobufParallel(roster *Roster, msg interface{}, ret interface{},
+	opt *ParallelOptions) (*network.ServerIdentity, error) {
+	buf, err := protobuf.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
+
+	parallel, nodesChan := opt.GetList(roster)
+	errChan := make(chan error, parallel)
+	replyChan := make(chan []byte, parallel)
+	siChan := make(chan *network.ServerIdentity, parallel)
+	finish := &sync.Once{}
+	for g := 0; g < parallel; g++ {
+		go func() {
+			for {
+				var node *network.ServerIdentity
+				select {
+				case node = <-nodesChan:
+				default:
+				}
+				if node == nil {
+					return
+				}
+				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
+				reply, err := c.Send(node, path, buf)
+				if err != nil {
+					errChan <- err
+				} else {
+					finish.Do(func() { close(nodesChan) })
+					siChan <- node
+					replyChan <- reply
+				}
+			}
+		}()
+	}
+	var errors []error
+	for len(errors) < parallel {
+		select {
+		case reply := <-replyChan:
+			if ret != nil {
+				return <-siChan, protobuf.DecodeWithConstructors(reply, ret,
+					network.DefaultConstructors(c.suite))
+			}
+			return <-siChan, nil
+		case err := <-errChan:
+			if opt.Quit() {
+				return nil, err
+			}
+			errors = append(errors, err)
+		}
+	}
+	return nil, errors[0]
 }
 
 // StreamingConn allows clients to read from it without sending additional
