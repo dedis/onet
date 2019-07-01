@@ -320,8 +320,6 @@ func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
 func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, error) {
 	var err error
 
-	// TODO we are opening a new connection for every new path?
-	// not possible to use an existing connection for the same service?
 	dest := destination{dst, path}
 	c.Lock()
 	conn, ok := c.connections[dest]
@@ -573,8 +571,6 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				select {
 				case node = <-nodesChan:
 				default:
-				}
-				if node == nil {
 					return
 				}
 				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
@@ -641,9 +637,9 @@ func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (Streaming
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
+	conn, err := c.newConnIfNotExist(dst, path)
 	c.Lock()
 	defer c.Unlock()
-	conn, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return StreamingConn{}, err
 	}

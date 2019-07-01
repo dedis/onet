@@ -498,6 +498,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	}
 
 	// (1) happy-path testing
+	log.Lvl1("Happy-path testing")
 	conn, err := client.Stream(servers[0].ServerIdentity, r)
 	require.NoError(t, err)
 
@@ -510,6 +511,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	// Using the same client (connection) to repeat the same request should
 	// fail because the connection should be closed by the service when
 	// there are no more messages.
+	log.Lvl1("Fail on re-use")
 	sr := &SimpleResponse{}
 	require.Error(t, conn.ReadMessage(sr))
 	require.NoError(t, client.Close())
