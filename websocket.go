@@ -571,6 +571,8 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				select {
 				case node = <-nodesChan:
 				default:
+				}
+				if node == nil {
 					return
 				}
 				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
