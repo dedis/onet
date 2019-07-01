@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -496,6 +498,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	}
 
 	// (1) happy-path testing
+	log.Lvl1("Happy-path testing")
 	conn, err := client.Stream(servers[0].ServerIdentity, r)
 	require.NoError(t, err)
 
@@ -508,6 +511,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	// Using the same client (connection) to repeat the same request should
 	// fail because the connection should be closed by the service when
 	// there are no more messages.
+	log.Lvl1("Fail on re-use")
 	sr := &SimpleResponse{}
 	require.Error(t, conn.ReadMessage(sr))
 	require.NoError(t, client.Close())
@@ -665,6 +669,96 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 	for i := range clients {
 		require.NoError(t, clients[i].Close())
 	}
+}
+
+// Tests the correct returning of values depending on the ParallelOptions structure
+func TestParallelOptions_GetList(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+
+	var po *ParallelOptions
+	_, roster, _ := l.GenTree(3, false)
+	nodes := roster.List
+
+	count, list := po.GetList(nodes)
+	require.Equal(t, 2, count)
+	require.Equal(t, 3, len(list))
+	require.False(t, po.Quit())
+
+	po = &ParallelOptions{}
+	count, list = po.GetList(nodes)
+	require.Equal(t, 2, count)
+	require.Equal(t, 3, len(list))
+	require.False(t, po.Quit())
+
+	first := 0
+	for i := 0; i < 32; i++ {
+		_, list := po.GetList(nodes)
+		if (<-list).Equal(nodes[0]) {
+			first++
+		}
+	}
+	require.NotEqual(t, 0, first)
+	require.NotEqual(t, 32, first)
+	po.DontShuffle = true
+	first = 0
+	for i := 0; i < 32; i++ {
+		_, list := po.GetList(nodes)
+		if (<-list).Equal(nodes[0]) {
+			first++
+		}
+	}
+	require.Equal(t, 32, first)
+
+	po.IgnoreNodes = append(po.IgnoreNodes, nodes[0])
+	count, list = po.GetList(nodes)
+	require.Equal(t, 2, count)
+	require.Equal(t, 2, len(list))
+
+	po.IgnoreNodes = append(po.IgnoreNodes, nodes[1])
+	count, list = po.GetList(nodes)
+	require.Equal(t, 2, count)
+	require.Equal(t, 1, len(list))
+
+	po.IgnoreNodes = po.IgnoreNodes[0:1]
+	po.QuitError = true
+	require.True(t, po.Quit())
+
+	po.AskNodes = 1
+	count, list = po.GetList(nodes)
+	require.Equal(t, 1, count)
+	require.Equal(t, 1, len(list))
+
+	po.StartNode = 1
+	count, list = po.GetList(nodes)
+	require.Equal(t, 1, count)
+	require.Equal(t, 1, len(list))
+}
+
+func TestClient_SendProtobufParallel(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+
+	_, err := RegisterNewService(dummyService3Name, func(c *Context) (Service, error) {
+		ds := &DummyService3{}
+		return ds, nil
+	})
+	require.Nil(t, err)
+	defer UnregisterService(dummyService3Name)
+
+	_, roster, _ := l.GenTree(3, false)
+	cl := NewClient(tSuite, dummyService3Name)
+	tests := 10
+	firstNodes := make([]*network.ServerIdentity, tests)
+	for i := 0; i < tests; i++ {
+		log.Lvl1("Sending", i)
+		firstNodes[i], err = cl.SendProtobufParallel(roster.List, &SimpleResponse{}, nil, nil)
+		require.Nil(t, err)
+	}
+	sort.Slice(firstNodes, func(i, j int) bool {
+		return bytes.Compare(firstNodes[i].ID[:], firstNodes[j].ID[:]) < 0
+	})
+	require.False(t, firstNodes[0].Equal(firstNodes[tests-1]))
 }
 
 const serviceWebSocket = "WebSocket"

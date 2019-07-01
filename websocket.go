@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -270,9 +271,10 @@ type destination struct {
 // Client is a struct used to communicate with a remote Service running on a
 // onet.Server. Using Send it can connect to multiple remote Servers.
 type Client struct {
-	service     string
-	connections map[destination]*websocket.Conn
-	suite       network.Suite
+	service         string
+	connections     map[destination]*websocket.Conn
+	connectionsLock map[destination]*sync.Mutex
+	suite           network.Suite
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
@@ -286,21 +288,19 @@ type Client struct {
 // connection will be started, until Close is called.
 func NewClient(suite network.Suite, s string) *Client {
 	return &Client{
-		service:     s,
-		connections: make(map[destination]*websocket.Conn),
-		suite:       suite,
+		service:         s,
+		connections:     make(map[destination]*websocket.Conn),
+		connectionsLock: make(map[destination]*sync.Mutex),
+		suite:           suite,
 	}
 }
 
 // NewClientKeep returns a Client that doesn't close the connection between
 // two messages if it's the same server.
 func NewClientKeep(suite network.Suite, s string) *Client {
-	return &Client{
-		service:     s,
-		keep:        true,
-		connections: make(map[destination]*websocket.Conn),
-		suite:       suite,
-	}
+	cl := NewClient(suite, s)
+	cl.keep = true
+	return cl
 }
 
 // Suite returns the cryptographic suite in use on this connection.
@@ -320,10 +320,10 @@ func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
 func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, error) {
 	var err error
 
-	// TODO we are opening a new connection for every new path?
-	// not possible to use an existing connection for the same service?
 	dest := destination{dst, path}
+	c.Lock()
 	conn, ok := c.connections[dest]
+	c.Unlock()
 
 	if !ok {
 		d := &websocket.Dialer{}
@@ -384,37 +384,54 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		if err != nil {
 			return nil, err
 		}
+		c.Lock()
 		c.connections[dest] = conn
+		c.Unlock()
 	}
 	return conn, nil
 }
 
-// Send will marshal the message into a ClientRequest message and send it.
+// Send will marshal the message into a ClientRequest message and send it. It has a
+// very simple parallel sending mechanism included: if the send goes to a new or an
+// idle connection, the message is sent right away. If the current connection is busy,
+// it waits for it to be free.
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
 	c.Lock()
-	defer c.Unlock()
-
+	dest := destination{dst, path}
+	if c.connectionsLock[dest] == nil {
+		c.connectionsLock[dest] = &sync.Mutex{}
+	}
+	connLock := c.connectionsLock[dest]
+	c.Unlock()
+	connLock.Lock()
+	defer connLock.Unlock()
 	conn, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return nil, err
 	}
-	defer c.closeSingleUseConn(dst, path)
+
+	var rcv []byte
+	defer func() {
+		c.Lock()
+		c.closeSingleUseConn(dst, path)
+		c.rx += uint64(len(rcv))
+		c.tx += uint64(len(buf))
+		c.Unlock()
+	}()
 
 	log.Lvlf4("Sending %x to %s/%s", buf, c.service, path)
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
 		return nil, err
 	}
-	c.tx += uint64(len(buf))
 
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
 		return nil, err
 	}
-	_, rcv, err := conn.ReadMessage()
+	_, rcv, err = conn.ReadMessage()
 	if err != nil {
 		return nil, err
 	}
 	log.Lvlf4("Received %x", rcv)
-	c.rx += uint64(len(rcv))
 	return rcv, nil
 }
 
@@ -439,6 +456,155 @@ func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret 
 			network.DefaultConstructors(c.suite))
 	}
 	return nil
+}
+
+// ParallelOptions defines how SendProtobufParallel behaves. Each field has a default
+// value that will be used if 'nil' is passed to SendProtobufParallel. For integers,
+// the default will also be used if the integer = 0.
+type ParallelOptions struct {
+	// Parallel indicates how many requests are sent in parallel.
+	//   Default: half of all nodes in the roster
+	Parallel int
+	// AskNodes indicates how many requests are sent in total.
+	//   Default: all nodes in the roster, except if StartNodes is set > 0
+	AskNodes int
+	// StartNode indicates where to start in the roster. If StartNode is > 0 and < len(roster),
+	// but AskNodes is 0, then AskNodes will be set to len(Roster)-StartNode.
+	//   Default: 0
+	StartNode int
+	// QuitError - if true, the first error received will be returned.
+	//   Default: false
+	QuitError bool
+	// IgnoreNodes is a set of nodes that will not be contacted. They are counted towards
+	// AskNodes and StartNode, but not contacted.
+	//   Default: false
+	IgnoreNodes []*network.ServerIdentity
+	// DontShuffle - if true, the nodes will be contacted in the same order as given in the Roster.
+	// StartNode will be applied before shuffling.
+	//   Default: false
+	DontShuffle bool
+}
+
+// GetList returns how many requests to start in parallel and a channel of nodes to be used.
+// If po == nil, it uses default values.
+func (po *ParallelOptions) GetList(nodes []*network.ServerIdentity) (parallel int, nodesChan chan *network.ServerIdentity) {
+	// Default values
+	parallel = (len(nodes) + 1) / 2
+	askNodes := len(nodes)
+	startNode := 0
+	var ignoreNodes []*network.ServerIdentity
+	var perm []int
+	if po != nil {
+		if po.Parallel > 0 && po.Parallel < parallel {
+			parallel = po.Parallel
+		}
+		if po.StartNode > 0 && po.StartNode < len(nodes) {
+			startNode = po.StartNode
+			askNodes -= startNode
+		}
+		if po.AskNodes > 0 && po.AskNodes < len(nodes) {
+			askNodes = po.AskNodes
+		}
+		if askNodes < parallel {
+			parallel = askNodes
+		}
+		if po.DontShuffle {
+			for i := range nodes {
+				perm = append(perm, i)
+			}
+		}
+		ignoreNodes = po.IgnoreNodes
+	}
+	if len(perm) == 0 {
+		perm = rand.Perm(len(nodes))
+	}
+
+	nodesChan = make(chan *network.ServerIdentity, askNodes)
+	for i := range nodes {
+		addNode := true
+		node := nodes[(startNode+perm[i])%len(nodes)]
+		for _, ignore := range ignoreNodes {
+			if node.Equal(ignore) {
+				addNode = false
+				break
+			}
+		}
+		if addNode {
+			nodesChan <- node
+		}
+		if len(nodesChan) == askNodes {
+			break
+		}
+	}
+	return parallel, nodesChan
+}
+
+// Quit return false if po == nil, or the value in po.QuitError.
+func (po *ParallelOptions) Quit() bool {
+	if po == nil {
+		return false
+	}
+	return po.QuitError
+}
+
+// SendProtobufParallel sends the msg to a set of nodes in parallel and returns the first successful
+// answer. If all nodes return an error, only the first error is returned.
+// The behaviour of this method can be changed using the ParallelOptions argument. It is kept
+// as a structure for future enhancements. If opt is nil, then standard values will be taken.
+func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
+	opt *ParallelOptions) (*network.ServerIdentity, error) {
+	buf, err := protobuf.Encode(msg)
+	if err != nil {
+		return nil, err
+	}
+	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
+
+	parallel, nodesChan := opt.GetList(nodes)
+	errChan := make(chan error, parallel)
+	replyChan := make(chan []byte, parallel)
+	siChan := make(chan *network.ServerIdentity, parallel)
+	finish := &sync.Once{}
+	for g := 0; g < parallel; g++ {
+		go func() {
+			for {
+				var node *network.ServerIdentity
+				select {
+				case node = <-nodesChan:
+				default:
+				}
+				if node == nil {
+					return
+				}
+				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
+				reply, err := c.Send(node, path, buf)
+				if err != nil {
+					log.Lvl2("Error while sending to node:", node, err)
+					errChan <- err
+				} else {
+					finish.Do(func() { close(nodesChan) })
+					siChan <- node
+					replyChan <- reply
+				}
+			}
+		}()
+	}
+	var errors []error
+	for len(errors) < parallel {
+		select {
+		case reply := <-replyChan:
+			if ret != nil {
+				return <-siChan, protobuf.DecodeWithConstructors(reply, ret,
+					network.DefaultConstructors(c.suite))
+			}
+			return <-siChan, nil
+		case err := <-errChan:
+			if opt.Quit() {
+				return nil, err
+			}
+			errors = append(errors, err)
+		}
+	}
+	return nil, errors[0]
 }
 
 // StreamingConn allows clients to read from it without sending additional
@@ -473,9 +639,9 @@ func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (Streaming
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
+	conn, err := c.newConnIfNotExist(dst, path)
 	c.Lock()
 	defer c.Unlock()
-	conn, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return StreamingConn{}, err
 	}
@@ -529,8 +695,11 @@ func (c *Client) closeConn(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
 		delete(c.connections, dst)
-		conn.WriteMessage(websocket.CloseMessage,
+		err := conn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseNormalClosure, "client closed"))
+		if err != nil {
+			log.Error("Error while sending closing type:", err)
+		}
 		return conn.Close()
 	}
 	return nil
