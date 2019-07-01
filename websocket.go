@@ -199,11 +199,11 @@ outerReadLoop:
 		if err == nil {
 			if tun == nil {
 				tx += len(reply)
-				if err := ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+				if err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
 					log.Error(err)
 					break
 				}
-				if err := ws.WriteMessage(mt, reply); err != nil {
+				if err = ws.WriteMessage(mt, reply); err != nil {
 					log.Error(err)
 					break
 				}
@@ -251,8 +251,13 @@ outerReadLoop:
 		}
 	}
 
+	errMessage := "unexpected error: "
+	if err != nil {
+		errMessage += err.Error()
+	}
+
 	ws.WriteControl(websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseProtocolError, err.Error()),
+		websocket.FormatCloseMessage(websocket.CloseProtocolError, errMessage),
 		time.Now().Add(time.Millisecond*500))
 	return
 }
