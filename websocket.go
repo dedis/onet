@@ -584,6 +584,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 					finish.Do(func() { close(nodesChan) })
 					siChan <- node
 					replyChan <- reply
+					return
 				}
 			}
 		}()
