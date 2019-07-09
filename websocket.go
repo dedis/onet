@@ -563,16 +563,13 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 	errChan := make(chan error, parallel)
 	replyChan := make(chan []byte, parallel)
 	siChan := make(chan *network.ServerIdentity, parallel)
+	closed := make(chan bool)
 	finish := &sync.Once{}
 	for g := 0; g < parallel; g++ {
 		go func() {
 			for {
-				var node *network.ServerIdentity
-				select {
-				case node = <-nodesChan:
-				default:
-				}
-				if node == nil {
+				node, ok := <-nodesChan
+				if !ok {
 					return
 				}
 				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
@@ -580,16 +577,24 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				if err != nil {
 					log.Lvl2("Error while sending to node:", node, err)
 					errChan <- err
+					select {
+					case <-closed:
+						return
+					}
 				} else {
-					finish.Do(func() { close(nodesChan) })
+					log.Lvl2("Done asking node", node)
+					finish.Do(func() {
+						close(closed)
+					})
 					siChan <- node
 					replyChan <- reply
+					return
 				}
 			}
 		}()
 	}
-	var errors []error
-	for len(errors) < parallel {
+	var errs []error
+	for len(errs) < parallel {
 		select {
 		case reply := <-replyChan:
 			if ret != nil {
@@ -601,10 +606,10 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 			if opt.Quit() {
 				return nil, err
 			}
-			errors = append(errors, err)
+			errs = append(errs, err)
 		}
 	}
-	return nil, errors[0]
+	return nil, errs[0]
 }
 
 // StreamingConn allows clients to read from it without sending additional
