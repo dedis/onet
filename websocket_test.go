@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -739,22 +740,35 @@ func TestClient_SendProtobufParallel(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	defer l.CloseAll()
 
-	_, err := RegisterNewService(dummyService3Name, func(c *Context) (Service, error) {
-		ds := &DummyService3{}
-		return ds, nil
-	})
-	require.Nil(t, err)
-	defer UnregisterService(dummyService3Name)
-
-	_, roster, _ := l.GenTree(3, false)
-	cl := NewClient(tSuite, dummyService3Name)
+	servers, roster, _ := l.GenTree(3, false)
+	cl := NewClient(tSuite, serviceWebSocket)
 	tests := 10
 	firstNodes := make([]*network.ServerIdentity, tests)
 	for i := 0; i < tests; i++ {
 		log.Lvl1("Sending", i)
+		var err error
 		firstNodes[i], err = cl.SendProtobufParallel(roster.List, &SimpleResponse{}, nil, nil)
 		require.Nil(t, err)
 	}
+
+	for flags := 0; flags < 8; flags++ {
+		log.Lvl1("Count errors over all services with error-flags", flags)
+		_, err := cl.SendProtobufParallel(roster.List, &ErrorRequest{
+			Roster: *roster,
+			Flags:  flags,
+		}, nil, nil)
+		if flags == 7 {
+			require.Error(t, err)
+		} else {
+			require.NoError(t, err)
+		}
+	}
+	var errs int
+	for _, server := range servers {
+		errs += server.Service(serviceWebSocket).(*ServiceWebSocket).Errors
+	}
+	require.Equal(t, 3, errs)
+
 	sort.Slice(firstNodes, func(i, j int) bool {
 		return bytes.Compare(firstNodes[i].ID[:], firstNodes[j].ID[:]) < 0
 	})
@@ -765,17 +779,36 @@ const serviceWebSocket = "WebSocket"
 
 type ServiceWebSocket struct {
 	*ServiceProcessor
+	Errors int
 }
 
 func (i *ServiceWebSocket) SimpleResponse(msg *SimpleResponse) (network.Message, error) {
 	return &SimpleResponse{msg.Val + 1}, nil
 }
 
+type ErrorRequest struct {
+	Roster Roster
+	Flags  int
+}
+
+func (i *ServiceWebSocket) ErrorRequest(msg *ErrorRequest) (network.Message, error) {
+	i.Errors = 1
+	index, _ := msg.Roster.Search(i.ServerIdentity().ID)
+	if index < 0 {
+		return nil, errors.New("not in roster")
+	}
+	if msg.Flags&(1<<uint(index)) > 0 {
+		return nil, errors.New("found in flags")
+	}
+	i.Errors = 0
+	return &SimpleResponse{}, nil
+}
+
 func newServiceWebSocket(c *Context) (Service, error) {
 	s := &ServiceWebSocket{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
-	log.ErrFatal(s.RegisterHandler(s.SimpleResponse))
+	log.ErrFatal(s.RegisterHandlers(s.SimpleResponse, s.ErrorRequest))
 	return s, nil
 }
 
