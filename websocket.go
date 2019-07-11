@@ -560,7 +560,8 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
 	parallel, nodesChan := opt.GetList(nodes)
-	errChan := make(chan error, parallel)
+	nodesNbr := len(nodesChan)
+	errChan := make(chan error, nodesNbr)
 	replyChan := make(chan []byte, parallel)
 	siChan := make(chan *network.ServerIdentity, parallel)
 	closed := make(chan bool)
@@ -568,10 +569,15 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 	for g := 0; g < parallel; g++ {
 		go func() {
 			for {
-				node, ok := <-nodesChan
-				if !ok {
+				var node *network.ServerIdentity
+				select {
+				case node = <-nodesChan:
+				default:
+				}
+				if node == nil {
 					return
 				}
+
 				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
 				reply, err := c.Send(node, path, buf)
 				if err != nil {
@@ -580,6 +586,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 					select {
 					case <-closed:
 						return
+					default:
 					}
 				} else {
 					log.Lvl2("Done asking node", node)
@@ -594,7 +601,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 		}()
 	}
 	var errs []error
-	for len(errs) < parallel {
+	for len(errs) < nodesNbr {
 		select {
 		case reply := <-replyChan:
 			if ret != nil {
