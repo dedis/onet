@@ -173,6 +173,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 					svc := ServiceFactory.Name(tni.Token().ServiceID)
 					log.Errorf("Panic in call to protocol <%s>.Dispatch() from service <%s> at address %s: %v",
 						tni.ProtocolName(), svc, o.server.ServerIdentity, r)
+					log.Error(log.Stack())
 				}
 			}()
 
