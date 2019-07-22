@@ -59,7 +59,8 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		log.Error("request from ", re.RemoteAddr, "for invalid path ", re.URL.Path)
 
 		u := websocket.Upgrader{
-			EnableCompression: true,
+			// The mobile app on iOS doesn't support compression well...
+			EnableCompression: false,
 			// As the website will not be served from ourselves, we
 			// need to accept _all_ origins. Cross-site scripting is
 			// required.
@@ -165,7 +166,8 @@ func (t wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	u := websocket.Upgrader{
-		EnableCompression: true,
+		// The mobile app on iOS doesn't support compression well...
+		EnableCompression: false,
 		// As the website will not be served from ourselves, we
 		// need to accept _all_ origins. Cross-site scripting is
 		// required.
