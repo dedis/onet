@@ -308,7 +308,10 @@ func (l *LocalTest) CloseAll() {
 
 	for _, node := range l.Nodes {
 		log.Lvl3("Closing node", node)
-		node.closeDispatch()
+		err := node.closeDispatch()
+		if err != nil {
+			log.Error("Error while closing dispatcher:", err)
+		}
 	}
 	l.Nodes = make([]*TreeNodeInstance, 0)
 
@@ -334,7 +337,10 @@ func (l *LocalTest) CloseAll() {
 	l.Servers = map[network.ServerIdentityID]*Server{}
 	l.ctx.Stop()
 
-	os.RemoveAll(l.path)
+	err := os.RemoveAll(l.path)
+	if err != nil {
+		log.Error("Error while removing all db-files:", err)
+	}
 	l.closed = true
 
 	if log.DebugVisible() == 0 {

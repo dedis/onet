@@ -762,6 +762,9 @@ func TestClient_SendProtobufParallel(t *testing.T) {
 		} else {
 			require.NoError(t, err)
 		}
+		// Need to close here to make sure that all messages are being sent
+		// before going on to the next stage.
+		require.NoError(t, cl.Close())
 	}
 	var errs int
 	for _, server := range servers {
@@ -798,7 +801,7 @@ func (i *ServiceWebSocket) ErrorRequest(msg *ErrorRequest) (network.Message, err
 		return nil, errors.New("not in roster")
 	}
 	if msg.Flags&(1<<uint(index)) > 0 {
-		return nil, errors.New("found in flags")
+		return nil, errors.New("found in flags: " + i.ServerIdentity().String())
 	}
 	i.Errors = 0
 	return &SimpleResponse{}, nil

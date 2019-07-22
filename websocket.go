@@ -319,15 +319,29 @@ func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
 	}
 }
 
-func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, error) {
+func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*websocket.Conn, *sync.Mutex, error) {
 	var err error
 
+	// c.Lock protects the connections and connectionsLock map
+	// c.connectionsLock is held as long as the connection is in use - to avoid that two
+	// processes send data over the same websocket concurrently.
 	dest := destination{dst, path}
 	c.Lock()
-	conn, ok := c.connections[dest]
+	connLock, exists := c.connectionsLock[dest]
+	if !exists {
+		c.connectionsLock[dest] = &sync.Mutex{}
+		connLock = c.connectionsLock[dest]
+	}
+	c.Unlock()
+	// if connLock.Lock is done while the c.Lock is still held, the next process trying to
+	// use the same connection will deadlock, as it'll wait for connLock to be released,
+	// while the other process will wait for c.Unlock to be released.
+	connLock.Lock()
+	c.Lock()
+	conn, connected := c.connections[dest]
 	c.Unlock()
 
-	if !ok {
+	if !connected {
 		d := &websocket.Dialer{}
 		d.TLSClientConfig = c.TLSClientConfig
 
@@ -338,7 +352,8 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		if dst.URL != "" {
 			u, err := url.Parse(dst.URL)
 			if err != nil {
-				return nil, err
+				connLock.Unlock()
+				return nil, nil, err
 			}
 			if u.Scheme == "https" {
 				u.Scheme = "wss"
@@ -355,7 +370,8 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			// Open connection to service.
 			hp, err := getWSHostPort(dst, false)
 			if err != nil {
-				return nil, err
+				connLock.Unlock()
+				return nil, nil, err
 			}
 
 			var wsProtocol string
@@ -384,13 +400,14 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			time.Sleep(network.WaitRetry)
 		}
 		if err != nil {
-			return nil, err
+			connLock.Unlock()
+			return nil, nil, err
 		}
 		c.Lock()
 		c.connections[dest] = conn
 		c.Unlock()
 	}
-	return conn, nil
+	return conn, connLock, nil
 }
 
 // Send will marshal the message into a ClientRequest message and send it. It has a
@@ -398,19 +415,11 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 // idle connection, the message is sent right away. If the current connection is busy,
 // it waits for it to be free.
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
-	c.Lock()
-	dest := destination{dst, path}
-	if c.connectionsLock[dest] == nil {
-		c.connectionsLock[dest] = &sync.Mutex{}
-	}
-	connLock := c.connectionsLock[dest]
-	c.Unlock()
-	connLock.Lock()
-	defer connLock.Unlock()
-	conn, err := c.newConnIfNotExist(dst, path)
+	conn, connLock, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return nil, err
 	}
+	defer connLock.Unlock()
 
 	var rcv []byte
 	defer func() {
@@ -574,6 +583,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				var node *network.ServerIdentity
 				select {
 				case node = <-nodesChan:
+				case <-closed:
 				default:
 				}
 				if node == nil {
@@ -585,13 +595,8 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 				if err != nil {
 					log.Lvl2("Error while sending to node:", node, err)
 					errChan <- err
-					select {
-					case <-closed:
-						return
-					default:
-					}
 				} else {
-					log.Lvl2("Done asking node", node)
+					log.Lvl2("Done asking node", node, len(reply))
 					finish.Do(func() {
 						close(closed)
 					})
@@ -653,17 +658,18 @@ func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (Streaming
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
-	conn, err := c.newConnIfNotExist(dst, path)
-	c.Lock()
-	defer c.Unlock()
+	conn, connLock, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
 		return StreamingConn{}, err
 	}
+	defer connLock.Unlock()
 	err = conn.WriteMessage(websocket.BinaryMessage, buf)
 	if err != nil {
 		return StreamingConn{}, err
 	}
+	c.Lock()
 	c.tx += uint64(len(buf))
+	c.Unlock()
 	return StreamingConn{conn, c.Suite()}, nil
 }
 
@@ -693,9 +699,14 @@ func (c *Client) Close() error {
 	defer c.Unlock()
 	var errstrs []string
 	for dest := range c.connections {
+		connLock := c.connectionsLock[dest]
+		c.Unlock()
+		connLock.Lock()
+		c.Lock()
 		if err := c.closeConn(dest); err != nil {
 			errstrs = append(errstrs, err.Error())
 		}
+		connLock.Unlock()
 	}
 	var err error
 	if len(errstrs) > 0 {
@@ -704,7 +715,8 @@ func (c *Client) Close() error {
 	return err
 }
 
-// closeConn sends a close-command to the connection.
+// closeConn sends a close-command to the connection. Correct locking must be done
+// befor calling this method.
 func (c *Client) closeConn(dst destination) error {
 	conn, ok := c.connections[dst]
 	if ok {
