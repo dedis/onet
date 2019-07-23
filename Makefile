@@ -7,7 +7,7 @@ include $(shell go env GOPATH)/src/github.com/dedis/Coding/bin/Makefile.base
 # to `make test_playground`.
 test_playground:
 	for a in $$( seq 100 ); do \
-	  if DEBUG_TIME=true go test -v -race -short -run TestClient_SendProtobufParallel > log.txt 2>&1; then \
+	  if DEBUG_TIME=true go test -v -race -short > log.txt 2>&1; then \
 		  echo Successfully ran \#$$a at $$(date); \
 		else \
 		  echo Failed at $$(date); \
