@@ -235,6 +235,7 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 		err := deployP.Start()
 		if err != nil {
 			done <- err
+			return
 		}
 
 		if err = deployP.Wait(); err != nil {
@@ -243,6 +244,7 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 				log.Lvl3("Couldn't cleanup platform:", err)
 			}
 			done <- err
+			return
 		}
 		done <- nil
 	}()
