@@ -117,6 +117,8 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			rootSC = sc
 		}
 	}
+
+	var simError error
 	if rootSim != nil {
 		// If this cothority has the root-server, it will start the simulation
 		log.Lvl2("Starting protocol", simul, "on server", rootSC.Server.ServerIdentity.Address)
@@ -164,10 +166,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		log.Lvl1("Starting new node", simul)
 
 		measureNet := monitor.NewCounterIOMeasure("bandwidth_root", rootSC.Server)
-		err := rootSim.Run(rootSC)
-		if err != nil {
-			return errors.New("error from simulation run: " + err.Error())
-		}
+		simError = rootSim.Run(rootSC)
 		measureNet.Record()
 
 		// Test if all ServerIdentities are used in the tree, else we'll run into
@@ -192,6 +191,11 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 	log.Lvl2(serverAddress, "has all servers closed")
 	if monitorAddress != "" {
 		monitor.EndAndCleanup()
+	}
+
+	// Give a chance to the simulation to stop the servers and clean up but returns the simulation error anyway.
+	if simError != nil {
+		return errors.New("error from simulation run: " + simError.Error())
 	}
 	return nil
 }

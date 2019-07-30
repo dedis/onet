@@ -246,9 +246,9 @@ func (d *Localhost) Wait() error {
 		log.Lvl1("Quitting after waiting", wait)
 	}
 
-	err = os.Chdir(d.localDir)
-	if err != nil {
-		log.Error("Fail to restore the cwd: " + err.Error())
+	errCleanup := os.Chdir(d.localDir)
+	if errCleanup != nil {
+		log.Error("Fail to restore the cwd: " + errCleanup.Error())
 	}
 
 	monitor.EndAndCleanup()
