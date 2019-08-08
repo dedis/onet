@@ -615,7 +615,7 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 				err := decoder(reply, ret)
 				if err != nil {
 					errs = append(errs, err)
-					// Reply avorted so we empty the last entry of this channel.
+					// Reply aborted so we empty the last entry of this channel.
 					<-siChan
 					break
 				}
