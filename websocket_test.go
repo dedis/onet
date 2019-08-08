@@ -778,6 +778,31 @@ func TestClient_SendProtobufParallel(t *testing.T) {
 	require.False(t, firstNodes[0].Equal(firstNodes[tests-1]))
 }
 
+func TestClient_SendProtobufParallelWithDecoder(t *testing.T) {
+	l := NewLocalTest(tSuite)
+	defer l.CloseAll()
+
+	_, roster, _ := l.GenTree(3, false)
+	cl := NewClient(tSuite, serviceWebSocket)
+
+	decoderWithError := func(data []byte, ret interface{}) error {
+		// As an example, the decoder should first decode the response, and it can then make
+		// further verification like the latest block index.
+		return errors.New("decoder error")
+	}
+
+	_, err := cl.SendProtobufParallelWithDecoder(roster.List, &SimpleResponse{}, &SimpleResponse{}, nil, decoderWithError)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "decoder error")
+
+	decoderNoError := func(data []byte, ret interface{}) error {
+		return nil
+	}
+
+	_, err = cl.SendProtobufParallelWithDecoder(roster.List, &SimpleResponse{}, &SimpleResponse{}, nil, decoderNoError)
+	require.NoError(t, err)
+}
+
 const serviceWebSocket = "WebSocket"
 
 type ServiceWebSocket struct {

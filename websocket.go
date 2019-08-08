@@ -558,12 +558,16 @@ func (po *ParallelOptions) Quit() bool {
 	return po.QuitError
 }
 
-// SendProtobufParallel sends the msg to a set of nodes in parallel and returns the first successful
+// Decoder is function that takes the data and the interface to fill in
+// as input and decodes the message.
+type Decoder func(data []byte, ret interface{}) error
+
+// SendProtobufParallelWithDecoder sends the msg to a set of nodes in parallel and returns the first successful
 // answer. If all nodes return an error, only the first error is returned.
 // The behaviour of this method can be changed using the ParallelOptions argument. It is kept
 // as a structure for future enhancements. If opt is nil, then standard values will be taken.
-func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
-	opt *ParallelOptions) (*network.ServerIdentity, error) {
+func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
+	opt *ParallelOptions, decoder Decoder) (*network.ServerIdentity, error) {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
 		return nil, err
@@ -590,19 +594,15 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 					return
 				}
 
-				log.Lvlf2("Asking %T from: %v - %v", msg, node.Address, node.URL)
+				log.Lvlf3("Asking %T from: %v - %v", msg, node.Address, node.URL)
 				reply, err := c.Send(node, path, buf)
 				if err != nil {
 					log.Lvl2("Error while sending to node:", node, err)
 					errChan <- err
 				} else {
-					log.Lvl2("Done asking node", node, len(reply))
-					finish.Do(func() {
-						close(closed)
-					})
+					log.Lvl3("Done asking node", node, len(reply))
 					siChan <- node
 					replyChan <- reply
-					return
 				}
 			}
 		}()
@@ -612,9 +612,19 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 		select {
 		case reply := <-replyChan:
 			if ret != nil {
-				return <-siChan, protobuf.DecodeWithConstructors(reply, ret,
-					network.DefaultConstructors(c.suite))
+				err := decoder(reply, ret)
+				if err != nil {
+					errs = append(errs, err)
+					// Reply avorted so we empty the last entry of this channel.
+					<-siChan
+					break
+				}
 			}
+
+			finish.Do(func() {
+				close(closed)
+			})
+
 			return <-siChan, nil
 		case err := <-errChan:
 			if opt.Quit() {
@@ -624,6 +634,15 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 		}
 	}
 	return nil, errs[0]
+}
+
+// SendProtobufParallel sends the msg to a set of nodes in parallel and returns the first successful
+// answer. If all nodes return an error, only the first error is returned.
+// The behaviour of this method can be changed using the ParallelOptions argument. It is kept
+// as a structure for future enhancements. If opt is nil, then standard values will be taken.
+func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
+	opt *ParallelOptions) (*network.ServerIdentity, error) {
+	return c.SendProtobufParallelWithDecoder(nodes, msg, ret, opt, protobuf.Decode)
 }
 
 // StreamingConn allows clients to read from it without sending additional
