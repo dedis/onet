@@ -577,10 +577,9 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 	parallel, nodesChan := opt.GetList(nodes)
 	nodesNbr := len(nodesChan)
 	errChan := make(chan error, nodesNbr)
-	replyChan := make(chan []byte, parallel)
-	siChan := make(chan *network.ServerIdentity, parallel)
+	replyChan := make(chan []byte, nodesNbr)
+	siChan := make(chan *network.ServerIdentity, nodesNbr)
 	closed := make(chan bool)
-	finish := &sync.Once{}
 	for g := 0; g < parallel; g++ {
 		go func() {
 			for {
@@ -621,18 +620,19 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 				}
 			}
 
-			finish.Do(func() {
-				close(closed)
-			})
+			close(closed)
 
 			return <-siChan, nil
 		case err := <-errChan:
 			if opt.Quit() {
+				close(closed)
 				return nil, err
 			}
 			errs = append(errs, err)
 		}
 	}
+
+	close(closed)
 	return nil, errs[0]
 }
 
