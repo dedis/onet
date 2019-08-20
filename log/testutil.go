@@ -93,9 +93,9 @@ func AfterTest(t *testing.T) {
 		}
 		Print("Stack-trace of caller: ", Stack())
 		if t != nil {
-			t.Fatalf("Test leaks %d gorountines.", len(stackCount))
+			t.Fatalf("Test leaks %d goroutines.", len(stackCount))
 		} else {
-			Fatal(fmt.Sprintf("Test leaks %d gorountines.", len(stackCount)))
+			Fatal(fmt.Sprintf("Test leaks %d goroutines.", len(stackCount)))
 		}
 	}
 }
