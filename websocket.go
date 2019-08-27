@@ -558,7 +558,7 @@ func (po *ParallelOptions) Quit() bool {
 	return po.QuitError
 }
 
-// Decoder is function that takes the data and the interface to fill in
+// Decoder is a function that takes the data and the interface to fill in
 // as input and decodes the message.
 type Decoder func(data []byte, ret interface{}) error
 
@@ -577,62 +577,62 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 	parallel, nodesChan := opt.GetList(nodes)
 	nodesNbr := len(nodesChan)
 	errChan := make(chan error, nodesNbr)
-	replyChan := make(chan []byte, parallel)
-	siChan := make(chan *network.ServerIdentity, parallel)
-	closed := make(chan bool)
-	finish := &sync.Once{}
+	decodedChan := make(chan *network.ServerIdentity, 1)
+	var decoding sync.Mutex
+	done := make(chan bool)
+
+	// Producer that puts messages in errChan and replyChan
 	for g := 0; g < parallel; g++ {
 		go func() {
 			for {
-				var node *network.ServerIdentity
 				select {
-				case node = <-nodesChan:
-				case <-closed:
-				default:
-				}
-				if node == nil {
+				case node := <-nodesChan:
+					log.Lvlf3("Asking %T from: %v - %v", msg, node.Address, node.URL)
+					reply, err := c.Send(node, path, buf)
+					if err != nil {
+						log.Lvl2("Error while sending to node:", node, err)
+						errChan <- err
+					} else {
+						log.Lvl3("Done asking node", node, len(reply))
+						decoding.Lock()
+						select {
+						case <-done:
+						default:
+							if ret != nil {
+								err := decoder(reply, ret)
+								if err != nil {
+									errChan <- err
+									break
+								}
+							}
+							decodedChan <- node
+							close(done)
+						}
+						decoding.Unlock()
+					}
+				case <-done:
 					return
-				}
-
-				log.Lvlf3("Asking %T from: %v - %v", msg, node.Address, node.URL)
-				reply, err := c.Send(node, path, buf)
-				if err != nil {
-					log.Lvl2("Error while sending to node:", node, err)
-					errChan <- err
-				} else {
-					log.Lvl3("Done asking node", node, len(reply))
-					siChan <- node
-					replyChan <- reply
+				default:
+					return
 				}
 			}
 		}()
 	}
+
 	var errs []error
 	for len(errs) < nodesNbr {
 		select {
-		case reply := <-replyChan:
-			if ret != nil {
-				err := decoder(reply, ret)
-				if err != nil {
-					errs = append(errs, err)
-					// Reply aborted so we empty the last entry of this channel.
-					<-siChan
-					break
-				}
-			}
-
-			finish.Do(func() {
-				close(closed)
-			})
-
-			return <-siChan, nil
+		case node := <-decodedChan:
+			return node, nil
 		case err := <-errChan:
 			if opt.Quit() {
+				close(done)
 				return nil, err
 			}
 			errs = append(errs, err)
 		}
 	}
+
 	return nil, errs[0]
 }
 
