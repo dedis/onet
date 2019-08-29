@@ -581,38 +581,48 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 	var decoding sync.Mutex
 	done := make(chan bool)
 
+	contactNode := func() bool {
+		select {
+		case <-done:
+			return false
+		default:
+			select {
+			case node := <-nodesChan:
+				log.Lvlf3("Asking %T from: %v - %v", msg, node.Address, node.URL)
+				reply, err := c.Send(node, path, buf)
+				if err != nil {
+					log.Lvl2("Error while sending to node:", node, err)
+					errChan <- err
+				} else {
+					log.Lvl3("Done asking node", node, len(reply))
+					decoding.Lock()
+					select {
+					case <-done:
+					default:
+						if ret != nil {
+							err := decoder(reply, ret)
+							if err != nil {
+								errChan <- err
+								break
+							}
+						}
+						decodedChan <- node
+						close(done)
+					}
+					decoding.Unlock()
+				}
+			default:
+				return false
+			}
+		}
+		return true
+	}
+
 	// Producer that puts messages in errChan and replyChan
 	for g := 0; g < parallel; g++ {
 		go func() {
 			for {
-				select {
-				case node := <-nodesChan:
-					log.Lvlf3("Asking %T from: %v - %v", msg, node.Address, node.URL)
-					reply, err := c.Send(node, path, buf)
-					if err != nil {
-						log.Lvl2("Error while sending to node:", node, err)
-						errChan <- err
-					} else {
-						log.Lvl3("Done asking node", node, len(reply))
-						decoding.Lock()
-						select {
-						case <-done:
-						default:
-							if ret != nil {
-								err := decoder(reply, ret)
-								if err != nil {
-									errChan <- err
-									break
-								}
-							}
-							decodedChan <- node
-							close(done)
-						}
-						decoding.Unlock()
-					}
-				case <-done:
-					return
-				default:
+				if !contactNode() {
 					return
 				}
 			}
