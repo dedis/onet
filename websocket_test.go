@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -35,7 +36,10 @@ func init() {
 // Adapted from 'https://golang.org/src/crypto/tls/generate_cert.go'
 func generateSelfSignedCert() (string, string, error) {
 	// Hostname or IP to generate a certificate for
-	host := "127.0.0.1"
+	hosts := []string{
+		"127.0.0.1",
+		"::",
+	}
 	// Creation date formatted as Jan 2 15:04:05 2006
 	validFrom := time.Now().UTC().Format("Jan 2 15:04:05 2006")
 	// Duration that certificate is valid for
@@ -72,10 +76,12 @@ func generateSelfSignedCert() (string, string, error) {
 		BasicConstraintsValid: true,
 	}
 
-	if ip := net.ParseIP(host); ip != nil {
-		template.IPAddresses = append(template.IPAddresses, ip)
-	} else {
-		template.DNSNames = append(template.DNSNames, host)
+	for _, host := range hosts {
+		if ip := net.ParseIP(host); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, host)
+		}
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
@@ -138,8 +144,7 @@ func TestNewWebSocket(t *testing.T) {
 	l := NewLocalTest(tSuite)
 	defer l.CloseAll()
 
-	c := newTCPServer(tSuite, 0, l.path)
-	c.StartInBackground()
+	c := l.NewServer(tSuite, 2050)
 
 	defer c.Close()
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
@@ -164,21 +169,12 @@ func TestNewWebSocketTLS(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	l := NewLocalTest(tSuite)
+	l := NewTCPTest(tSuite)
+	l.webSocketTLSCertificate = cert
+	l.webSocketTLSCertificateKey = key
 	defer l.CloseAll()
 
-	c := newTCPServer(tSuite, 0, l.path)
-	defer c.Close()
-
-	certToAdd, err := tls.X509KeyPair(cert, key)
-	if err != nil {
-		require.Nil(t, err)
-	}
-	c.WebSocket.Lock()
-	c.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{certToAdd}}
-	c.WebSocket.Unlock()
-	c.StartInBackground()
-
+	c := l.NewServer(tSuite, 2050)
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 
@@ -447,7 +443,7 @@ func TestWebSocket_Error(t *testing.T) {
 	_, err := client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
-	require.NotEqual(t, "websocket: bad handshake", err.Error())
+	require.NotEqual(t, websocket.ErrBadHandshake, err)
 	require.NotEqual(t, "", log.GetStdErr())
 }
 
@@ -472,7 +468,7 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	_, err = client.Send(server.ServerIdentity, "test", nil)
 	log.OutputToOs()
 	log.SetDebugVisible(lvl)
-	require.NotEqual(t, "websocket: bad handshake", err.Error())
+	require.NotEqual(t, websocket.ErrBadHandshake, err)
 	require.NotEqual(t, "", log.GetStdErr())
 }
 
