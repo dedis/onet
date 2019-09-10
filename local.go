@@ -473,11 +473,12 @@ func NewPrivIdentity(suite network.Suite, port int) (kyber.Scalar, *network.Serv
 
 // NewTCPServer creates a new server with a tcpRouter with "localhost:"+port as an
 // address.
-func newTCPServer(s network.Suite, port int, path string) *Server {
+func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server {
 	priv, id := NewPrivIdentity(s, port)
 	addr := network.NewTCPAddress(id.Address.NetworkAddress())
 	id2 := network.NewServerIdentity(id.Public, addr)
 	var tcpHost *network.TCPHost
+	var addrWS string
 	// For the websocket we need a port at the address one higher than the
 	// TCPHost. Let TCPHost chose a port, then check if the port+1 is also
 	// available. Else redo the search.
@@ -495,14 +496,21 @@ func newTCPServer(s network.Suite, port int, path string) *Server {
 		if err != nil {
 			panic(err)
 		}
-		addr := net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
-		if l, err := net.Listen("tcp", addr); err == nil {
+		addrWS = net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
+		if l, err := net.Listen("tcp", addrWS); err == nil {
 			l.Close()
 			break
 		}
-		log.Lvl2("Found closed port:", addr)
+		log.Lvl2("Found closed port:", addrWS)
 	}
+	scheme := "http"
+	if wantsTLS {
+		scheme += "s"
+	}
+	id.URL = scheme + "://" + addrWS
+
 	id.Address = network.NewAddress(id.Address.ConnType(), "127.0.0.1:"+id.Address.Port())
+
 	router := network.NewRouter(id, tcpHost)
 	router.UnauthOk = true
 	return newServer(s, path, router, priv)
@@ -563,6 +571,10 @@ func (l *LocalTest) genLocalHosts(n int) []*Server {
 	return servers
 }
 
+func (l LocalTest) wantsTLS() bool {
+	return len(l.webSocketTLSCertificate) > 0 && len(l.webSocketTLSCertificateKey) > 0
+}
+
 // NewServer returns a new server which type is determined by the local mode:
 // TCP or Local. If it's TCP, then an available port is used, otherwise, the
 // port given in argument is used.
@@ -573,7 +585,7 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 	case TCP:
 		server = l.newTCPServer(s)
 		// Set TLS certificate if any configuration available
-		if len(l.webSocketTLSCertificate) > 0 && len(l.webSocketTLSCertificateKey) > 0 {
+		if l.wantsTLS() {
 			cert, err := tls.X509KeyPair(l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
 			if err != nil {
 				panic(err)
@@ -593,7 +605,7 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 // for TLS if possible (if anything in LocalTest.webSocketTLSCertificate/Key).
 func (l *LocalTest) newTCPServer(s network.Suite) *Server {
 	l.panicClosed()
-	server := newTCPServer(s, 0, l.path)
+	server := newTCPServer(s, 0, l.path, l.wantsTLS())
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services

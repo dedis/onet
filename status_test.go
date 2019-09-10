@@ -20,13 +20,12 @@ func TestSRStruct(t *testing.T) {
 }
 
 func TestStatusHost(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewTCPTest(tSuite)
 	defer l.CloseAll()
 
-	c := newTCPServer(tSuite, 0, l.path)
-	c.StartInBackground()
-
+	c := l.NewServer(tSuite, 2050)
 	defer c.Close()
+
 	stats := c.GetStatus()
 	a := ServiceFactory.RegisteredServiceNames()
 	services := strings.Split(stats.Field["Available_Services"], ",")

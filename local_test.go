@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -89,6 +90,19 @@ func TestNewTCPTest(t *testing.T) {
 	c1 := NewClient(tSuite, clientServiceName)
 	err := c1.SendProtobuf(el.List[0], &SimpleMessage{}, nil)
 	log.ErrFatal(err)
+}
+
+func TestLocalTCPGenConnectableRoster(t *testing.T) {
+	l := NewTCPTest(tSuite)
+	defer l.CloseAll()
+	servers := l.GenServers(3)
+	roster := *l.GenRosterFromHost(servers...)
+
+	for _, serverIdent := range roster.List {
+		got, err := http.Get(serverIdent.URL)
+		require.NoError(t, err)
+		got.Body.Close()
+	}
 }
 
 // Tests whether TestClose is called in the service.
