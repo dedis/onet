@@ -143,22 +143,40 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 
 	// Set Websocket TLS if possible
 	if hc.WebSocketTLSCertificate != "" && hc.WebSocketTLSCertificateKey != "" {
-		tlsCertificate, err := hc.WebSocketTLSCertificate.Content()
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting WebSocketTLSCertificate content: %v", err)
-		}
-		tlsCertificateKey, err := hc.WebSocketTLSCertificateKey.Content()
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
-		}
-		cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
-		if err != nil {
-			return nil, nil, fmt.Errorf("loading X509KeyPair: %v", err)
-		}
+		if hc.WebSocketTLSCertificate.CertificateURLType() == String {
+			tlsCertificate, err := hc.WebSocketTLSCertificate.Content()
+			if err != nil {
+				return nil, nil, fmt.Errorf("getting WebSocketTLSCertificate content: %v", err)
+			}
+			tlsCertificateKey, err := hc.WebSocketTLSCertificateKey.Content()
+			if err != nil {
+				return nil, nil, fmt.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
+			}
+			cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
+			if err != nil {
+				return nil, nil, fmt.Errorf("loading X509KeyPair: %v", err)
+			}
 
-		server.WebSocket.Lock()
-		server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
-		server.WebSocket.Unlock()
+			server.WebSocket.Lock()
+			server.WebSocket.TLSConfig = &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			}
+			server.WebSocket.Unlock()
+		} else {
+			cr, err := onet.NewCertificateReloader(
+				hc.WebSocketTLSCertificate.blobPart(),
+				hc.WebSocketTLSCertificateKey.blobPart(),
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			server.WebSocket.Lock()
+			server.WebSocket.TLSConfig = &tls.Config{
+				GetCertificate: cr.GetCertificateFunc(),
+			}
+			server.WebSocket.Unlock()
+		}
 	}
 	return hc, server, nil
 }
