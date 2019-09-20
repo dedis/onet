@@ -12,7 +12,7 @@ require (
 	github.com/montanaflynn/stats v0.5.0
 	github.com/stretchr/testify v1.3.0
 	go.dedis.ch/kyber/v3 v3.0.5
-	go.dedis.ch/protobuf v1.0.7
+	go.dedis.ch/protobuf v1.0.8
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
 	golang.org/x/sys v0.0.0-20190124100055-b90733256f2e
