@@ -143,7 +143,25 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 
 	// Set Websocket TLS if possible
 	if hc.WebSocketTLSCertificate != "" && hc.WebSocketTLSCertificateKey != "" {
-		if hc.WebSocketTLSCertificate.CertificateURLType() == String {
+		if hc.WebSocketTLSCertificate.CertificateURLType() == File &&
+			hc.WebSocketTLSCertificateKey.CertificateURLType() == File {
+			// Use the reloader only when both are files as it doesn't
+			// make for string embedded certififcates.
+
+			cr, err := onet.NewCertificateReloader(
+				hc.WebSocketTLSCertificate.blobPart(),
+				hc.WebSocketTLSCertificateKey.blobPart(),
+			)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			server.WebSocket.Lock()
+			server.WebSocket.TLSConfig = &tls.Config{
+				GetCertificate: cr.GetCertificateFunc(),
+			}
+			server.WebSocket.Unlock()
+		} else {
 			tlsCertificate, err := hc.WebSocketTLSCertificate.Content()
 			if err != nil {
 				return nil, nil, fmt.Errorf("getting WebSocketTLSCertificate content: %v", err)
@@ -160,20 +178,6 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 			server.WebSocket.Lock()
 			server.WebSocket.TLSConfig = &tls.Config{
 				Certificates: []tls.Certificate{cert},
-			}
-			server.WebSocket.Unlock()
-		} else {
-			cr, err := onet.NewCertificateReloader(
-				hc.WebSocketTLSCertificate.blobPart(),
-				hc.WebSocketTLSCertificateKey.blobPart(),
-			)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			server.WebSocket.Lock()
-			server.WebSocket.TLSConfig = &tls.Config{
-				GetCertificate: cr.GetCertificateFunc(),
 			}
 			server.WebSocket.Unlock()
 		}

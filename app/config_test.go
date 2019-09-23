@@ -279,7 +279,7 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 			description, certFile.Name(), keyFile.Name()),
 	}
 
-	for _, privateInfo := range privateInfos {
+	for i, privateInfo := range privateInfos {
 		privateToml, err := ioutil.TempFile("", "temp_private.toml")
 		require.Nil(t, err)
 
@@ -305,6 +305,15 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 		keyContent, err := cothConfig.WebSocketTLSCertificateKey.Content()
 		require.Nil(t, err)
 		require.Equal(t, wsTLSCertKey, string(keyContent))
+
+		if i != 0 {
+			// Check when the certificate is a file.
+			require.NotNil(t, srv.WebSocket.TLSConfig.GetCertificate)
+
+			cert, err := srv.WebSocket.TLSConfig.GetCertificate(nil)
+			require.NoError(t, err)
+			require.NotNil(t, cert)
+		}
 
 		srv.Close()
 

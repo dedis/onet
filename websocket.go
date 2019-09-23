@@ -2,6 +2,7 @@ package onet
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -20,6 +21,8 @@ import (
 	"go.dedis.ch/protobuf"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
+
+const certificateReloaderLeeway = 1 * time.Hour
 
 // CertificateReloader takes care of reloading a TLS certificate when
 // requested.
@@ -50,9 +53,11 @@ func (cr *CertificateReloader) reload() error {
 
 	cr.Lock()
 	cr.cert = &newCert
+	// Successful parse means at least one certificate.
+	cr.cert.Leaf, err = x509.ParseCertificate(newCert.Certificate[0])
 	cr.Unlock()
 
-	return nil
+	return err
 }
 
 // GetCertificateFunc makes a function that can be passed to the TLSConfig
@@ -61,7 +66,11 @@ func (cr *CertificateReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		cr.RLock()
 
-		if cr.cert.Leaf.NotAfter.After(time.Now().Add(-time.Hour)) {
+		exp := time.Now().Add(certificateReloaderLeeway)
+
+		// Here we know the leaf has been parsed successfully as an error
+		// would have been thrown otherwise.
+		if cr.cert == nil || exp.After(cr.cert.Leaf.NotAfter) {
 			// Certificate has expired so we try to load the new one.
 
 			// Free the read lock to be able to reload.
