@@ -33,7 +33,7 @@ type CertificateReloader struct {
 	keyPath  string
 }
 
-// NewCertificateReloader takes two file paths as parameter that shall contain
+// NewCertificateReloader takes two file paths as parameter that contain
 // the certificate and the key data to create an automatic reloader. It will
 // try to read again the files when the certificate is almost expired.
 func NewCertificateReloader(certPath, keyPath string) (*CertificateReloader, error) {

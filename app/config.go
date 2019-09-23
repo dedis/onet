@@ -146,7 +146,7 @@ func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
 		if hc.WebSocketTLSCertificate.CertificateURLType() == File &&
 			hc.WebSocketTLSCertificateKey.CertificateURLType() == File {
 			// Use the reloader only when both are files as it doesn't
-			// make for string embedded certififcates.
+			// make sense for string embedded certificates.
 
 			cr, err := onet.NewCertificateReloader(
 				hc.WebSocketTLSCertificate.blobPart(),
