@@ -205,6 +205,45 @@ func TestNewWebSocketTLS(t *testing.T) {
 	require.Equal(t, int64(1), rcvMsg.Val)
 }
 
+// Test the certificate reloader for websocket over TLS.
+func TestCertificateReloader(t *testing.T) {
+	certPath, keyPath, err := generateSelfSignedCert()
+	require.NoError(t, err)
+	defer func() {
+		os.Remove(certPath)
+		os.Remove(keyPath)
+	}()
+
+	reloader, err := NewCertificateReloader(certPath, keyPath)
+	require.NoError(t, err)
+
+	cert, err := reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+
+	reloader.certPath = ""
+	reloader.keyPath = ""
+
+	// It should work as the certificate is cached.
+	cert, err = reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+
+	// Try with an expired certificate
+	// thus expecting an error.
+	cert.Leaf.NotAfter = time.Now().Add(30 * time.Minute)
+	_, err = reloader.GetCertificateFunc()(nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no such file or directory")
+
+	// And finally it should reload the new cert
+	reloader.certPath = certPath
+	reloader.keyPath = keyPath
+	cert, err = reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+}
+
 func TestGetWebHost(t *testing.T) {
 	url, err := getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
 	require.NotNil(t, err)

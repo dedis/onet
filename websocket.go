@@ -2,6 +2,7 @@ package onet
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -20,6 +21,72 @@ import (
 	"go.dedis.ch/protobuf"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
+
+const certificateReloaderLeeway = 1 * time.Hour
+
+// CertificateReloader takes care of reloading a TLS certificate when
+// requested.
+type CertificateReloader struct {
+	sync.RWMutex
+	cert     *tls.Certificate
+	certPath string
+	keyPath  string
+}
+
+// NewCertificateReloader takes two file paths as parameter that contain
+// the certificate and the key data to create an automatic reloader. It will
+// try to read again the files when the certificate is almost expired.
+func NewCertificateReloader(certPath, keyPath string) (*CertificateReloader, error) {
+	loader := &CertificateReloader{
+		certPath: certPath,
+		keyPath:  keyPath,
+	}
+
+	return loader, loader.reload()
+}
+
+func (cr *CertificateReloader) reload() error {
+	newCert, err := tls.LoadX509KeyPair(cr.certPath, cr.keyPath)
+	if err != nil {
+		return err
+	}
+
+	cr.Lock()
+	cr.cert = &newCert
+	// Successful parse means at least one certificate.
+	cr.cert.Leaf, err = x509.ParseCertificate(newCert.Certificate[0])
+	cr.Unlock()
+
+	return err
+}
+
+// GetCertificateFunc makes a function that can be passed to the TLSConfig
+// so that it resolves the most up-to-date one.
+func (cr *CertificateReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		cr.RLock()
+
+		exp := time.Now().Add(certificateReloaderLeeway)
+
+		// Here we know the leaf has been parsed successfully as an error
+		// would have been thrown otherwise.
+		if cr.cert == nil || exp.After(cr.cert.Leaf.NotAfter) {
+			// Certificate has expired so we try to load the new one.
+
+			// Free the read lock to be able to reload.
+			cr.RUnlock()
+			err := cr.reload()
+			if err != nil {
+				return nil, err
+			}
+
+			cr.RLock()
+		}
+
+		defer cr.RUnlock()
+		return cr.cert, nil
+	}
+}
 
 // WebSocket handles incoming client-requests using the websocket
 // protocol. When making a new WebSocket, it will listen one port above the
