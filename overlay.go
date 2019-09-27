@@ -8,7 +8,7 @@ import (
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // timeout used to clean up protocol state so that children can keep
@@ -127,7 +127,10 @@ func (o *Overlay) Process(env *network.Envelope) {
 // io is the messageProxy to use if a specific wireformat protocol is used.
 // It can be nil: in that case it fall backs to default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
-	tree := o.treeStorage.Get(onetMsg.To.TreeID)
+	// Get the tree if it exists and prevent any pending deletion
+	// if required. The tree will be clean when this instance is
+	// over (or the last instance using the tree).
+	tree := o.treeStorage.getAndRefresh(onetMsg.To.TreeID)
 	if tree == nil {
 		// request anyway because we need to store the pending message
 		// the following routine will take care of requesting once

@@ -59,16 +59,23 @@ func (ts *treeStorage) Get(id TreeID) *Tree {
 	return ts.trees[id]
 }
 
+// getAndRefresh cancels any pending remove and return the
+// tree if it exists.
+func (ts *treeStorage) getAndRefresh(id TreeID) *Tree {
+	ts.Lock()
+	defer ts.Unlock()
+
+	ts.cancelDeletion(id)
+
+	return ts.trees[id]
+}
+
 // Set sets the given tree and cancel potential removal
 func (ts *treeStorage) Set(tree *Tree) {
 	ts.Lock()
 	defer ts.Unlock()
 
-	c := ts.cancellations[tree.ID]
-	if c != nil {
-		c <- struct{}{}
-		delete(ts.cancellations, tree.ID)
-	}
+	ts.cancelDeletion(tree.ID)
 
 	ts.trees[tree.ID] = tree
 }
@@ -136,9 +143,20 @@ func (ts *treeStorage) Close() {
 	ts.closed = true
 
 	for k, c := range ts.cancellations {
-		c <- struct{}{}
+		close(c)
 		delete(ts.cancellations, k)
 	}
 
 	ts.wg.Wait()
+}
+
+// cancelDeletion prevents any pending remove request
+// to be triggered for the tree.
+// Caution: caller is reponsible for holding the lock.
+func (ts *treeStorage) cancelDeletion(id TreeID) {
+	c := ts.cancellations[id]
+	if c != nil {
+		close(c)
+		delete(ts.cancellations, id)
+	}
 }

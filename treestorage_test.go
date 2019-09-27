@@ -82,6 +82,14 @@ func TestTreeStorage_CancelDeletion(t *testing.T) {
 
 	time.Sleep(treeStoreTimeout + 50*time.Millisecond)
 	require.NotNil(t, store.Get(tree.ID))
+
+	store.Remove(tree.ID)
+	time.Sleep(treeStoreTimeout / 2)
+
+	require.NotNil(t, store.getAndRefresh(tree.ID))
+
+	time.Sleep(treeStoreTimeout)
+	require.NotNil(t, store.Get(tree.ID))
 }
 
 // Tests if planned removals are correctly stopped
