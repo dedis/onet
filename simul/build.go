@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"errors"
 	"math"
 	"time"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/simul/monitor"
 	"go.dedis.ch/onet/v3/simul/platform"
+	"golang.org/x/xerrors"
 )
 
 // Configuration-variables
@@ -262,7 +262,7 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 		}
 		return stats, nil
 	case <-time.After(timeout):
-		return nil, errors.New("simulation timeout")
+		return nil, xerrors.New("simulation timeout")
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -26,6 +25,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -823,7 +823,7 @@ func TestClient_SendProtobufParallelWithDecoder(t *testing.T) {
 	decoderWithError := func(data []byte, ret interface{}) error {
 		// As an example, the decoder should first decode the response, and it can then make
 		// further verification like the latest block index.
-		return errors.New("decoder error")
+		return xerrors.New("decoder error")
 	}
 
 	_, err := cl.SendProtobufParallelWithDecoder(roster.List, &SimpleResponse{}, &SimpleResponse{}, nil, decoderWithError)
@@ -858,10 +858,10 @@ func (i *ServiceWebSocket) ErrorRequest(msg *ErrorRequest) (network.Message, err
 	i.Errors = 1
 	index, _ := msg.Roster.Search(i.ServerIdentity().ID)
 	if index < 0 {
-		return nil, errors.New("not in roster")
+		return nil, xerrors.New("not in roster")
 	}
 	if msg.Flags&(1<<uint(index)) > 0 {
-		return nil, errors.New("found in flags: " + i.ServerIdentity().String())
+		return nil, xerrors.New("found in flags: " + i.ServerIdentity().String())
 	}
 	i.Errors = 0
 	return &SimpleResponse{}, nil

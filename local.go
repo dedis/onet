@@ -2,7 +2,6 @@ package onet
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // LeakyTestCheck represents an enum to indicate how deep CloseAll needs to
@@ -142,7 +142,7 @@ func (l *LocalTest) StartProtocol(name string, t *Tree) (ProtocolInstance, error
 			return l.Overlays[h.ServerIdentity.ID].StartProtocol(name, t, NilServiceID)
 		}
 	}
-	return nil, errors.New("Didn't find server for tree-root")
+	return nil, xerrors.New("Didn't find server for tree-root")
 }
 
 // CreateProtocol takes a name and a tree and will create a
@@ -157,7 +157,7 @@ func (l *LocalTest) CreateProtocol(name string, t *Tree) (ProtocolInstance, erro
 			return l.Overlays[h.ServerIdentity.ID].CreateProtocol(name, t, NilServiceID)
 		}
 	}
-	return nil, errors.New("Didn't find server for tree-root")
+	return nil, xerrors.New("Didn't find server for tree-root")
 }
 
 // GenServers returns n Servers with a localRouter
@@ -252,7 +252,7 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		}
 		time.Sleep(t / 10)
 	}
-	return errors.New("still have things lingering: " + strings.Join(lingering, "\n"))
+	return xerrors.New("still have things lingering: " + strings.Join(lingering, "\n"))
 }
 
 // CloseAll closes all the servers.
@@ -369,15 +369,15 @@ func (l *LocalTest) NewTreeNodeInstance(tn *TreeNode, protName string) (*TreeNod
 	l.panicClosed()
 	o := l.Overlays[tn.ServerIdentity.ID]
 	if o == nil {
-		return nil, errors.New("Didn't find corresponding overlay")
+		return nil, xerrors.New("Didn't find corresponding overlay")
 	}
 	tree := l.getTree(tn)
 	if tree == nil {
-		return nil, errors.New("Didn't find tree corresponding to TreeNode")
+		return nil, xerrors.New("Didn't find tree corresponding to TreeNode")
 	}
 	protID := ProtocolNameToID(protName)
 	if !l.Servers[tn.ServerIdentity.ID].protocols.ProtocolExists(protID) {
-		return nil, errors.New("Didn't find protocol: " + protName)
+		return nil, xerrors.New("Didn't find protocol: " + protName)
 	}
 	tok := &Token{
 		TreeID:     tree.ID,
@@ -406,10 +406,10 @@ func (l *LocalTest) sendTreeNode(proto string, from, to *TreeNodeInstance, msg n
 	ft := from.Tree()
 	tt := to.Tree()
 	if ft == nil || tt == nil {
-		return errors.New("cannot find tree")
+		return xerrors.New("cannot find tree")
 	}
 	if !ft.ID.Equal(tt.ID) {
-		return errors.New("Can't send from one tree to another")
+		return xerrors.New("Can't send from one tree to another")
 	}
 	onetMsg := &ProtocolMsg{
 		Msg:     msg,

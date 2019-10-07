@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -16,6 +15,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 type simulationCreate func(string) (Simulation, error)
@@ -156,7 +156,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 			}
 		}
 		if len(ret) == 0 {
-			return nil, errors.New("Address not used in simulation: " + ca)
+			return nil, xerrors.New("Address not used in simulation: " + ca)
 		}
 	} else {
 		ret = append(ret, sc)
@@ -220,7 +220,7 @@ func SimulationRegister(name string, sim simulationCreate) {
 func NewSimulation(name string, conf string) (Simulation, error) {
 	sim, ok := simulationRegistered[name]
 	if !ok {
-		return nil, errors.New("Didn't find simulation " + name)
+		return nil, xerrors.New("Didn't find simulation " + name)
 	}
 	simInst, err := sim(conf)
 	if err != nil {
@@ -354,7 +354,7 @@ func (s *SimulationBFTree) CreateTree(sc *SimulationConfig) error {
 	log.Lvl3("CreateTree strarted")
 	start := time.Now()
 	if sc.Roster == nil {
-		return errors.New("Empty Roster")
+		return xerrors.New("Empty Roster")
 	}
 	sc.Tree = sc.Roster.GenerateBigNaryTree(s.BF, s.Hosts)
 	log.Lvl3("Creating tree took: " + time.Now().Sub(start).String())

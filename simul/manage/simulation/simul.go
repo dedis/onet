@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/BurntSushi/toml"
@@ -10,6 +9,7 @@ import (
 	"go.dedis.ch/onet/v3/simul"
 	"go.dedis.ch/onet/v3/simul/manage"
 	"go.dedis.ch/onet/v3/simul/monitor"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -67,7 +67,7 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 		children := <-p.(*manage.ProtocolCount).Count
 		round.Record()
 		if children != size {
-			return errors.New("Didn't get " + strconv.Itoa(size) +
+			return xerrors.New("Didn't get " + strconv.Itoa(size) +
 				" children")
 		}
 	}

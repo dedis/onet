@@ -5,7 +5,6 @@
 package platform
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -22,6 +21,7 @@ import (
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/app"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // MiniNet represents all the configuration that is necessary to run a simulation
@@ -347,9 +347,9 @@ func (m *MiniNet) parseServers() error {
 			ips, err := net.LookupIP(h)
 			if err != nil {
 				if err2 := CheckOutOfFileDescriptors(); err2 != nil {
-					return errors.New("couldn't look up hostname: " + err2.Error())
+					return xerrors.New("couldn't look up hostname: " + err2.Error())
 				}
-				return errors.New("error while looking up hostname: " + err.Error())
+				return xerrors.New("error while looking up hostname: " + err.Error())
 			}
 			log.Lvl3("Found IP for", h, ":", ips[0])
 			m.HostIPs = append(m.HostIPs, ips[0].String())

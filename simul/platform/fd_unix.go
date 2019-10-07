@@ -3,10 +3,10 @@
 package platform
 
 import (
-	"errors"
 	"syscall"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // By default in simulation we update the per-process file descriptor limit
@@ -40,13 +40,13 @@ func CheckOutOfFileDescriptors() error {
 	// Check if we're out of file descriptors
 	newFS, err := syscall.Dup(syscall.Stdout)
 	if err != nil {
-		return errors.New(`Out of file descriptors. You might want to do something like this for Mac OSX:
+		return xerrors.New(`Out of file descriptors. You might want to do something like this for Mac OSX:
     sudo sysctl -w kern.maxfiles=122880
     sudo sysctl -w kern.maxfilesperproc=102400
     sudo sysctl -w kern.ipc.somaxconn=20480`)
 	}
 	if err = syscall.Close(newFS); err != nil {
-		return errors.New("Couldn't close new file descriptor: " + err.Error())
+		return xerrors.New("Couldn't close new file descriptor: " + err.Error())
 	}
 	return nil
 }

@@ -1,13 +1,13 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -154,7 +154,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		log.Lvlf4("Creating TreeNodeInstance at %s %x", o.server.ServerIdentity, onetMsg.To.ID())
 		tn, err := o.TreeNodeFromTree(tree, onetMsg.To.TreeNodeID)
 		if err != nil {
-			return errors.New("No TreeNode defined in this tree here")
+			return xerrors.New("No TreeNode defined in this tree here")
 		}
 		tni := o.newTreeNodeInstanceFromToken(tn, onetMsg.To, io)
 		// retrieve the possible generic config for this message
@@ -187,7 +187,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			}
 		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
-			return errors.New("Error Binding TreeNodeInstance and ProtocolInstance:" +
+			return xerrors.New("Error Binding TreeNodeInstance and ProtocolInstance:" +
 				err.Error())
 		}
 		log.Lvl4(o.server.Address(), "Overlay created new ProtocolInstace msg => ",
@@ -323,7 +323,7 @@ func (o *Overlay) RegisterTree(t *Tree) {
 func (o *Overlay) TreeNodeFromTree(tree *Tree, id TreeNodeID) (*TreeNode, error) {
 	tn := tree.Search(id)
 	if tn == nil {
-		return nil, errors.New("didn't find treenode")
+		return nil, xerrors.New("didn't find treenode")
 	}
 
 	return tn, nil
@@ -334,15 +334,15 @@ func (o *Overlay) TreeNodeFromTree(tree *Tree, id TreeNodeID) (*TreeNode, error)
 // TreeNodeFromTree if you need to create one treeNode
 func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
 	if t == nil {
-		return nil, errors.New("didn't find tree-node: No token given")
+		return nil, xerrors.New("didn't find tree-node: No token given")
 	}
 	tree := o.treeStorage.Get(t.TreeID)
 	if tree == nil {
-		return nil, errors.New("didn't find tree")
+		return nil, xerrors.New("didn't find tree")
 	}
 	tn := tree.Search(t.TreeNodeID)
 	if tn == nil {
-		return nil, errors.New("didn't find treenode")
+		return nil, xerrors.New("didn't find treenode")
 	}
 
 	return tn, nil
@@ -744,11 +744,11 @@ func (o *Overlay) newTreeNodeInstanceFromToken(tn *TreeNode, tok *Token, io Mess
 }
 
 // ErrWrongTreeNodeInstance is returned when you already binded a TNI with a PI.
-var ErrWrongTreeNodeInstance = errors.New("This TreeNodeInstance doesn't exist")
+var ErrWrongTreeNodeInstance = xerrors.New("This TreeNodeInstance doesn't exist")
 
 // ErrProtocolRegistered is when the protocolinstance is already registered to
 // the overlay
-var ErrProtocolRegistered = errors.New("a ProtocolInstance already has been registered using this TreeNodeInstance")
+var ErrProtocolRegistered = xerrors.New("a ProtocolInstance already has been registered using this TreeNodeInstance")
 
 // RegisterProtocolInstance takes a PI and stores it for dispatching the message
 // to it.
@@ -858,7 +858,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	case *Roster:
 		returnOverlay.Roster = inner
 	default:
-		err = errors.New("default protoIO: unwraping an unknown message type")
+		err = xerrors.New("default protoIO: unwraping an unknown message type")
 	}
 	return returnMsg, returnOverlay, err
 }

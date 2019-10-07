@@ -1,7 +1,6 @@
 package log
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -68,7 +69,7 @@ func init() {
 	}
 	stdKey := RegisterLogger(stdLogger)
 	if stdKey != 0 {
-		panic(errors.New("Cannot add a logger before the standard logger"))
+		panic(xerrors.New("Cannot add a logger before the standard logger"))
 	}
 	ParseEnv()
 }

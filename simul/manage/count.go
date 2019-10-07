@@ -1,13 +1,13 @@
 package manage
 
 import (
-	"errors"
 	"sync"
 	"time"
 
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -76,7 +76,7 @@ func NewCount(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 	p.Count = make(chan int, 1)
 	t := n.Tree()
 	if t == nil {
-		return nil, errors.New("cannot find tree")
+		return nil, xerrors.New("cannot find tree")
 	}
 	if err := p.RegisterChannelsLength(len(t.List()),
 		&p.CountChan, &p.PrepareCountChan, &p.NodeIsUpChan); err != nil {

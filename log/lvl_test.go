@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"errors"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -140,20 +139,20 @@ func checkOutput(f func(), wantsStd, wantsErr bool) error {
 	errStr := GetStdErr()
 	if wantsStd {
 		if len(stdStr) == 0 {
-			return errors.New("Stdout was empty")
+			return xerrors.New("Stdout was empty")
 		}
 	} else {
 		if len(stdStr) > 0 {
-			return errors.New("Stdout was full")
+			return xerrors.New("Stdout was full")
 		}
 	}
 	if wantsErr {
 		if len(errStr) == 0 {
-			return errors.New("Stderr was empty")
+			return xerrors.New("Stderr was empty")
 		}
 	} else {
 		if len(errStr) > 0 {
-			return errors.New("Stderr was full")
+			return xerrors.New("Stderr was full")
 		}
 	}
 	return nil

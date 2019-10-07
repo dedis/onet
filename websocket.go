@@ -3,7 +3,6 @@ package onet
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -19,6 +18,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
@@ -190,7 +190,7 @@ func (w *WebSocket) start() {
 // path and it's sub-endpoints will be forwarded to ProcessClientRequest.
 func (w *WebSocket) registerService(service string, s Service) error {
 	if service == "ok" {
-		return errors.New("service name \"ok\" is not allowed")
+		return xerrors.New("service name \"ok\" is not allowed")
 	}
 
 	w.services[service] = s
@@ -298,7 +298,7 @@ outerReadLoop:
 						return
 					case reply, ok := <-tun.out:
 						if !ok {
-							err = errors.New("service finished streaming")
+							err = xerrors.New("service finished streaming")
 							close(tun.close)
 							break outerReadLoop
 						}
@@ -783,7 +783,7 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, erro
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return msgs, err
 }
@@ -806,7 +806,7 @@ func (c *Client) Close() error {
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return err
 }

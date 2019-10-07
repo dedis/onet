@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // a connection will return an io.EOF after networkTimeout if nothing has been
@@ -328,7 +328,7 @@ func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 func NewTCPListenerWithListenAddr(addr Address,
 	s Suite, listenAddr string) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
-		return nil, errors.New("TCPListener can only listen on TCP and TLS addresses")
+		return nil, xerrors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
 	t := &TCPListener{
 		conntype:     addr.ConnType(),
@@ -346,7 +346,7 @@ func NewTCPListenerWithListenAddr(addr Address,
 			t.listener = ln
 			break
 		} else if i == MaxRetryConnect-1 {
-			return nil, errors.New("Error opening listener: " + err.Error())
+			return nil, xerrors.New("Error opening listener: " + err.Error())
 		}
 		time.Sleep(WaitRetry)
 	}
@@ -519,7 +519,7 @@ func (t *TCPHost) Connect(si *ServerIdentity) (Conn, error) {
 	case TLS:
 		return NewTLSConn(t.sid, si, t.suite)
 	case InvalidConnType:
-		return nil, errors.New("This address is not correctly formatted: " + si.Address.String())
+		return nil, xerrors.New("This address is not correctly formatted: " + si.Address.String())
 	}
 	return nil, fmt.Errorf("TCPHost %s can't handle this type of connection: %s", si.Address, si.Address.ConnType())
 }

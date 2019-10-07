@@ -10,7 +10,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"net"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/encoding"
 	"go.dedis.ch/kyber/v3/util/random"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // About our TLS strategy:
@@ -104,14 +104,14 @@ func (cm *certMaker) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificat
 
 func (cm *certMaker) getClientCertificate(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	if len(req.AcceptableCAs) == 0 {
-		return nil, errors.New("server did not provide a nonce in AcceptableCAs")
+		return nil, xerrors.New("server did not provide a nonce in AcceptableCAs")
 	}
 	return cm.get(req.AcceptableCAs[0])
 }
 
 func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	if len(nonce) != nonceSize {
-		return nil, errors.New("nonce is the wrong size")
+		return nil, xerrors.New("nonce is the wrong size")
 	}
 
 	// Create a signature that proves that:
@@ -166,7 +166,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 		return nil, err
 	}
 	if len(certs) < 1 {
-		return nil, errors.New("no certificate found")
+		return nil, xerrors.New("no certificate found")
 	}
 
 	return &tls.Certificate{
@@ -286,14 +286,14 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		}()
 
 		if len(rawCerts) != 1 {
-			return errors.New("expected exactly one certificate")
+			return xerrors.New("expected exactly one certificate")
 		}
 		certs, err := x509.ParseCertificates(rawCerts[0])
 		if err != nil {
 			return err
 		}
 		if len(certs) != 1 {
-			return errors.New("expected exactly one certificate")
+			return xerrors.New("expected exactly one certificate")
 		}
 		cert := certs[0]
 
@@ -327,7 +327,7 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 			}
 		}
 		if sig == nil {
-			return errors.New("DEDIS signature not found")
+			return xerrors.New("DEDIS signature not found")
 		}
 
 		// Check that the DEDIS signature is valid w.r.t. si.Public.
@@ -351,7 +351,7 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 
 func pubFromCN(suite kyber.Group, cn string) (kyber.Point, error) {
 	if len(cn) < 1 {
-		return nil, errors.New("commonName is missing a type byte")
+		return nil, xerrors.New("commonName is missing a type byte")
 	}
 	tp := cn[0]
 
@@ -406,11 +406,11 @@ func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config, error) {
 func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TCPConn, err error) {
 	log.Lvl2("NewTLSConn to:", them)
 	if them.Address.ConnType() != TLS {
-		return nil, errors.New("not a tls server")
+		return nil, xerrors.New("not a tls server")
 	}
 
 	if us.GetPrivate() == nil {
-		return nil, errors.New("private key is not set")
+		return nil, xerrors.New("private key is not set")
 	}
 
 	cfg, err := tlsConfig(suite, us)

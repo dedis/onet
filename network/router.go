@@ -2,12 +2,12 @@ package network
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Router handles all networking operations such as:
@@ -169,7 +169,7 @@ func (r *Router) Stop() error {
 // Send sends to an ServerIdentity without wrapping the msg into a ProtocolMsg
 func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 	if msg == nil {
-		return 0, errors.New("Can't send nil-packet")
+		return 0, xerrors.New("Can't send nil-packet")
 	}
 
 	// Update the message counter with the new message about to be sent.
@@ -476,7 +476,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 		if tlsConn, ok := tcpConn.conn.(*tls.Conn); ok {
 			cs := tlsConn.ConnectionState()
 			if len(cs.PeerCertificates) == 0 {
-				return nil, errors.New("TLS connection with no peer certs?")
+				return nil, xerrors.New("TLS connection with no peer certs?")
 			}
 			pub, err := pubFromCN(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
 			if err != nil {
@@ -484,7 +484,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			}
 
 			if !pub.Equal(dst.Public) {
-				return nil, errors.New("mismatch between certificate CommonName and ServerIdentity.Public")
+				return nil, xerrors.New("mismatch between certificate CommonName and ServerIdentity.Public")
 			}
 			log.Lvl4(r.address, "Public key from CommonName and ServerIdentity match:", pub)
 		} else {

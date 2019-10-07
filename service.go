@@ -2,7 +2,6 @@ package onet
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -138,7 +138,7 @@ func (s *serviceFactory) Unregister(name string) error {
 		}
 	}
 	if index < 0 {
-		return errors.New("Didn't find service " + name)
+		return xerrors.New("Didn't find service " + name)
 	}
 	s.constructors = append(s.constructors[:index], s.constructors[index+1:]...)
 	return nil
@@ -267,7 +267,7 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 			return c.constructor(con)
 		}
 	}
-	return nil, errors.New("Didn't find service " + name)
+	return nil, xerrors.New("Didn't find service " + name)
 }
 
 // serviceManager is the place where all instantiated services are stored
@@ -491,7 +491,7 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the PI.
 func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
 	if s.server.Closed() {
-		err = errors.New("will not pass protocol once the server is closed")
+		err = xerrors.New("will not pass protocol once the server is closed")
 		return
 	}
 	si, ok := s.serviceByID(tni.Token().ServiceID)

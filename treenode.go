@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // TreeNodeInstance represents a protocol-instance in a given TreeNode. It embeds an
@@ -150,12 +150,12 @@ func (n *TreeNodeInstance) IsLeaf() bool {
 // SendTo sends to a given node
 func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	if to == nil {
-		return errors.New("Sent to a nil TreeNode")
+		return xerrors.New("Sent to a nil TreeNode")
 	}
 	n.msgDispatchQueueMutex.Lock()
 	if n.closing {
 		n.msgDispatchQueueMutex.Unlock()
-		return errors.New("is closing")
+		return xerrors.New("is closing")
 	}
 	n.msgDispatchQueueMutex.Unlock()
 	var c *GenericConfig
@@ -224,24 +224,24 @@ func (n *TreeNodeInstance) RegisterChannelLength(c interface{}, length int) erro
 		val.Set(reflect.MakeChan(val.Type(), length))
 		return n.RegisterChannel(reflect.Indirect(val).Interface())
 	} else if reflect.ValueOf(c).IsNil() {
-		return errors.New("Can not Register a (value) channel not initialized")
+		return xerrors.New("Can not Register a (value) channel not initialized")
 	}
 	// Check we have the correct channel-type
 	if cr.Kind() != reflect.Chan {
-		return errors.New("Input is not channel")
+		return xerrors.New("Input is not channel")
 	}
 	if cr.Elem().Kind() == reflect.Slice {
 		flags += AggregateMessages
 		cr = cr.Elem()
 	}
 	if cr.Elem().Kind() != reflect.Struct {
-		return errors.New("Input is not channel of structure")
+		return xerrors.New("Input is not channel of structure")
 	}
 	if cr.Elem().NumField() != 2 {
-		return errors.New("Input is not channel of structure with 2 elements")
+		return xerrors.New("Input is not channel of structure with 2 elements")
 	}
 	if cr.Elem().Field(0).Type != reflect.TypeOf(&TreeNode{}) {
-		return errors.New("Input-channel doesn't have TreeNode as element")
+		return xerrors.New("Input-channel doesn't have TreeNode as element")
 	}
 	// Automatic registration of the message to the network library.
 	m := reflect.New(cr.Elem().Field(1).Type)
@@ -289,13 +289,13 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 	cr := reflect.TypeOf(c)
 	// Check we have the correct channel-type
 	if cr.Kind() != reflect.Func {
-		return errors.New("Input is not function")
+		return xerrors.New("Input is not function")
 	}
 	if cr.NumOut() != 1 {
-		return errors.New("Need exactly one return argument of type error")
+		return xerrors.New("Need exactly one return argument of type error")
 	}
 	if cr.Out(0) != reflect.TypeOf((*error)(nil)).Elem() {
-		return errors.New("return-type of message-handler needs to be error")
+		return xerrors.New("return-type of message-handler needs to be error")
 	}
 	ci := cr.In(0)
 	if ci.Kind() == reflect.Slice {
@@ -303,13 +303,13 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 		ci = ci.Elem()
 	}
 	if ci.Kind() != reflect.Struct {
-		return errors.New("Input is not a structure")
+		return xerrors.New("Input is not a structure")
 	}
 	if ci.NumField() != 2 {
-		return errors.New("Input is not a structure with 2 elements")
+		return xerrors.New("Input is not a structure with 2 elements")
 	}
 	if ci.Field(0).Type != reflect.TypeOf(&TreeNode{}) {
-		return errors.New("Input-handler doesn't have TreeNode as element")
+		return xerrors.New("Input-handler doesn't have TreeNode as element")
 	}
 	// Automatic registration of the message to the network library.
 	ptr := reflect.New(ci.Field(1).Type)
@@ -362,7 +362,7 @@ func (n *TreeNodeInstance) closeDispatch() error {
 	log.Lvl3("Closed node", n.Info())
 	pni := n.ProtocolInstance()
 	if pni == nil {
-		return errors.New("Can't shutdown empty ProtocolInstance")
+		return xerrors.New("Can't shutdown empty ProtocolInstance")
 	}
 	return pni.Shutdown()
 }
@@ -802,7 +802,7 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 		go func(n2 *TreeNode) {
 			if err := n.SendTo(n2, msg); err != nil {
 				eMut.Lock()
-				errs = append(errs, errors.New(name+": "+err.Error()))
+				errs = append(errs, xerrors.New(name+": "+err.Error()))
 				eMut.Unlock()
 			}
 			wg.Done()
@@ -844,7 +844,7 @@ func (n *TreeNodeInstance) SetConfig(c *GenericConfig) error {
 	n.configMut.Lock()
 	defer n.configMut.Unlock()
 	if n.config != nil {
-		return errors.New("Can't set config twice")
+		return xerrors.New("Can't set config twice")
 	}
 	n.config = c
 	return nil

@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -14,7 +13,8 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // In this file we define the main structures used for a running protocol
@@ -105,7 +105,7 @@ func NewTreeFromMarshal(s network.Suite, buf []byte, el *Roster) (*Tree, error) 
 		return nil, err
 	}
 	if !tp.Equal(TreeMarshalTypeID) {
-		return nil, errors.New("Didn't receive TreeMarshal-struct")
+		return nil, xerrors.New("Didn't receive TreeMarshal-struct")
 	}
 	t, err := pm.(*TreeMarshal).MakeTree(el)
 	t.computeSubtreeAggregate(t.Root)
@@ -161,7 +161,7 @@ func (t *Tree) BinaryUnmarshaler(s network.Suite, b []byte) error {
 	_, m, err := network.Unmarshal(b, s)
 	tbm, ok := m.(*tbmStruct)
 	if !ok {
-		return errors.New("Didn't find TBMstruct")
+		return xerrors.New("Didn't find TBMstruct")
 	}
 	tree, err := NewTreeFromMarshal(s, tbm.T, tbm.Ro)
 	if err != nil {
@@ -338,7 +338,7 @@ func TreeMarshalCopyTree(tr *TreeNode) *TreeMarshal {
 // MakeTree creates a tree given an Roster
 func (tm TreeMarshal) MakeTree(ro *Roster) (*Tree, error) {
 	if !ro.ID.Equal(tm.RosterID) {
-		return nil, errors.New("Not correct Roster-Id")
+		return nil, xerrors.New("Not correct Roster-Id")
 	}
 	tree := &Tree{
 		ID:     tm.TreeID,
@@ -357,7 +357,7 @@ func (tm TreeMarshal) MakeTree(ro *Roster) (*Tree, error) {
 func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, ro *Roster) (*TreeNode, error) {
 	idx, ent := ro.Search(tm.ServerIdentityID)
 	if idx < 0 {
-		return nil, errors.New("didn't find node in roster")
+		return nil, xerrors.New("didn't find node in roster")
 	}
 	tn := &TreeNode{
 		Parent:         parent,
@@ -523,7 +523,7 @@ func (ro *Roster) ServicePublics(name string) []kyber.Point {
 func (ro Roster) ServiceAggregate(name string) (kyber.Point, error) {
 	for _, si := range ro.List {
 		if !si.HasServicePublic(name) {
-			return nil, errors.New("not all nodes have this service keypair")
+			return nil, xerrors.New("not all nodes have this service keypair")
 		}
 	}
 	aggregate := ro.List[0].ServicePublic(name).Clone().Null()

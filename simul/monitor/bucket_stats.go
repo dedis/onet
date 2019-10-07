@@ -1,9 +1,10 @@
 package monitor
 
 import (
-	"errors"
 	"strconv"
 	"strings"
+
+	"golang.org/x/xerrors"
 )
 
 // bucketRule represents a filter that will tell if a measure must
@@ -19,7 +20,7 @@ type bucketRule struct {
 func newBucketRule(r string) (rule bucketRule, err error) {
 	parts := strings.Split(r, ":")
 	if len(parts) != 2 {
-		err = errors.New("malformed rule")
+		err = xerrors.New("malformed rule")
 		return
 	}
 

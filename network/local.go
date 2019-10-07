@@ -1,10 +1,11 @@
 package network
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 // NewLocalRouter returns a fresh router which uses only local queues. It uses
@@ -108,7 +109,7 @@ func (lm *LocalManager) connect(local, remote Address, s Suite) (*LocalConn, err
 	lm.Lock()
 	defer lm.Unlock()
 	if lm.stopped {
-		return nil, errors.New("system is stopped")
+		return nil, xerrors.New("system is stopped")
 	}
 
 	fn, ok := lm.listening[remote]
@@ -248,7 +249,7 @@ func NewLocalConnWithManager(lm *LocalManager, local, remote Address, s Suite) (
 		}
 		time.Sleep(WaitRetry)
 	}
-	return nil, errors.New("Could not connect")
+	return nil, xerrors.New("Could not connect")
 }
 
 func (lc *LocalConn) start(wg *sync.WaitGroup) {
@@ -383,7 +384,7 @@ func NewLocalListenerWithManager(lm *LocalManager, addr Address, s Suite) (*Loca
 		suite:   s,
 	}
 	if addr.ConnType() != Local {
-		return nil, errors.New("Wrong address type for local listener")
+		return nil, xerrors.New("Wrong address type for local listener")
 	}
 	if l.manager.isListening(addr) {
 		return nil, fmt.Errorf("%s is already listening: can't listen again", addr)
@@ -475,7 +476,7 @@ func NewLocalHostWithManager(lm *LocalManager, addr Address, s Suite) (*LocalHos
 // In case of an error, it will return a nil Conn.
 func (lh *LocalHost) Connect(si *ServerIdentity) (Conn, error) {
 	if si.Address.ConnType() != Local {
-		return nil, errors.New("Can't connect to non-Local address")
+		return nil, xerrors.New("Can't connect to non-Local address")
 	}
 	var finalErr error
 	for i := 0; i < MaxRetryConnect; i++ {

@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -15,6 +14,7 @@ import (
 	"go.dedis.ch/onet/v3/cfgpath"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 	"rsc.io/goversion/version"
 )
 
@@ -192,7 +192,7 @@ func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID
 func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) (ProtocolInstance, error) {
 	fn, ok := c.protocols.instantiators[c.protocols.ProtocolIDToName(protoID)]
 	if !ok {
-		return nil, errors.New("No protocol constructor with this ID")
+		return nil, xerrors.New("No protocol constructor with this ID")
 	}
 	return fn(tni)
 }

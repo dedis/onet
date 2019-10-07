@@ -2,7 +2,6 @@ package network
 
 import (
 	"bytes"
-	"errors"
 	"net"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -27,20 +27,20 @@ const MaxIdentityExchange = 5 * time.Second
 const WaitRetry = 20 * time.Millisecond
 
 // ErrClosed is when a connection has been closed.
-var ErrClosed = errors.New("Connection Closed")
+var ErrClosed = xerrors.New("Connection Closed")
 
 // ErrEOF is when the connection sends an EOF signal (mostly because it has
 // been shut down).
-var ErrEOF = errors.New("EOF")
+var ErrEOF = xerrors.New("EOF")
 
 // ErrCanceled means something went wrong in the sending or receiving part.
-var ErrCanceled = errors.New("Operation Canceled")
+var ErrCanceled = xerrors.New("Operation Canceled")
 
 // ErrTimeout is raised if the timeout has been reached.
-var ErrTimeout = errors.New("Timeout Error")
+var ErrTimeout = xerrors.New("Timeout Error")
 
 // ErrUnknown is an unknown error.
-var ErrUnknown = errors.New("Unknown Error")
+var ErrUnknown = xerrors.New("Unknown Error")
 
 // Size is a type to reprensent the size that is sent before every packet to
 // correctly decode it.

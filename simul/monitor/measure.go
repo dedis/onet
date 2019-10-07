@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // InvalidHostIndex is the default value when the measure is not assigned
@@ -75,7 +75,7 @@ func ConnectSink(addr string) error {
 	global.Lock()
 	defer global.Unlock()
 	if global.connection != nil {
-		return errors.New("Already connected to an endpoint")
+		return xerrors.New("Already connected to an endpoint")
 	}
 	log.Lvl3("Connecting to:", addr)
 	conn, err := net.Dial("tcp", addr)
@@ -268,7 +268,7 @@ func send(v interface{}) error {
 		continue
 	}
 	if !ok {
-		return errors.New("Could not send any measures")
+		return xerrors.New("Could not send any measures")
 	}
 	return nil
 }
