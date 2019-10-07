@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/daviddengcn/go-colortext"
+	ct "github.com/daviddengcn/go-colortext"
 )
 
 // LoggerInfo is a structure that should be used when creating a logger.
@@ -19,6 +19,9 @@ type LoggerInfo struct {
 	// If 'showTime' is true, it will print the time for each line displayed
 	// by the logger.
 	ShowTime bool
+	// If 'AbsoluteFilePath' is true, it will print the absolute file path
+	// instead of the base.
+	AbsoluteFilePath bool
 	// If 'useColors' is true, logs will be colored (defaults to monochrome
 	// output). It also controls padding, since colorful output is higly
 	// correlated with humans who like their log lines padded.
@@ -40,6 +43,8 @@ const (
 	DefaultStdDebugLvl = 1
 	// DefaultStdShowTime is the default value for 'showTime' for the standard logger
 	DefaultStdShowTime = false
+	// DefaultStdAbsoluteFilePath is the default to show absolute path for the standard logger
+	DefaultStdAbsoluteFilePath = false
 	// DefaultStdUseColors is the default value for 'useColors' for the standard logger
 	DefaultStdUseColors = false
 	// DefaultStdPadding is the default value for 'padding' for the standard logger
@@ -166,10 +171,11 @@ func (sl *stdLogger) GetLoggerInfo() *LoggerInfo {
 // multiple stdLoggers.
 func newStdLogger() (Logger, error) {
 	lInfo := &LoggerInfo{
-		DebugLvl:  DefaultStdDebugLvl,
-		UseColors: DefaultStdUseColors,
-		ShowTime:  DefaultStdShowTime,
-		Padding:   DefaultStdPadding,
+		DebugLvl:         DefaultStdDebugLvl,
+		UseColors:        DefaultStdUseColors,
+		ShowTime:         DefaultStdShowTime,
+		AbsoluteFilePath: DefaultStdAbsoluteFilePath,
+		Padding:          DefaultStdPadding,
 	}
 	return &stdLogger{lInfo: lInfo}, nil
 }

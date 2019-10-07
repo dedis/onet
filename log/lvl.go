@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/pprof"
@@ -85,8 +86,11 @@ func lvl(lvl, skip int, args ...interface{}) {
 			continue
 		}
 
-		pc, _, line, _ := runtime.Caller(skip)
-		name := regexpPaths.ReplaceAllString(runtime.FuncForPC(pc).Name(), "")
+		_, fn, line, _ := runtime.Caller(skip)
+		name := fn
+		if !lInfo.AbsoluteFilePath {
+			name = filepath.Base(fn)
+		}
 		lineStr := fmt.Sprintf("%d", line)
 
 		// For the testing-framework, we check the resulting string. So as not to
@@ -94,6 +98,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 		// the line-# to 0
 		if !outputLines {
 			line = 0
+			name = "fake_name.go"
 		}
 
 		if lInfo.UseColors {
@@ -107,12 +112,10 @@ func lvl(lvl, skip int, args ...interface{}) {
 		}
 
 		namePadding := 0
-		linePadding := 0
 		if lInfo.Padding {
 			namePadding = NamePadding
-			linePadding = LinePadding
 		}
-		fmtstr := fmt.Sprintf("%%%ds: %%%dd", namePadding, linePadding)
+		fmtstr := fmt.Sprintf("%%%ds:%%d", namePadding)
 		caller := fmt.Sprintf(fmtstr, name, line)
 		if StaticMsg != "" {
 			caller += "@" + StaticMsg
@@ -141,7 +144,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 		case lvlPanic:
 			lvlStr = "P"
 		}
-		str := fmt.Sprintf(": (%s) - %s", caller, message)
+		str := fmt.Sprintf(": %s - %s", caller, message)
 		if lInfo.ShowTime {
 			ti := time.Now()
 			str = fmt.Sprintf("%s.%09d%s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)
@@ -291,6 +294,22 @@ func ShowTime() bool {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	return loggers[0].GetLoggerInfo().ShowTime
+}
+
+// SetAbsoluteFilePath allows to print the absolute file path
+// for logging calls.
+func SetAbsoluteFilePath(absolute bool) {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	loggers[0].GetLoggerInfo().AbsoluteFilePath = absolute
+}
+
+// AbsoluteFilePath returns the current setting for showing the absolute
+// path inside a log.
+func AbsoluteFilePath() bool {
+	debugMut.Lock()
+	defer debugMut.Unlock()
+	return loggers[0].GetLoggerInfo().AbsoluteFilePath
 }
 
 // SetUseColors can turn off or turn on the use of colors in the debug-output
