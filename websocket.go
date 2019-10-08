@@ -119,6 +119,11 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		w.Write(ok)
 	})
 
+	if allowPprof() {
+		log.Warn("HTTP pprof profiling is enabled")
+		initPprof(w.mux)
+	}
+
 	// Add a catch-all handler (longest paths take precedence, so "/" takes
 	// all non-registered paths) and correctly upgrade to a websocket and
 	// throw an error.

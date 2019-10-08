@@ -22,3 +22,5 @@ require (
 	gopkg.in/tylerb/graceful.v1 v1.2.15
 	rsc.io/goversion v1.2.0
 )
+
+go 1.13
