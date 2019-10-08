@@ -3,6 +3,7 @@ build/
 test_data/
 test/
 deploy/
+Coding/
 .tags*
 *~
 profile.tmp

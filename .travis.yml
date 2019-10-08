@@ -5,9 +5,6 @@ go:
 
 go_import_path: go.dedis.ch/onet/v3
 
-install:
-  - go get github.com/dedis/Coding || true
-
 script:
   - env GO111MODULE=on make test
 

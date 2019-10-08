@@ -125,6 +125,7 @@ func (c *Server) GetStatus() *Status {
 		"Port":        c.ServerIdentity.Address.Port(),
 		"Description": c.ServerIdentity.Description,
 		"ConnType":    string(c.ServerIdentity.Address.ConnType()),
+		"GoRoutines":  fmt.Sprintf("%v", runtime.NumGoroutine()),
 	}}
 
 	goverOnce.Do(func() {
