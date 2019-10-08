@@ -3,12 +3,12 @@ package onet
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
+	"golang.org/x/xerrors"
 )
 
 // Context represents the methods that are available to a service.
@@ -35,10 +35,13 @@ func newContext(c *Server, o *Overlay, servID ServiceID, manager *serviceManager
 	err := manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(ctx.bucketName)
 		if err != nil {
-			return err
+			return xerrors.Errorf("creating bucket: %+v", err)
 		}
 		_, err = tx.CreateBucketIfNotExists(ctx.bucketVersionName)
-		return err
+		if err != nil {
+			return xerrors.Errorf("creating bucket: %+v", err)
+		}
+		return nil
 	})
 	if err != nil {
 		log.Panic("Failed to create bucket: " + err.Error())
@@ -56,7 +59,10 @@ func (c *Context) NewTreeNodeInstance(t *Tree, tn *TreeNode, protoName string) *
 // SendRaw sends a message to the ServerIdentity.
 func (c *Context) SendRaw(si *network.ServerIdentity, msg interface{}) error {
 	_, err := c.server.Send(si, msg)
-	return err
+	if err != nil {
+		xerrors.Errorf("sending message: %+v", err)
+	}
+	return nil
 }
 
 // ServerIdentity returns this server's identity.
@@ -77,7 +83,11 @@ func (c *Context) ServiceID() ServiceID {
 // CreateProtocol returns a ProtocolInstance bound to the service.
 func (c *Context) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := c.overlay.CreateProtocol(name, t, c.serviceID)
-	return pi, err
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %+v", err)
+	}
+
+	return pi, nil
 }
 
 // ProtocolRegister signs up a new protocol to this Server. Contrary go
@@ -86,12 +96,20 @@ func (c *Context) CreateProtocol(name string, t *Tree) (ProtocolInstance, error)
 // global namespace.
 // It returns the ID of the protocol.
 func (c *Context) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
-	return c.server.ProtocolRegister(name, protocol)
+	id, err := c.server.ProtocolRegister(name, protocol)
+	if err != nil {
+		return id, xerrors.Errorf("protocol registration: %+v", err)
+	}
+	return id, nil
 }
 
 // RegisterProtocolInstance registers a new instance of a protocol using overlay.
 func (c *Context) RegisterProtocolInstance(pi ProtocolInstance) error {
-	return c.overlay.RegisterProtocolInstance(pi)
+	err := c.overlay.RegisterProtocolInstance(pi)
+	if err != nil {
+		return xerrors.Errorf("protocol instance regisration: %+v", err)
+	}
+	return nil
 }
 
 // ReportStatus returns all status of the services.
@@ -152,12 +170,16 @@ type ContextDB interface {
 func (c *Context) Save(key []byte, data interface{}) error {
 	buf, err := network.Marshal(data)
 	if err != nil {
-		return err
+		return xerrors.Errorf("marshaling: %+v", err)
 	}
-	return c.manager.db.Update(func(tx *bbolt.Tx) error {
+	err = c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketName)
 		return b.Put(key, buf)
 	})
+	if err != nil {
+		return xerrors.Errorf("tx error: %+v", err)
+	}
+	return nil
 }
 
 // Load takes a key and returns the network.Unmarshaled data.
@@ -175,7 +197,7 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("tx error: %+v", err)
 	}
 
 	if buf == nil {
@@ -183,7 +205,11 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 	}
 
 	_, ret, err := network.Unmarshal(buf, c.server.suite)
-	return ret, err
+	if err != nil {
+		return nil, xerrors.Errorf("unmarshaling: %+v")
+	}
+
+	return ret, nil
 }
 
 // LoadRaw takes a key and returns the raw, unmarshalled data.
@@ -200,7 +226,10 @@ func (c *Context) LoadRaw(key []byte) ([]byte, error) {
 		copy(buf, v)
 		return nil
 	})
-	return buf, err
+	if err != nil {
+		return nil, xerrors.Errorf("tx error: %+v", err)
+	}
+	return buf, nil
 }
 
 var dbVersion = []byte("dbVersion")
@@ -221,7 +250,7 @@ func (c *Context) LoadVersion() (int, error) {
 	})
 
 	if err != nil {
-		return -1, err
+		return -1, xerrors.Errorf("tx error: %+v", err)
 	}
 
 	if len(buf) == 0 {
@@ -229,7 +258,10 @@ func (c *Context) LoadVersion() (int, error) {
 	}
 	var version int32
 	err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &version)
-	return int(version), err
+	if err != nil {
+		return -1, xerrors.Errorf("bytes to int: %+v", err)
+	}
+	return int(version), nil
 }
 
 // SaveVersion stores the given version as the current database version.
@@ -237,12 +269,16 @@ func (c *Context) SaveVersion(version int) error {
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, binary.LittleEndian, int32(version))
 	if err != nil {
-		return err
+		return xerrors.Errorf("int to bytes: %+v", err)
 	}
-	return c.manager.db.Update(func(tx *bbolt.Tx) error {
+	err = c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketVersionName)
 		return b.Put(dbVersion, buf.Bytes())
 	})
+	if err != nil {
+		return xerrors.Errorf("tx error: %+v")
+	}
+	return nil
 }
 
 // GetAdditionalBucket makes sure that a bucket with the given name
@@ -261,12 +297,12 @@ func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
 	err := c.manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(fullName)
 		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
+			return xerrors.Errorf("create bucket: %+v", err)
 		}
 		return nil
 	})
 	if err != nil {
-		panic(err)
+		panic(xerrors.Errorf("tx error: %+v", err))
 	}
 	return c.manager.db, fullName
 }

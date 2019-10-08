@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"time"
 
@@ -80,7 +79,7 @@ func ConnectSink(addr string) error {
 	log.Lvl3("Connecting to:", addr)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return err
+		return xerrors.Errorf("dial: %+v", err)
 	}
 	log.Lvl3("Connected to sink:", addr)
 	global.sink = addr
@@ -251,7 +250,7 @@ func send(v interface{}) error {
 	global.Lock()
 	defer global.Unlock()
 	if global.connection == nil {
-		return fmt.Errorf("monitor's sink connection not initialized")
+		return xerrors.New("monitor's sink connection not initialized")
 	}
 	// For a large number of clients (˜10'000), the connection phase
 	// can take some time. This is a linear backoff to enable connection

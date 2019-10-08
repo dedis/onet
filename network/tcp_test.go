@@ -343,7 +343,8 @@ func TestTCPConnTimeout(t *testing.T) {
 	// the timeout from send too
 	select {
 	case err := <-connStat:
-		assert.Equal(t, ErrTimeout, err)
+		println(err.Error())
+		assert.True(t, xerrors.Is(err, ErrTimeout))
 	case <-time.After(10 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
@@ -739,7 +740,7 @@ func waitConnections(r *Router, sid *ServerIdentity) error {
 		}
 		time.Sleep(WaitRetry)
 	}
-	return fmt.Errorf("Didn't see connection to %s in router", sid.Address)
+	return xerrors.Errorf("Didn't see connection to %s in router", sid.Address)
 }
 
 func acceptAndClose(c Conn) {

@@ -134,7 +134,11 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 	if tree == nil {
 		// request anyway because we need to store the pending message
 		// the following routine will take care of requesting once
-		return o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
+		err := o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
+		if err != nil {
+			return xerrors.Errorf("requesting tree: %+v", err)
+		}
+		return nil
 	}
 
 	o.transmitMux.Lock()
@@ -165,7 +169,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			o.instancesLock.Lock()
 			o.nodeDelete(onetMsg.To)
 			o.instancesLock.Unlock()
-			return err
+			return xerrors.Errorf("creating protocol: %+v", err)
 		}
 		if pi == nil {
 			return nil
@@ -291,7 +295,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 		RequestTree: &RequestTree{TreeID: onetMsg.To.TreeID, Version: 1},
 	})
 	if err != nil {
-		return err
+		return xerrors.Errorf("wrapping message: %+v", err)
 	}
 
 	if o.treeStorage.IsRegistered(onetMsg.To.TreeID) {
@@ -306,7 +310,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 	_, err = o.server.Send(si, msg)
 	if err != nil {
 		o.treeStorage.Unregister(onetMsg.To.TreeID)
-		return err
+		return xerrors.Errorf("sending tree request: %+v", err)
 	}
 
 	return nil
@@ -552,7 +556,7 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 		totSentLen += sentLen
 		if err != nil {
 			log.Error("sending config failed:", err)
-			return totSentLen, err
+			return totSentLen, xerrors.Errorf("sending: %+v", err)
 		}
 	}
 	// then send the message
@@ -565,12 +569,15 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	}
 	final, err := io.Wrap(msg, info)
 	if err != nil {
-		return totSentLen, err
+		return totSentLen, xerrors.Errorf("wrapping message: %+v", err)
 	}
 
 	sentLen, err := o.server.Send(to.ServerIdentity, final)
 	totSentLen += sentLen
-	return totSentLen, err
+	if err != nil {
+		return totSentLen, xerrors.Errorf("sending: %+v", err)
+	}
+	return totSentLen, nil
 }
 
 // nodeDone is called by node to signify that its work is finished and its
@@ -647,10 +654,10 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	tni := o.NewTreeNodeInstanceFromService(t, t.Root, ProtocolNameToID(name), sid, io)
 	pi, err := o.server.protocolInstantiate(tni.token.ProtoID, tni)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("instantiating protocol: %+v", err)
 	}
 	if err = o.RegisterProtocolInstance(pi); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("registering protocol instance: %+v", err)
 	}
 	go func() {
 		defer func() {
@@ -672,7 +679,7 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolInstance, error) {
 	pi, err := o.CreateProtocol(name, t, sid)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating protocol: %+v", err)
 	}
 	go func() {
 		defer func() {
@@ -686,7 +693,7 @@ func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolIn
 			log.Error("Error while starting:", err)
 		}
 	}()
-	return pi, err
+	return pi, nil
 }
 
 // NewTreeNodeInstanceFromProtoName takes a protocol name and a tree and
@@ -798,7 +805,7 @@ func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, e
 	if msg != nil {
 		buff, err := network.Marshal(msg)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("marshaling: %+v", err)
 		}
 		typ := network.MessageType(msg)
 		protoMsg := &ProtocolMsg{
@@ -839,7 +846,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 		var err error
 		_, protoMsg, err := network.Unmarshal(onetMsg.MsgSlice, d.suite)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("unmarshaling: %+v", err)
 		}
 		// Put the msg into ProtocolMsg
 		returnOverlay.TreeNodeInfo = &TreeNodeInfo{

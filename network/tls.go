@@ -81,7 +81,7 @@ func newCertMaker(s Suite, si *ServerIdentity) (*certMaker, error) {
 
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("key generation: %+v", err)
 	}
 	cm.k = k
 
@@ -92,21 +92,29 @@ func newCertMaker(s Suite, si *ServerIdentity) (*certMaker, error) {
 	cm.subj = pkix.Name{CommonName: pubToCN(cm.si.Public)}
 	der, err := asn1.Marshal(cm.subj.CommonName)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("marshaling: %+v", err)
 	}
 	cm.subjDer = der
 	return cm, nil
 }
 
 func (cm *certMaker) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return cm.get([]byte(hello.ServerName))
+	cert, err := cm.get([]byte(hello.ServerName))
+	if err != nil {
+		return nil, xerrors.Errorf("certificate: %+v", err)
+	}
+	return cert, nil
 }
 
 func (cm *certMaker) getClientCertificate(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	if len(req.AcceptableCAs) == 0 {
 		return nil, xerrors.New("server did not provide a nonce in AcceptableCAs")
 	}
-	return cm.get(req.AcceptableCAs[0])
+	cert, err := cm.get(req.AcceptableCAs[0])
+	if err != nil {
+		return nil, xerrors.Errorf("certififcate: %+v", err)
+	}
+	return cert, nil
 }
 
 func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
@@ -127,7 +135,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	buf.Write(cm.subjDer)
 	sig, err := schnorr.Sign(cm.suite, cm.si.GetPrivate(), buf.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("signature verification: %+v", err)
 	}
 
 	// Even though the serial number is not used in the DEDIS signature,
@@ -159,11 +167,11 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 
 	cDer, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, cm.k.Public(), cm.k)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("certificate: %+v", err)
 	}
 	certs, err := x509.ParseCertificates(cDer)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("certificate: %+v", err)
 	}
 	if len(certs) < 1 {
 		return nil, xerrors.New("no certificate found")
@@ -211,7 +219,11 @@ func cloneTLSClientConfig(cfg *tls.Config) *tls.Config {
 
 // NewTLSListener makes a new TCPListener that is configured for TLS.
 func NewTLSListener(si *ServerIdentity, suite Suite) (*TCPListener, error) {
-	return NewTLSListenerWithListenAddr(si, suite, "")
+	l, err := NewTLSListenerWithListenAddr(si, suite, "")
+	if err != nil {
+		return nil, xerrors.Errorf("tls listener: %+v", err)
+	}
+	return l, nil
 }
 
 // NewTLSListenerWithListenAddr makes a new TCPListener that is configured
@@ -222,12 +234,12 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 	listenAddr string) (*TCPListener, error) {
 	tcp, err := NewTCPListenerWithListenAddr(si.Address, suite, listenAddr)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("tls listener: %+v", err)
 	}
 
 	cfg, err := tlsConfig(suite, si)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("tls config: %+v", err)
 	}
 
 	// This callback will be called for every new client, which
@@ -305,7 +317,7 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		}
 		_, err = cert.Verify(opts)
 		if err != nil {
-			return err
+			return xerrors.Errorf("certificate verification: %+v", err)
 		}
 
 		// When we know who we are connecting to (e.g. client mode):
@@ -313,8 +325,7 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		if them != nil {
 			err = cert.VerifyHostname(pubToCN(them.Public))
 			if err != nil {
-				println("here", err.Error())
-				return err
+				return xerrors.Errorf("certificate verification: %+v", err)
 			}
 		}
 
@@ -334,18 +345,21 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		cn = cert.Subject.CommonName
 		pub, err := pubFromCN(suite, cn)
 		if err != nil {
-			return err
+			return xerrors.Errorf("decoding key: %+v", err)
 		}
 
 		buf := bytes.NewBuffer(nonce)
 		subAsn1, err := asn1.Marshal(cn)
 		if err != nil {
-			return err
+			return xerrors.Errorf("marshaling: %+v", err)
 		}
 		buf.Write(subAsn1)
 		err = schnorr.Verify(suite, pub, buf.Bytes(), sig)
+		if err != nil {
+			return xerrors.Errorf("certificate verification: %+v", err)
+		}
 
-		return err
+		return nil
 	}, nonce
 }
 
@@ -360,17 +374,24 @@ func pubFromCN(suite kyber.Group, cn string) (kyber.Point, error) {
 		// New style encoding: unhex and then unmarshal.
 		buf, err := hex.DecodeString(cn[1:])
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("decoding key: %+v", err)
 		}
 		r := bytes.NewBuffer(buf)
 
 		pub := suite.Point()
 		_, err = pub.UnmarshalFrom(r)
-		return pub, err
+		if err != nil {
+			return nil, xerrors.Errorf("unmarshaling: %+v", err)
+		}
+		return pub, nil
 
 	default:
 		// Old style encoding: simply StringHexToPoint
-		return encoding.StringHexToPoint(suite, cn)
+		pub, err := encoding.StringHexToPoint(suite, cn)
+		if err != nil {
+			return nil, xerrors.Errorf("encoding key: %+v", err)
+		}
+		return pub, nil
 	}
 }
 
@@ -385,7 +406,7 @@ func pubToCN(pub kyber.Point) string {
 func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config, error) {
 	cm, err := newCertMaker(suite, us)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("certificate: %+v", err)
 	}
 
 	return &tls.Config{
@@ -415,7 +436,7 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 
 	cfg, err := tlsConfig(suite, us)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("tls config: %+v", err)
 	}
 	vrf, nonce := makeVerifier(suite, them)
 	cfg.VerifyPeerCertificate = vrf
@@ -432,12 +453,13 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 			}
 			return
 		}
+		err = xerrors.Errorf("dial: %+v", err)
 		if i < MaxRetryConnect {
 			time.Sleep(WaitRetry)
 		}
 	}
 	if err == nil {
-		err = ErrTimeout
+		err = xerrors.Errorf("timeout: %w", ErrTimeout)
 	}
 	return
 }

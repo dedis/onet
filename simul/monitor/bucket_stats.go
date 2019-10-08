@@ -26,11 +26,13 @@ func newBucketRule(r string) (rule bucketRule, err error) {
 
 	rule.low, err = strconv.Atoi(parts[0])
 	if err != nil {
+		err = xerrors.Errorf("atoi: %+v", err)
 		return
 	}
 
 	rule.high, err = strconv.Atoi(parts[1])
 	if err != nil {
+		err = xerrors.Errorf("atoi: %+v", err)
 		return
 	}
 
@@ -83,7 +85,7 @@ func (bs *BucketStats) Set(index int, rules []string, stats *Stats) error {
 	for i, str := range rules {
 		rule, err := newBucketRule(str)
 		if err != nil {
-			return err
+			return xerrors.Errorf("bucket rule: %+v", err)
 		}
 
 		bs.rules[index][i] = rule

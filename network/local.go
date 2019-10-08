@@ -1,7 +1,6 @@
 package network
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -13,7 +12,11 @@ import (
 // If you need multiple independent local-queues, use NewLocalRouterWithManager.
 // In case of an error it is returned together with a nil-Router.
 func NewLocalRouter(sid *ServerIdentity, s Suite) (*Router, error) {
-	return NewLocalRouterWithManager(defaultLocalManager, sid, s)
+	r, err := NewLocalRouterWithManager(defaultLocalManager, sid, s)
+	if err != nil {
+		return nil, xerrors.Errorf("local router: %+v", err)
+	}
+	return r, nil
 }
 
 // NewLocalRouterWithManager is the same as NewLocalRouter but takes a specific
@@ -22,7 +25,7 @@ func NewLocalRouter(sid *ServerIdentity, s Suite) (*Router, error) {
 func NewLocalRouterWithManager(lm *LocalManager, sid *ServerIdentity, s Suite) (*Router, error) {
 	h, err := NewLocalHostWithManager(lm, sid.Address, s)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("local router: %+v", err)
 	}
 	r := NewRouter(sid, h)
 	r.UnauthOk = true
@@ -114,7 +117,7 @@ func (lm *LocalManager) connect(local, remote Address, s Suite) (*LocalConn, err
 
 	fn, ok := lm.listening[remote]
 	if !ok {
-		return nil, fmt.Errorf("%s can't connect to %s: it's not listening", local, remote)
+		return nil, xerrors.Errorf("%s can't connect to %s: it's not listening", local, remote)
 	}
 
 	outEndpoint := endpoint{local, lm.counter}
@@ -142,7 +145,7 @@ func (lm *LocalManager) send(e endpoint, msg []byte) error {
 	defer lm.Unlock()
 	q, ok := lm.conns[e]
 	if !ok {
-		return ErrClosed
+		return xerrors.Errorf("closing: %w", ErrClosed)
 	}
 
 	q.incomingQueue <- msg
@@ -157,7 +160,7 @@ func (lm *LocalManager) close(conn *LocalConn) error {
 	_, ok := lm.conns[conn.local]
 	if !ok {
 		// connection already closed
-		return ErrClosed
+		return xerrors.Errorf("closing: %w", ErrClosed)
 	}
 	// delete this conn
 	delete(lm.conns, conn.local)
@@ -245,7 +248,7 @@ func NewLocalConnWithManager(lm *LocalManager, local, remote Address, s Suite) (
 		if err == nil {
 			return c, nil
 		} else if i == MaxRetryConnect-1 {
-			return nil, err
+			return nil, xerrors.Errorf("connect: %+v", err)
 		}
 		time.Sleep(WaitRetry)
 	}
@@ -274,11 +277,15 @@ func (lc *LocalConn) start(wg *sync.WaitGroup) {
 func (lc *LocalConn) Send(msg Message) (uint64, error) {
 	buff, err := Marshal(msg)
 	if err != nil {
-		return 0, err
+		return 0, xerrors.Errorf("marshal: %+v", err)
 	}
 	sentLen := uint64(len(buff))
 	lc.updateTx(sentLen)
-	return sentLen, lc.manager.send(lc.remote, buff)
+	err = lc.manager.send(lc.remote, buff)
+	if err != nil {
+		return sentLen, xerrors.Errorf("sending: %w", err)
+	}
+	return sentLen, nil
 }
 
 // Receive takes a context (that is not used) and waits for a packet to
@@ -287,16 +294,20 @@ func (lc *LocalConn) Send(msg Message) (uint64, error) {
 func (lc *LocalConn) Receive() (*Envelope, error) {
 	buff, opened := <-lc.outgoingQueue
 	if !opened {
-		return nil, ErrClosed
+		return nil, xerrors.Errorf("closing: %w", ErrClosed)
 	}
 	lc.updateRx(uint64(len(buff)))
 
 	id, body, err := Unmarshal(buff, lc.suite)
+	if err != nil {
+		return nil, xerrors.Errorf("unmarshaling: %+v", err)
+	}
+
 	return &Envelope{
 		MsgType: id,
 		Msg:     body,
 		Size:    Size(len(buff)),
-	}, err
+	}, nil
 }
 
 // Local returns the local address.
@@ -316,11 +327,15 @@ func (lc *LocalConn) Close() error {
 	select {
 	case _, o := <-lc.closeCh:
 		if !o {
-			return ErrClosed
+			return xerrors.Errorf("closing: %w", ErrClosed)
 		}
 	default:
 	}
-	return lc.manager.close(lc)
+	err := lc.manager.close(lc)
+	if err != nil {
+		return xerrors.Errorf("closing: %+v", err)
+	}
+	return nil
 }
 
 func (lc *LocalConn) closeChannels() {
@@ -369,7 +384,11 @@ type LocalListener struct {
 // NewLocalListener returns a fresh LocalListener using the defaultLocalManager.
 // In case of an error the LocalListener is nil and the error is returned.
 func NewLocalListener(addr Address, s Suite) (*LocalListener, error) {
-	return NewLocalListenerWithManager(defaultLocalManager, addr, s)
+	listener, err := NewLocalListenerWithManager(defaultLocalManager, addr, s)
+	if err != nil {
+		return nil, xerrors.Errorf("local listener: %+v", err)
+	}
+	return listener, nil
 }
 
 // NewLocalListenerWithManager returns a new LocalListener using the
@@ -387,7 +406,7 @@ func NewLocalListenerWithManager(lm *LocalManager, addr Address, s Suite) (*Loca
 		return nil, xerrors.New("Wrong address type for local listener")
 	}
 	if l.manager.isListening(addr) {
-		return nil, fmt.Errorf("%s is already listening: can't listen again", addr)
+		return nil, xerrors.Errorf("%s is already listening: can't listen again", addr)
 	}
 	l.addr = addr
 	return l, nil
@@ -400,7 +419,7 @@ func (ll *LocalListener) Listen(fn func(Conn)) error {
 	ll.Lock()
 	if ll.listening {
 		ll.Unlock()
-		return fmt.Errorf("Already listening on %s", ll.addr)
+		return xerrors.Errorf("Already listening on %s", ll.addr)
 	}
 	ll.quit = make(chan bool)
 	ll.manager.setListening(ll.addr, fn)
@@ -453,7 +472,11 @@ type LocalHost struct {
 // on the given addr.
 // If an error happened during setup, it returns a nil LocalHost and the error.
 func NewLocalHost(addr Address, s Suite) (*LocalHost, error) {
-	return NewLocalHostWithManager(defaultLocalManager, addr, s)
+	host, err := NewLocalHostWithManager(defaultLocalManager, addr, s)
+	if err != nil {
+		return nil, xerrors.Errorf("local host: %+v", err)
+	}
+	return host, nil
 }
 
 // NewLocalHostWithManager is similar to NewLocalHost but takes a
@@ -467,7 +490,10 @@ func NewLocalHostWithManager(lm *LocalManager, addr Address, s Suite) (*LocalHos
 	}
 	var err error
 	lh.LocalListener, err = NewLocalListenerWithManager(lm, addr, s)
-	return lh, err
+	if err != nil {
+		return nil, xerrors.Errorf("local host: %+v", err)
+	}
+	return lh, nil
 
 }
 
@@ -484,7 +510,7 @@ func (lh *LocalHost) Connect(si *ServerIdentity) (Conn, error) {
 		if err == nil {
 			return c, nil
 		}
-		finalErr = err
+		finalErr = xerrors.Errorf("local connection: %+v", err)
 		select {
 		case <-time.After(WaitRetry):
 			// sleep done, go try again

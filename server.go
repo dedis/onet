@@ -154,12 +154,14 @@ func (c *Server) Close() error {
 
 	err := c.Router.Stop()
 	if err != nil {
+		err = xerrors.Errorf("stopping: %+v", err)
 		log.Error("While stopping router:", err)
 	}
 	c.WebSocket.stop()
 	c.overlay.Close()
 	err = c.serviceManager.closeDatabase()
 	if err != nil {
+		err = xerrors.Errorf("closing db: %+v", err)
 		log.Lvl3("Error closing database: " + err.Error())
 	}
 	log.Lvl3("Host Close", c.ServerIdentity.Address, "listening?", c.Router.Listening())
@@ -185,7 +187,11 @@ func (c *Server) GetService(name string) Service {
 // ProtocolRegister will sign up a new protocol to this Server.
 // It returns the ID of the protocol.
 func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
-	return c.protocols.Register(name, protocol)
+	id, err := c.protocols.Register(name, protocol)
+	if err != nil {
+		return id, xerrors.Errorf("registering protocol: %+v", err)
+	}
+	return id, nil
 }
 
 // protocolInstantiate instantiate a protocol from its ID
@@ -194,7 +200,11 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 	if !ok {
 		return nil, xerrors.New("No protocol constructor with this ID")
 	}
-	return fn(tni)
+	pi, err := fn(tni)
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %+v", err)
+	}
+	return pi, nil
 }
 
 // Start makes the router and the WebSocket listen on their respective

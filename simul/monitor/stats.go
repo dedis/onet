@@ -154,11 +154,11 @@ func (s *Stats) WriteIndividualStats(w io.Writer) error {
 		all := append(static, values...)
 		_, err := fmt.Fprintf(w, "%s", strings.Join(all, ","))
 		if err != nil {
-			return err
+			return xerrors.Errorf("formatting: %+v", err)
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
-			return err
+			return xerrors.Errorf("formatting: %+v", err)
 		}
 
 	}

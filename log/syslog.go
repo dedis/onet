@@ -2,7 +2,11 @@
 
 package log
 
-import "log/syslog"
+import (
+	"log/syslog"
+
+	"golang.org/x/xerrors"
+)
 
 type syslogLogger struct {
 	lInfo  *LoggerInfo
@@ -31,7 +35,7 @@ func (sl *syslogLogger) GetLoggerInfo() *LoggerInfo {
 func NewSyslogLogger(lInfo *LoggerInfo, priority syslog.Priority, tag string) (Logger, error) {
 	writer, err := syslog.New(priority, tag)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("system log: %+v", err)
 	}
 	return &syslogLogger{
 		lInfo:  lInfo,

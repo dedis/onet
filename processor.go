@@ -57,12 +57,12 @@ var errType = reflect.TypeOf((*error)(nil)).Elem()
 // network.Body will be converted to Body.
 func (p *ServiceProcessor) RegisterHandler(f interface{}) error {
 	if err := handlerInputCheck(f); err != nil {
-		return err
+		return xerrors.Errorf("input check: %+v", err)
 	}
 
 	pm, sh, err := createServiceHandler(f)
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating handler: %+v", err)
 	}
 	p.handlers[pm] = sh
 
@@ -200,27 +200,27 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 		return xerrors.New("earliest supported API level must be greater or equal to 3")
 	}
 	if err := handlerInputCheck(f); err != nil {
-		return err
+		return xerrors.Errorf("input check: %+v", err)
 	}
 	resource, sh, err := createServiceHandler(f)
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating handler: %+v", err)
 	}
 	var k kindGET
 	if method == "GET" {
 		k, _, err = prepareHandlerGET(f)
 		if err != nil {
-			return err
+			return xerrors.Errorf("preparing get handler: %+v", err)
 		}
 	}
 
 	intRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource))
 	if err != nil {
-		return err
+		return xerrors.Errorf("regex: %+v", err)
 	}
 	sliceRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource))
 	if err != nil {
-		return err
+		return xerrors.Errorf("regex: %+v", err)
 	}
 	val0 := reflect.New(sh.msgType)
 
@@ -368,7 +368,7 @@ func handlerInputCheck(f interface{}) error {
 func (p *ServiceProcessor) RegisterHandlers(procs ...interface{}) error {
 	for _, pr := range procs {
 		if err := p.RegisterHandler(pr); err != nil {
-			return err
+			return xerrors.Errorf("registering handler: %+v", err)
 		}
 	}
 	return nil
@@ -379,7 +379,7 @@ func (p *ServiceProcessor) RegisterHandlers(procs ...interface{}) error {
 func (p *ServiceProcessor) RegisterStreamingHandlers(procs ...interface{}) error {
 	for _, pr := range procs {
 		if err := p.RegisterStreamingHandler(pr); err != nil {
-			return err
+			return xerrors.Errorf("registering handler: %+v", err)
 		}
 	}
 	return nil
@@ -407,10 +407,12 @@ type StreamingTunnel struct {
 	close chan bool
 }
 
+// Note: errors returned without the details as it will be used in the HTTP
+// response.
 func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interface{}, ch chan bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic with %v", r)
+			err = xerrors.Errorf("panic with %v", r)
 		}
 	}()
 
@@ -424,7 +426,7 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	if streaming {
 		ierr := ret[2].Interface()
 		if ierr != nil {
-			err = ierr.(error)
+			err = xerrors.Errorf("response: %v", ierr)
 			return
 		}
 
@@ -434,7 +436,7 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	}
 	ierr := ret[1].Interface()
 	if ierr != nil {
-		err = ierr.(error)
+		err = xerrors.Errorf("response: %v", ierr)
 		return
 	}
 
@@ -455,7 +457,7 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 		msg := reflect.New(mh.msgType).Interface()
 		if err := protobuf.DecodeWithConstructors(buf, msg,
 			network.DefaultConstructors(p.Context.server.Suite())); err != nil {
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("decoding: %+v", err)
 		}
 		return callInterfaceFunc(mh.handler, msg, mh.streaming)
 	}()
@@ -507,7 +509,7 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 	buf, err = protobuf.Encode(reply)
 	if err != nil {
 		log.Error(err)
-		return nil, nil, xerrors.New("")
+		return nil, nil, xerrors.Errorf("encoding: %+v", err)
 	}
 	return buf, nil, nil
 }

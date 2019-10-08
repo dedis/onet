@@ -142,7 +142,7 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	system := "linux"
 	srcRel, err := filepath.Rel(m.wd, m.simulDir)
 	if err != nil {
-		return err
+		return xerrors.Errorf("relative path: %+v", err)
 	}
 
 	log.Lvl3("Relative-path is", srcRel, ". Will build into", m.buildDir)
@@ -153,7 +153,7 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 	out, err := Build("./"+srcRel, m.buildDir+"/conode",
 		processor, system, append(arg, tags...)...)
 	if err != nil {
-		return fmt.Errorf(err.Error() + " " + out)
+		return xerrors.Errorf(err.Error() + " " + out)
 	}
 
 	log.Lvl1("Build is finished after", time.Since(start))
@@ -172,7 +172,7 @@ func (m *MiniNet) Cleanup() error {
 	log.Lvl3("Going to stop everything")
 	err = m.parseServers()
 	if err != nil {
-		return err
+		return xerrors.Errorf("parsing servers: %+v", err)
 	}
 	for _, h := range m.HostIPs {
 		log.Lvl3("Cleaning up server", h)
@@ -190,7 +190,7 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	log.Lvl2("Localhost: Deploying and writing config-files")
 	sim, err := onet.NewSimulation(m.Simulation, string(rc.Toml()))
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating simulation: %+v", err)
 	}
 
 	// Check for PreScript and copy it to the deploy-dir
@@ -199,7 +199,7 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 		_, err := os.Stat(m.PreScript)
 		if !os.IsNotExist(err) {
 			if err := app.Copy(m.deployDir, m.PreScript); err != nil {
-				return err
+				return xerrors.Errorf("copying: %+v", err)
 			}
 		}
 	}
@@ -211,28 +211,28 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	mininetConfig := m.deployDir + "/mininet.toml"
 	_, err = toml.Decode(string(rc.Toml()), &mininet)
 	if err != nil {
-		return err
+		return xerrors.Errorf("decoding toml: %+v", err)
 	}
 	log.Lvl3("Writing the config file :", mininet)
 	onet.WriteTomlConfig(mininet, mininetConfig, m.deployDir)
 
 	log.Lvl3("Creating hosts")
 	if err = m.parseServers(); err != nil {
-		return err
+		return xerrors.Errorf("parsing servers: %+v", err)
 	}
 	hosts, list, err := m.getHostList(rc)
 	if err != nil {
-		return err
+		return xerrors.Errorf("hosts list: %+v", err)
 	}
 	log.Lvl3("Hosts are:", hosts)
 	log.Lvl3("List is:", list)
 	err = ioutil.WriteFile(m.deployDir+"/list", []byte(list), 0660)
 	if err != nil {
-		return err
+		return xerrors.Errorf("writing file: %+v", err)
 	}
 	simulConfig, err := sim.Setup(m.deployDir, hosts)
 	if err != nil {
-		return err
+		return xerrors.Errorf("simulation setup: %+v", err)
 	}
 	simulConfig.Config = string(rc.Toml())
 	m.config = simulConfig.Config
@@ -253,14 +253,14 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	err = app.Copy(m.deployDir, m.mininetDir+"/start.py")
 	if err != nil {
 		log.Error(err)
-		return err
+		return xerrors.Errorf("copying: %+v", err)
 	}
 
 	// Copy conode-binary
 	err = app.Copy(m.deployDir, m.buildDir+"/conode")
 	if err != nil {
 		log.Error(err)
-		return err
+		return xerrors.Errorf("copying: %+v", err)
 	}
 
 	// Copy everything over to MiniNet
@@ -337,7 +337,7 @@ func (m *MiniNet) parseServers() error {
 	slName := path.Join(m.wd, "server_list")
 	hosts, err := ioutil.ReadFile(slName)
 	if err != nil {
-		return fmt.Errorf("Couldn't find %s - you can produce one with\n"+
+		return xerrors.Errorf("Couldn't find %s - you can produce one with\n"+
 			"\t\t%[2]s/setup_servers.sh\n\t\tor\n\t\t%[2]s/setup_iccluster.sh", slName, m.mininetDir)
 	}
 	m.HostIPs = []string{}
@@ -379,6 +379,7 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	physicalServers := len(m.HostIPs)
 	nbrServers, err := rc.GetInt("Servers")
 	if err != nil {
+		err = xerrors.Errorf("config: %+v", err)
 		return
 	}
 	if nbrServers > physicalServers {
@@ -393,6 +394,7 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	for n := range nets {
 		ips[n], nets[n], err = net.ParseCIDR(fmt.Sprintf("10.%d.0.0/16", n+1))
 		if err != nil {
+			err = xerrors.Errorf("parsing cidr: %+v", err)
 			return
 		}
 		// We'll have to start with 10.1.0.2 as the first host.
@@ -402,6 +404,7 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 	hosts = []string{}
 	nbrHosts, err := rc.GetInt("Hosts")
 	if err != nil {
+		err = xerrors.Errorf("config: %+v", err)
 		return
 	}
 

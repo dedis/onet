@@ -108,8 +108,11 @@ func NewTreeFromMarshal(s network.Suite, buf []byte, el *Roster) (*Tree, error) 
 		return nil, xerrors.New("Didn't receive TreeMarshal-struct")
 	}
 	t, err := pm.(*TreeMarshal).MakeTree(el)
+	if err != nil {
+		return nil, xerrors.Errorf("making tree: %+v", err)
+	}
 	t.computeSubtreeAggregate(t.Root)
-	return t, err
+	return t, nil
 }
 
 // MakeTreeMarshal creates a replacement-tree that is safe to send: no
@@ -131,7 +134,10 @@ func (t *Tree) MakeTreeMarshal() *TreeMarshal {
 // tree
 func (t *Tree) Marshal() ([]byte, error) {
 	buf, err := network.Marshal(t.MakeTreeMarshal())
-	return buf, err
+	if err != nil {
+		return nil, xerrors.Errorf("making tree marshal: %+v", err)
+	}
+	return buf, nil
 }
 
 type tbmStruct struct {
@@ -143,7 +149,7 @@ type tbmStruct struct {
 func (t *Tree) BinaryMarshaler() ([]byte, error) {
 	bt, err := t.Marshal()
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("marshaling: %+v", err)
 	}
 	tbm := &tbmStruct{
 		T:  bt,
@@ -151,7 +157,7 @@ func (t *Tree) BinaryMarshaler() ([]byte, error) {
 	}
 	b, err := network.Marshal(tbm)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("marshaling: %+v", err)
 	}
 	return b, nil
 }
@@ -165,7 +171,7 @@ func (t *Tree) BinaryUnmarshaler(s network.Suite, b []byte) error {
 	}
 	tree, err := NewTreeFromMarshal(s, tbm.T, tbm.Ro)
 	if err != nil {
-		return err
+		return xerrors.Errorf("making tree marshal: %+v", err)
 	}
 	t.Roster = tbm.Ro
 	t.ID = tree.ID
@@ -347,7 +353,7 @@ func (tm TreeMarshal) MakeTree(ro *Roster) (*Tree, error) {
 	var err error
 	tree.Root, err = tm.Children[0].MakeTreeFromList(nil, ro)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("making tree: %+v", err)
 	}
 	tree.computeSubtreeAggregate(tree.Root)
 	return tree, nil
@@ -368,7 +374,7 @@ func (tm *TreeMarshal) MakeTreeFromList(parent *TreeNode, ro *Roster) (*TreeNode
 	for _, c := range tm.Children {
 		ntn, err := c.MakeTreeFromList(tn, ro)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("making tree: %+v", err)
 		}
 		tn.Children = append(tn.Children, ntn)
 	}
@@ -459,7 +465,7 @@ func (ro *Roster) GetID() (RosterID, error) {
 	for _, id := range ro.List {
 		_, err := id.Public.MarshalTo(h)
 		if err != nil {
-			return RosterID{}, err
+			return RosterID{}, xerrors.Errorf("marshaling: %+v", err)
 		}
 
 		// order is important for the hash
@@ -467,7 +473,7 @@ func (ro *Roster) GetID() (RosterID, error) {
 		for _, srvid := range id.ServiceIdentities {
 			_, err = srvid.Public.MarshalTo(h)
 			if err != nil {
-				return RosterID{}, err
+				return RosterID{}, xerrors.Errorf("marshaling: %+v", err)
 			}
 		}
 	}
@@ -800,12 +806,12 @@ func (ro *Roster) Contains(pubs []kyber.Point) bool {
 func (ro *Roster) Equal(other *Roster) (bool, error) {
 	roID, err := ro.GetID()
 	if err != nil {
-		return false, err
+		return false, xerrors.Errorf("roster id: %+v", err)
 	}
 
 	otherID, err := other.GetID()
 	if err != nil {
-		return false, err
+		return false, xerrors.Errorf("roster id: %+v", err)
 	}
 
 	return roID.Equal(otherID), nil

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	ct "github.com/daviddengcn/go-colortext"
+	"golang.org/x/xerrors"
 )
 
 // LoggerInfo is a structure that should be used when creating a logger.
@@ -107,7 +108,7 @@ func NewFileLogger(lInfo *LoggerInfo, path string) (Logger, error) {
 	// Override file if it already exists.
 	file, err := os.Create(path)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating file: %+v", err)
 	}
 	return &fileLogger{
 		lInfo: lInfo,

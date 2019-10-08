@@ -11,6 +11,7 @@ import (
 	"runtime"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Scp copies the given files to the remote host
@@ -22,7 +23,11 @@ func Scp(username, host, file, dest string) error {
 	cmd := exec.Command("scp", "-r", file, addr)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return xerrors.Errorf("cmd: %+v", err)
+	}
+	return nil
 }
 
 // Rsync copies files or directories to the remote host. If the DebugVisible
@@ -37,7 +42,11 @@ func Rsync(username, host, file, dest string) error {
 	if log.DebugVisible() > 1 {
 		cmd.Stdout = os.Stdout
 	}
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return xerrors.Errorf("cmd: %+v", err)
+	}
+	return nil
 }
 
 // SSHRun runs a command on the remote host
@@ -49,7 +58,11 @@ func SSHRun(username, host, command string) ([]byte, error) {
 
 	cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=no", addr,
 		"eval '"+command+"'")
-	return cmd.Output()
+	buf, err := cmd.Output()
+	if err != nil {
+		return nil, xerrors.Errorf("cmd: %+v", err)
+	}
+	return buf, nil
 }
 
 // SSHRunStdout runs a command on the remote host but redirects stdout and
@@ -65,7 +78,11 @@ func SSHRunStdout(username, host, command string) error {
 		"eval '"+command+"'")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return xerrors.Errorf("cmd: %+v", err)
+	}
+	return nil
 }
 
 // Build builds the the golang packages in `path` and stores the result in `out`. Besides specifying the environment
@@ -114,6 +131,9 @@ func Build(path, out, goarch, goos string, buildArgs ...string) (string, error) 
 	log.Lvl4(wd)
 	log.Lvl4("Command:", cmd.Args)
 	err = cmd.Run()
+	if err != nil {
+		err = xerrors.Errorf("cmd: %+v", err)
+	}
 	log.Lvl4(b.String())
 	return b.String(), err
 }

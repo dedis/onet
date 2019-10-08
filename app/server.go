@@ -306,12 +306,12 @@ func tryConnect(ip, binding network.Address) error {
 
 	_, portStr, err := net.SplitHostPort(ip.NetworkAddress())
 	if err != nil {
-		return err
+		return xerrors.Errorf("invalid address: %+v", err)
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return err
+		return xerrors.Errorf("invalid port: %+v", err)
 	}
 
 	// Ask the check. Since the public adress may not be available at this time
@@ -331,12 +331,12 @@ func tryConnect(ip, binding network.Address) error {
 	buff, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		return err
+		return xerrors.Errorf("reading body: %+v", err)
 	}
 
 	res := string(buff)
 	if res != "Open" {
-		return fmt.Errorf("Portscan returned: %s", res)
+		return xerrors.Errorf("Portscan returned: %s", res)
 	}
 	return nil
 }

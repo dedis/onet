@@ -99,7 +99,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
 			log.ErrFatal(err)
 			// not reached because of ErrFatal, but return it anyway.
-			return err
+			return xerrors.Errorf("sending: %+v", err)
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
 			wgSimulInit.Done()
