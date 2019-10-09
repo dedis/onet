@@ -54,6 +54,9 @@ func TestFlags(t *testing.T) {
 	if ShowTime() {
 		t.Fatal("ShowTime should be false")
 	}
+	if AbsoluteFilePath() {
+		t.Fatal("AbsoluteFilePath should be false")
+	}
 	if UseColors() {
 		t.Fatal("UseColors should be false")
 	}
@@ -63,6 +66,7 @@ func TestFlags(t *testing.T) {
 
 	os.Setenv("DEBUG_LVL", "3")
 	os.Setenv("DEBUG_TIME", "true")
+	os.Setenv("DEBUG_FILEPATH", "true")
 	os.Setenv("DEBUG_COLOR", "false")
 	os.Setenv("DEBUG_PADDING", "false")
 	ParseEnv()
@@ -71,6 +75,9 @@ func TestFlags(t *testing.T) {
 	}
 	if !ShowTime() {
 		t.Fatal("ShowTime should be true")
+	}
+	if !AbsoluteFilePath() {
+		t.Fatal("AbsoluteFilePath sgould be true")
 	}
 	if UseColors() {
 		t.Fatal("UseColors should be false")

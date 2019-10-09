@@ -50,6 +50,7 @@ var NamePadding = 40
 
 // LinePadding of line-numbers for a nice debug-output - used in the same way as
 // NamePadding.
+// Deprecated: the caller is merged thus no line padding is necessary anymore.
 var LinePadding = 3
 
 // StaticMsg - if this variable is set, it will be outputted between the
@@ -385,6 +386,7 @@ func ParseEnv() {
 			Error("Couldn't convert", dv, "to debug-level")
 		}
 	}
+
 	dt := os.Getenv("DEBUG_TIME")
 	if dt != "" {
 		dtInt, err := strconv.ParseBool(dt)
@@ -394,6 +396,17 @@ func ParseEnv() {
 			Error("Couldn't convert", dt, "to boolean")
 		}
 	}
+
+	dfp := os.Getenv("DEBUG_FILEPATH")
+	if dfp != "" {
+		dfpInt, err := strconv.ParseBool(dfp)
+		Lvl3("Setting absoluteFilePath to", dfp, dfpInt, err)
+		SetAbsoluteFilePath(dfpInt)
+		if err != nil {
+			Error("Couldn't convert", dfp, "to boolean")
+		}
+	}
+
 	dc := os.Getenv("DEBUG_COLOR")
 	if dc != "" {
 		ucInt, err := strconv.ParseBool(dc)
@@ -403,6 +416,7 @@ func ParseEnv() {
 			Error("Couldn't convert", dc, "to boolean")
 		}
 	}
+
 	dp := os.Getenv("DEBUG_PADDING")
 	if dp != "" {
 		dpBool, err := strconv.ParseBool(dp)
@@ -428,6 +442,7 @@ func RegisterFlags() {
 	flag.BoolVar(&loggers[0].GetLoggerInfo().ShowTime, "debug-time", defaultShowTime, "Shows the time of each message")
 	flag.BoolVar(&loggers[0].GetLoggerInfo().UseColors, "debug-color", defaultUseColors, "Colors each message")
 	flag.BoolVar(&loggers[0].GetLoggerInfo().Padding, "debug-padding", defaultPadding, "Pads each message nicely")
+	flag.BoolVar(&loggers[0].GetLoggerInfo().AbsoluteFilePath, "debug-filepath", DefaultStdAbsoluteFilePath, "extends the filename with the absolute path")
 }
 
 var timeoutFlagMutex sync.Mutex
