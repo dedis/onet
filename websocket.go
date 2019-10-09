@@ -188,7 +188,7 @@ func (w *WebSocket) start() {
 	go func() {
 		// Check if server is configured for TLS
 		started <- true
-		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
+		if w.server.Server.TLSConfig != nil && (w.server.TLSConfig.GetCertificate != nil || len(w.server.Server.TLSConfig.Certificates) >= 1) {
 			w.server.ListenAndServeTLS("", "")
 		} else {
 			w.server.ListenAndServe()

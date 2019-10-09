@@ -60,6 +60,9 @@ type LocalTest struct {
 	webSocketTLSCertificate []byte
 	// TLS certificate key if we want TLS for websocket
 	webSocketTLSCertificateKey []byte
+	// True if the unit test wants that webSocketTLSCertificate and webSocketTLSCertificateKey
+	// should be used as filenames.
+	webSocketTLSReadFiles bool
 	// the context for the local connections
 	// it enables to have multiple local test running simultaneously
 	ctx   *network.LocalManager
@@ -598,12 +601,26 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 		server = l.newTCPServer(s)
 		// Set TLS certificate if any configuration available
 		if l.wantsTLS() {
-			cert, err := tls.X509KeyPair(l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
-			if err != nil {
-				panic(err)
-			}
 			server.WebSocket.Lock()
-			server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			if l.webSocketTLSReadFiles {
+				cr, err := NewCertificateReloader(
+					string(l.webSocketTLSCertificate),
+					string(l.webSocketTLSCertificateKey))
+				if err != nil {
+					log.Error("cannot configure TLS reloader", err)
+					return nil
+				}
+				server.WebSocket.TLSConfig = &tls.Config{
+					GetCertificate: cr.GetCertificateFunc(),
+				}
+
+			} else {
+				cert, err := tls.X509KeyPair(l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
+				if err != nil {
+					panic(err)
+				}
+				server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			}
 			server.WebSocket.Unlock()
 		}
 		server.StartInBackground()
