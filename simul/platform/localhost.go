@@ -238,7 +238,7 @@ func (d *Localhost) Wait() error {
 		log.Lvl3("Finished waiting for hosts:", e)
 		if e != nil {
 			if err := d.Cleanup(); err != nil {
-				log.Error("Couldn't cleanup running instances", err)
+				log.Errorf("Couldn't cleanup running instances: %+v", err)
 			}
 			err = xerrors.Errorf("localhost error: %+v", err)
 		}
