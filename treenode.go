@@ -170,7 +170,7 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	sentLen, err := n.overlay.SendToTreeNode(n.token, to, msg, n.protoIO, c)
 	n.tx.add(sentLen)
 	if err != nil {
-		return xerrors.Errorf("sending: %+v", err)
+		return xerrors.Errorf("sending: %v", err)
 	}
 	return nil
 }
@@ -210,7 +210,7 @@ func (n *TreeNodeInstance) Suite() network.Suite {
 func (n *TreeNodeInstance) RegisterChannel(c interface{}) error {
 	err := n.RegisterChannelLength(c, DefaultChannelLength)
 	if err != nil {
-		return xerrors.Errorf("registering channel length: %+v", err)
+		return xerrors.Errorf("registering channel length: %v", err)
 	}
 	return nil
 }
@@ -373,7 +373,7 @@ func (n *TreeNodeInstance) closeDispatch() error {
 	}
 	err := pni.Shutdown()
 	if err != nil {
-		return xerrors.Errorf("shutdown: %+v", err)
+		return xerrors.Errorf("shutdown: %v", err)
 	}
 	return nil
 }
@@ -393,7 +393,7 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 		for i, msg := range msgSlice {
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return xerrors.Errorf("processing message: %+v", err)
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			msgs.Index(i).Set(m)
 		}
@@ -410,14 +410,14 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 			log.Lvl4("Dispatching", msg, "to", n.ServerIdentity().Address)
 			m, err := n.createValueAndVerify(to, msg)
 			if err != nil {
-				return xerrors.Errorf("processing message: %+v", err)
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			errV = f.Call([]reflect.Value{m})[0]
 		}
 	}
 	log.Lvlf4("%s Done with handler for %s", n.Name(), f.Type())
 	if !errV.IsNil() {
-		return xerrors.Errorf("handler: %+v", errV.Interface())
+		return xerrors.Errorf("handler: %v", errV.Interface())
 	}
 	return nil
 }
@@ -461,7 +461,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			log.Lvl4("Dispatching aggregated to", to)
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return xerrors.Errorf("processing message: %+v", err)
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			log.Lvl4("Adding msg", m, "to", n.ServerIdentity().Address)
 			out.Index(i).Set(m)
@@ -472,7 +472,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			out := reflect.ValueOf(n.channels[mt])
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return xerrors.Errorf("processing message: %+v", err)
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			log.Lvl4(n.Name(), "Dispatching msg type", mt, " to", to, " :", m.Field(1).Interface())
 			if out.Len() < out.Cap() {
@@ -574,7 +574,7 @@ func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
 		return xerrors.Errorf("message-type not handled by the protocol: %s", reflect.TypeOf(onetMsg.Msg))
 	}
 	if err != nil {
-		return xerrors.Errorf("dispatch: %+v", err)
+		return xerrors.Errorf("dispatch: %v", err)
 	}
 	return nil
 }
@@ -629,7 +629,7 @@ func (n *TreeNodeInstance) aggregate(onetMsg *ProtocolMsg) (network.MessageTypeI
 func (n *TreeNodeInstance) startProtocol() error {
 	err := n.instance.Start()
 	if err != nil {
-		return xerrors.Errorf("starting protocol: %+v", err)
+		return xerrors.Errorf("starting protocol: %v", err)
 	}
 	return nil
 }
@@ -707,7 +707,7 @@ func (n *TreeNodeInstance) CloseHost() error {
 	n.Host().callTestClose()
 	err := n.Host().Close()
 	if err != nil {
-		return xerrors.Errorf("closing host: %+v", err)
+		return xerrors.Errorf("closing host: %v", err)
 	}
 	return nil
 }
@@ -761,7 +761,7 @@ func (n *TreeNodeInstance) Broadcast(msg interface{}) []error {
 	for _, node := range n.List() {
 		if !node.Equal(n.TreeNode()) {
 			if err := n.SendTo(node, msg); err != nil {
-				errs = append(errs, xerrors.Errorf("sending: %+v", err))
+				errs = append(errs, xerrors.Errorf("sending: %v", err))
 			}
 		}
 	}
@@ -773,7 +773,7 @@ func (n *TreeNodeInstance) Multicast(msg interface{}, nodes ...*TreeNode) []erro
 	var errs []error
 	for _, node := range nodes {
 		if err := n.SendTo(node, msg); err != nil {
-			errs = append(errs, xerrors.Errorf("sending: %+v", err))
+			errs = append(errs, xerrors.Errorf("sending: %v", err))
 		}
 	}
 	return errs
@@ -786,7 +786,7 @@ func (n *TreeNodeInstance) SendToParent(msg interface{}) error {
 	}
 	err := n.SendTo(n.Parent(), msg)
 	if err != nil {
-		return xerrors.Errorf("sending: %+v", err)
+		return xerrors.Errorf("sending: %v", err)
 	}
 	return nil
 }
@@ -801,7 +801,7 @@ func (n *TreeNodeInstance) SendToChildren(msg interface{}) error {
 	}
 	for _, node := range n.Children() {
 		if err := n.SendTo(node, msg); err != nil {
-			return xerrors.Errorf("sending: %+v", err)
+			return xerrors.Errorf("sending: %v", err)
 		}
 	}
 	return nil
@@ -828,7 +828,7 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 		go func(n2 *TreeNode) {
 			if err := n.SendTo(n2, msg); err != nil {
 				eMut.Lock()
-				errs = append(errs, xerrors.Errorf("%s: %+v", name, err))
+				errs = append(errs, xerrors.Errorf("%s: %v", name, err))
 				eMut.Unlock()
 			}
 			wg.Done()
@@ -846,7 +846,7 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 func (n *TreeNodeInstance) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := n.overlay.CreateProtocol(name, t, n.Token().ServiceID)
 	if err != nil {
-		return nil, xerrors.Errorf("creating protocol: %+v", err)
+		return nil, xerrors.Errorf("creating protocol: %v", err)
 	}
 	return pi, nil
 }

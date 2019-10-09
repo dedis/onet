@@ -99,7 +99,7 @@ func (r *Router) Unpause() {
 // blocking call until r.Stop() is called.
 func (r *Router) Start() {
 	if !r.Quiet {
-		log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
+		log.Lvlf3("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
 	}
 
 	// Any incoming connection waits for the remote server identity
@@ -160,7 +160,7 @@ func (r *Router) Stop() error {
 	r.wg.Wait()
 
 	if err != nil {
-		return xerrors.Errorf("stopping: %+v", err)
+		return xerrors.Errorf("stopping: %v", err)
 	}
 	return nil
 }
@@ -188,7 +188,7 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		// Marshal the message to get its length
 		b, err := Marshal(msg)
 		if err != nil {
-			return 0, xerrors.Errorf("marshaling: %+v", err)
+			return 0, xerrors.Errorf("marshaling: %v", err)
 		}
 		log.Lvl5("Message sent")
 
@@ -203,7 +203,7 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		c, sentLen, err = r.connect(e)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, xerrors.Errorf("connecting: %+v", err)
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 	}
 
@@ -215,12 +215,12 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		c, sentLen, err := r.connect(e)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, xerrors.Errorf("connecting: %+v", err)
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 		sentLen, err = c.Send(msg)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, xerrors.Errorf("connecting: %+v", err)
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 	}
 	log.Lvl5("Message sent")
@@ -234,20 +234,20 @@ func (r *Router) connect(si *ServerIdentity) (Conn, uint64, error) {
 	c, err := r.host.Connect(si)
 	if err != nil {
 		log.Lvl3("Could not connect to", si.Address, err)
-		return nil, 0, xerrors.Errorf("connecting: %+v", err)
+		return nil, 0, xerrors.Errorf("connecting: %v", err)
 	}
 	log.Lvl3(r.address, "Connected to", si.Address)
 	var sentLen uint64
 	if sentLen, err = c.Send(r.ServerIdentity); err != nil {
-		return nil, sentLen, xerrors.Errorf("sending: %+v", err)
+		return nil, sentLen, xerrors.Errorf("sending: %v", err)
 	}
 
 	if err = r.registerConnection(si, c); err != nil {
-		return nil, sentLen, xerrors.Errorf("register connection: %+v", err)
+		return nil, sentLen, xerrors.Errorf("register connection: %v", err)
 	}
 
 	if err = r.launchHandleRoutine(si, c); err != nil {
-		return nil, sentLen, xerrors.Errorf("handling routine: %+v", err)
+		return nil, sentLen, xerrors.Errorf("handling routine: %v", err)
 	}
 	return c, sentLen, nil
 
@@ -479,7 +479,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			}
 			pub, err := pubFromCN(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
 			if err != nil {
-				return nil, xerrors.Errorf("decoding key: %+v", err)
+				return nil, xerrors.Errorf("decoding key: %v", err)
 			}
 
 			if !pub.Equal(dst.Public) {

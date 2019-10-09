@@ -137,7 +137,7 @@ func Marshal(msg Message) ([]byte, error) {
 	}
 	b := new(bytes.Buffer)
 	if err := binary.Write(b, globalOrder, msgType); err != nil {
-		return nil, xerrors.Errorf("buffer write: %+v", err)
+		return nil, xerrors.Errorf("buffer write: %v", err)
 	}
 	var buf []byte
 	var err error
@@ -146,11 +146,11 @@ func Marshal(msg Message) ([]byte, error) {
 		if log.DebugVisible() > 0 {
 			log.Error(log.Stack())
 		}
-		return nil, xerrors.Errorf("encoding: %+v", err)
+		return nil, xerrors.Errorf("encoding: %v", err)
 	}
 	_, err = b.Write(buf)
 	if err != nil {
-		return nil, xerrors.Errorf("buffer write: %+v", err)
+		return nil, xerrors.Errorf("buffer write: %v", err)
 	}
 	return b.Bytes(), nil
 }
@@ -164,7 +164,7 @@ func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error) {
 	b := bytes.NewBuffer(buf)
 	var tID MessageTypeID
 	if err := binary.Read(b, globalOrder, &tID); err != nil {
-		return ErrorType, nil, xerrors.Errorf("buffer read: %+v", err)
+		return ErrorType, nil, xerrors.Errorf("buffer read: %v", err)
 	}
 	typ, ok := registry.get(tID)
 	if !ok {
@@ -174,7 +174,7 @@ func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error) {
 	ptr := ptrVal.Interface()
 	constructors := DefaultConstructors(suite)
 	if err := protobuf.DecodeWithConstructors(b.Bytes(), ptr, constructors); err != nil {
-		return ErrorType, nil, xerrors.Errorf("decoding: %+v", err)
+		return ErrorType, nil, xerrors.Errorf("decoding: %v", err)
 	}
 	return tID, ptrVal.Interface(), nil
 }

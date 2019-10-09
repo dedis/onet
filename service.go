@@ -149,7 +149,7 @@ func (s *serviceFactory) Unregister(name string) error {
 func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
 	id, err := ServiceFactory.Register(name, nil, fn)
 	if err != nil {
-		return id, xerrors.Errorf("register service: %+v", err)
+		return id, xerrors.Errorf("register service: %v", err)
 	}
 	return id, nil
 }
@@ -159,7 +159,7 @@ func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
 func RegisterNewServiceWithSuite(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
 	id, err := ServiceFactory.Register(name, suite, fn)
 	if err != nil {
-		return id, xerrors.Errorf("register service: %+v", err)
+		return id, xerrors.Errorf("register service: %v", err)
 	}
 	return id, nil
 }
@@ -168,7 +168,7 @@ func RegisterNewServiceWithSuite(name string, suite suites.Suite, fn NewServiceF
 func UnregisterService(name string) error {
 	err := ServiceFactory.Unregister(name)
 	if err != nil {
-		return xerrors.Errorf("register service: %+v", err)
+		return xerrors.Errorf("register service: %v", err)
 	}
 	return nil
 }
@@ -278,7 +278,7 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 		if name == c.name {
 			service, err := c.constructor(con)
 			if err != nil {
-				return nil, xerrors.Errorf("creating service: %+v", err)
+				return nil, xerrors.Errorf("creating service: %v", err)
 			}
 			return service, nil
 		}
@@ -355,7 +355,7 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 func openDb(path string) (*bbolt.DB, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
-		return nil, xerrors.Errorf("opening db: %+v", err)
+		return nil, xerrors.Errorf("opening db: %v", err)
 	}
 	return db, nil
 }
@@ -404,7 +404,7 @@ func (s *serviceManager) closeDatabase() error {
 	if s.delDb {
 		err := os.Remove(s.dbFileName())
 		if err != nil {
-			return xerrors.Errorf("removing file: %+v", err)
+			return xerrors.Errorf("removing file: %v", err)
 		}
 	}
 	return nil
@@ -530,7 +530,7 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 		return defaultHandle()
 	}
 	if err != nil {
-		err = xerrors.Errorf("creating protocol: %+v", err)
+		err = xerrors.Errorf("creating protocol: %v", err)
 	}
 	return
 }

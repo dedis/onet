@@ -35,7 +35,7 @@ func (sl *syslogLogger) GetLoggerInfo() *LoggerInfo {
 func NewSyslogLogger(lInfo *LoggerInfo, priority syslog.Priority, tag string) (Logger, error) {
 	writer, err := syslog.New(priority, tag)
 	if err != nil {
-		return nil, xerrors.Errorf("system log: %+v", err)
+		return nil, xerrors.Errorf("system log: %v", err)
 	}
 	return &syslogLogger{
 		lInfo:  lInfo,

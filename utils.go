@@ -31,7 +31,7 @@ func ReadTomlConfig(conf interface{}, filename string, dirOpt ...string) error {
 	if err != nil {
 		pwd, _ := os.Getwd()
 		log.Lvl1("Didn't find", filename, "in", pwd)
-		return xerrors.Errorf("reading file: %+v", err)
+		return xerrors.Errorf("reading file: %v", err)
 	}
 
 	_, err = toml.Decode(string(buf), conf)

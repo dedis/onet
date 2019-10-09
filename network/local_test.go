@@ -150,7 +150,7 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 	handshake := func(c Conn, sending, receiving Address) error {
 		sentLen, err := c.Send(&AddressTest{sending, int64(secret)})
 		if err != nil {
-			return xerrors.Errorf("sending: %+v", err)
+			return xerrors.Errorf("sending: %v", err)
 		}
 		if sentLen == 0 {
 			return xerrors.Errorf("sentLen is zero")

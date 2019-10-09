@@ -12,7 +12,7 @@ import (
 func NewProxy(toPort uint16, addr string, listenPort uint16) (*TCPProxy, error) {
 	ln, err := net.Listen("tcp", fmt.Sprintf("%v:%v", addr, listenPort))
 	if err != nil {
-		return nil, xerrors.Errorf("listening: %+v", err)
+		return nil, xerrors.Errorf("listening: %v", err)
 	}
 
 	e := make([]*net.SRV, 1)

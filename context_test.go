@@ -173,7 +173,7 @@ func createContext(t *testing.T, dbPath string) *Context {
 	err = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucket([]byte(name))
 		if err != nil {
-			return xerrors.Errorf("creating bucket: %+v", err)
+			return xerrors.Errorf("creating bucket: %v", err)
 		}
 		return nil
 	})

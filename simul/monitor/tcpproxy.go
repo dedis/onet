@@ -42,7 +42,7 @@ func (r *remote) inactivate() {
 func (r *remote) tryReactivate() error {
 	conn, err := net.Dial("tcp", r.addr)
 	if err != nil {
-		return xerrors.Errorf("dial: %+v", err)
+		return xerrors.Errorf("dial: %v", err)
 	}
 	conn.Close()
 	r.mu.Lock()
@@ -91,7 +91,7 @@ func (tp *TCPProxy) Run() error {
 	for {
 		in, err := tp.Listener.Accept()
 		if err != nil {
-			return xerrors.Errorf("listening: %+v", err)
+			return xerrors.Errorf("listening: %v", err)
 		}
 
 		go tp.serve(in)

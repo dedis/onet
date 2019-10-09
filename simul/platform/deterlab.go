@@ -141,10 +141,10 @@ func (d *Deterlab) Build(build string, arg ...string) error {
 	var wg sync.WaitGroup
 
 	if err := os.RemoveAll(d.buildDir); err != nil {
-		return xerrors.Errorf("removing folders: %+v", err)
+		return xerrors.Errorf("removing folders: %v", err)
 	}
 	if err := os.Mkdir(d.buildDir, 0777); err != nil {
-		return xerrors.Errorf("making folder: %+v", err)
+		return xerrors.Errorf("making folder: %v", err)
 	}
 
 	// start building the necessary binaries - it's always the same,
@@ -240,10 +240,10 @@ func (d *Deterlab) Cleanup() error {
 // deterlab-installation.
 func (d *Deterlab) Deploy(rc *RunConfig) error {
 	if err := os.RemoveAll(d.deployDir); err != nil {
-		return xerrors.Errorf("removing folders: %+v", err)
+		return xerrors.Errorf("removing folders: %v", err)
 	}
 	if err := os.Mkdir(d.deployDir, 0777); err != nil {
-		return xerrors.Errorf("making folder: %+v", err)
+		return xerrors.Errorf("making folder: %v", err)
 	}
 
 	// Check for PreScript and copy it to the deploy-dir
@@ -252,7 +252,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 		_, err := os.Stat(d.PreScript)
 		if !os.IsNotExist(err) {
 			if err := app.Copy(d.deployDir, d.PreScript); err != nil {
-				return xerrors.Errorf("copying: %+v", err)
+				return xerrors.Errorf("copying: %v", err)
 			}
 		}
 	}
@@ -262,7 +262,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 	log.Lvl2("Localhost: Deploying and writing config-files")
 	sim, err := onet.NewSimulation(d.Simulation, string(rc.Toml()))
 	if err != nil {
-		return xerrors.Errorf("simulation: %+v", err)
+		return xerrors.Errorf("simulation: %v", err)
 	}
 	// Initialize the deter-struct with our current structure (for debug-levels
 	// and such), then read in the app-configuration to overwrite eventual
@@ -271,7 +271,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 	deterConfig := d.deployDir + "/deter.toml"
 	_, err = toml.Decode(string(rc.Toml()), &deter)
 	if err != nil {
-		return xerrors.Errorf("decoding toml: %+v", err)
+		return xerrors.Errorf("decoding toml: %v", err)
 	}
 	log.Lvl3("Creating hosts")
 	deter.createHosts()
@@ -280,7 +280,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 
 	simulConfig, err = sim.Setup(d.deployDir, deter.Virt)
 	if err != nil {
-		return xerrors.Errorf("simulation setup: %+v", err)
+		return xerrors.Errorf("simulation setup: %v", err)
 	}
 	simulConfig.Config = string(rc.Toml())
 	log.Lvl3("Saving configuration")

@@ -14,7 +14,7 @@ import (
 func NewLocalRouter(sid *ServerIdentity, s Suite) (*Router, error) {
 	r, err := NewLocalRouterWithManager(defaultLocalManager, sid, s)
 	if err != nil {
-		return nil, xerrors.Errorf("local router: %+v", err)
+		return nil, xerrors.Errorf("local router: %v", err)
 	}
 	return r, nil
 }
@@ -25,7 +25,7 @@ func NewLocalRouter(sid *ServerIdentity, s Suite) (*Router, error) {
 func NewLocalRouterWithManager(lm *LocalManager, sid *ServerIdentity, s Suite) (*Router, error) {
 	h, err := NewLocalHostWithManager(lm, sid.Address, s)
 	if err != nil {
-		return nil, xerrors.Errorf("local router: %+v", err)
+		return nil, xerrors.Errorf("local router: %v", err)
 	}
 	r := NewRouter(sid, h)
 	r.UnauthOk = true
@@ -248,7 +248,7 @@ func NewLocalConnWithManager(lm *LocalManager, local, remote Address, s Suite) (
 		if err == nil {
 			return c, nil
 		} else if i == MaxRetryConnect-1 {
-			return nil, xerrors.Errorf("connect: %+v", err)
+			return nil, xerrors.Errorf("connect: %v", err)
 		}
 		time.Sleep(WaitRetry)
 	}
@@ -277,7 +277,7 @@ func (lc *LocalConn) start(wg *sync.WaitGroup) {
 func (lc *LocalConn) Send(msg Message) (uint64, error) {
 	buff, err := Marshal(msg)
 	if err != nil {
-		return 0, xerrors.Errorf("marshal: %+v", err)
+		return 0, xerrors.Errorf("marshal: %v", err)
 	}
 	sentLen := uint64(len(buff))
 	lc.updateTx(sentLen)
@@ -300,7 +300,7 @@ func (lc *LocalConn) Receive() (*Envelope, error) {
 
 	id, body, err := Unmarshal(buff, lc.suite)
 	if err != nil {
-		return nil, xerrors.Errorf("unmarshaling: %+v", err)
+		return nil, xerrors.Errorf("unmarshaling: %v", err)
 	}
 
 	return &Envelope{
@@ -333,7 +333,7 @@ func (lc *LocalConn) Close() error {
 	}
 	err := lc.manager.close(lc)
 	if err != nil {
-		return xerrors.Errorf("closing: %+v", err)
+		return xerrors.Errorf("closing: %v", err)
 	}
 	return nil
 }
@@ -386,7 +386,7 @@ type LocalListener struct {
 func NewLocalListener(addr Address, s Suite) (*LocalListener, error) {
 	listener, err := NewLocalListenerWithManager(defaultLocalManager, addr, s)
 	if err != nil {
-		return nil, xerrors.Errorf("local listener: %+v", err)
+		return nil, xerrors.Errorf("local listener: %v", err)
 	}
 	return listener, nil
 }
@@ -474,7 +474,7 @@ type LocalHost struct {
 func NewLocalHost(addr Address, s Suite) (*LocalHost, error) {
 	host, err := NewLocalHostWithManager(defaultLocalManager, addr, s)
 	if err != nil {
-		return nil, xerrors.Errorf("local host: %+v", err)
+		return nil, xerrors.Errorf("local host: %v", err)
 	}
 	return host, nil
 }
@@ -491,7 +491,7 @@ func NewLocalHostWithManager(lm *LocalManager, addr Address, s Suite) (*LocalHos
 	var err error
 	lh.LocalListener, err = NewLocalListenerWithManager(lm, addr, s)
 	if err != nil {
-		return nil, xerrors.Errorf("local host: %+v", err)
+		return nil, xerrors.Errorf("local host: %v", err)
 	}
 	return lh, nil
 
@@ -510,7 +510,7 @@ func (lh *LocalHost) Connect(si *ServerIdentity) (Conn, error) {
 		if err == nil {
 			return c, nil
 		}
-		finalErr = xerrors.Errorf("local connection: %+v", err)
+		finalErr = xerrors.Errorf("local connection: %v", err)
 		select {
 		case <-time.After(WaitRetry):
 			// sleep done, go try again

@@ -5,7 +5,7 @@ import "golang.org/x/xerrors"
 func (c *Server) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := c.overlay.CreateProtocol(name, t, NilServiceID)
 	if err != nil {
-		return nil, xerrors.Errorf("creating protocol: %+v", err)
+		return nil, xerrors.Errorf("creating protocol: %v", err)
 	}
 	return pi, nil
 }
@@ -13,7 +13,7 @@ func (c *Server) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) 
 func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := c.overlay.StartProtocol(name, t, NilServiceID)
 	if err != nil {
-		return nil, xerrors.Errorf("starting protocol: %+v", err)
+		return nil, xerrors.Errorf("starting protocol: %v", err)
 	}
 	return pi, nil
 }

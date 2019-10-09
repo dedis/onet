@@ -108,7 +108,7 @@ func NewFileLogger(lInfo *LoggerInfo, path string) (Logger, error) {
 	// Override file if it already exists.
 	file, err := os.Create(path)
 	if err != nil {
-		return nil, xerrors.Errorf("creating file: %+v", err)
+		return nil, xerrors.Errorf("creating file: %v", err)
 	}
 	return &fileLogger{
 		lInfo: lInfo,

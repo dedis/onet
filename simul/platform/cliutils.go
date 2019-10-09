@@ -25,7 +25,7 @@ func Scp(username, host, file, dest string) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		return xerrors.Errorf("cmd: %+v", err)
+		return xerrors.Errorf("cmd: %v", err)
 	}
 	return nil
 }
@@ -44,7 +44,7 @@ func Rsync(username, host, file, dest string) error {
 	}
 	err := cmd.Run()
 	if err != nil {
-		return xerrors.Errorf("cmd: %+v", err)
+		return xerrors.Errorf("cmd: %v", err)
 	}
 	return nil
 }
@@ -60,7 +60,7 @@ func SSHRun(username, host, command string) ([]byte, error) {
 		"eval '"+command+"'")
 	buf, err := cmd.Output()
 	if err != nil {
-		return nil, xerrors.Errorf("cmd: %+v", err)
+		return nil, xerrors.Errorf("cmd: %v", err)
 	}
 	return buf, nil
 }
@@ -80,7 +80,7 @@ func SSHRunStdout(username, host, command string) error {
 	cmd.Stdout = os.Stdout
 	err := cmd.Run()
 	if err != nil {
-		return xerrors.Errorf("cmd: %+v", err)
+		return xerrors.Errorf("cmd: %v", err)
 	}
 	return nil
 }
@@ -132,7 +132,7 @@ func Build(path, out, goarch, goos string, buildArgs ...string) (string, error) 
 	log.Lvl4("Command:", cmd.Args)
 	err = cmd.Run()
 	if err != nil {
-		err = xerrors.Errorf("cmd: %+v", err)
+		err = xerrors.Errorf("cmd: %v", err)
 	}
 	log.Lvl4(b.String())
 	return b.String(), err

@@ -13,7 +13,7 @@ import (
 func NewTestRouterTCP(port int) (*Router, error) {
 	h, err := NewTestTCPHost(port)
 	if err != nil {
-		return nil, xerrors.Errorf("tcp host: %+v", err)
+		return nil, xerrors.Errorf("tcp host: %v", err)
 	}
 	h.sid.Address = h.TCPListener.Address()
 	r := NewRouter(h.sid, h)
@@ -24,7 +24,7 @@ func NewTestRouterTCP(port int) (*Router, error) {
 func NewTestRouterLocal(port int) (*Router, error) {
 	h, err := NewTestLocalHost(port)
 	if err != nil {
-		return nil, xerrors.Errorf("local host: %+v", err)
+		return nil, xerrors.Errorf("local host: %v", err)
 	}
 	id := NewTestServerIdentity(h.addr)
 	return NewRouter(id, h), nil

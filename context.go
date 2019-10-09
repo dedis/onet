@@ -35,11 +35,11 @@ func newContext(c *Server, o *Overlay, servID ServiceID, manager *serviceManager
 	err := manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(ctx.bucketName)
 		if err != nil {
-			return xerrors.Errorf("creating bucket: %+v", err)
+			return xerrors.Errorf("creating bucket: %v", err)
 		}
 		_, err = tx.CreateBucketIfNotExists(ctx.bucketVersionName)
 		if err != nil {
-			return xerrors.Errorf("creating bucket: %+v", err)
+			return xerrors.Errorf("creating bucket: %v", err)
 		}
 		return nil
 	})
@@ -60,7 +60,7 @@ func (c *Context) NewTreeNodeInstance(t *Tree, tn *TreeNode, protoName string) *
 func (c *Context) SendRaw(si *network.ServerIdentity, msg interface{}) error {
 	_, err := c.server.Send(si, msg)
 	if err != nil {
-		xerrors.Errorf("sending message: %+v", err)
+		xerrors.Errorf("sending message: %v", err)
 	}
 	return nil
 }
@@ -84,7 +84,7 @@ func (c *Context) ServiceID() ServiceID {
 func (c *Context) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := c.overlay.CreateProtocol(name, t, c.serviceID)
 	if err != nil {
-		return nil, xerrors.Errorf("creating protocol: %+v", err)
+		return nil, xerrors.Errorf("creating protocol: %v", err)
 	}
 
 	return pi, nil
@@ -98,7 +98,7 @@ func (c *Context) CreateProtocol(name string, t *Tree) (ProtocolInstance, error)
 func (c *Context) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
 	id, err := c.server.ProtocolRegister(name, protocol)
 	if err != nil {
-		return id, xerrors.Errorf("protocol registration: %+v", err)
+		return id, xerrors.Errorf("protocol registration: %v", err)
 	}
 	return id, nil
 }
@@ -107,7 +107,7 @@ func (c *Context) ProtocolRegister(name string, protocol NewProtocol) (ProtocolI
 func (c *Context) RegisterProtocolInstance(pi ProtocolInstance) error {
 	err := c.overlay.RegisterProtocolInstance(pi)
 	if err != nil {
-		return xerrors.Errorf("protocol instance regisration: %+v", err)
+		return xerrors.Errorf("protocol instance regisration: %v", err)
 	}
 	return nil
 }
@@ -170,14 +170,14 @@ type ContextDB interface {
 func (c *Context) Save(key []byte, data interface{}) error {
 	buf, err := network.Marshal(data)
 	if err != nil {
-		return xerrors.Errorf("marshaling: %+v", err)
+		return xerrors.Errorf("marshaling: %v", err)
 	}
 	err = c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketName)
 		return b.Put(key, buf)
 	})
 	if err != nil {
-		return xerrors.Errorf("tx error: %+v", err)
+		return xerrors.Errorf("tx error: %v", err)
 	}
 	return nil
 }
@@ -197,7 +197,7 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, xerrors.Errorf("tx error: %+v", err)
+		return nil, xerrors.Errorf("tx error: %v", err)
 	}
 
 	if buf == nil {
@@ -206,7 +206,7 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 
 	_, ret, err := network.Unmarshal(buf, c.server.suite)
 	if err != nil {
-		return nil, xerrors.Errorf("unmarshaling: %+v")
+		return nil, xerrors.Errorf("unmarshaling: %v")
 	}
 
 	return ret, nil
@@ -227,7 +227,7 @@ func (c *Context) LoadRaw(key []byte) ([]byte, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, xerrors.Errorf("tx error: %+v", err)
+		return nil, xerrors.Errorf("tx error: %v", err)
 	}
 	return buf, nil
 }
@@ -250,7 +250,7 @@ func (c *Context) LoadVersion() (int, error) {
 	})
 
 	if err != nil {
-		return -1, xerrors.Errorf("tx error: %+v", err)
+		return -1, xerrors.Errorf("tx error: %v", err)
 	}
 
 	if len(buf) == 0 {
@@ -259,7 +259,7 @@ func (c *Context) LoadVersion() (int, error) {
 	var version int32
 	err = binary.Read(bytes.NewReader(buf), binary.LittleEndian, &version)
 	if err != nil {
-		return -1, xerrors.Errorf("bytes to int: %+v", err)
+		return -1, xerrors.Errorf("bytes to int: %v", err)
 	}
 	return int(version), nil
 }
@@ -269,14 +269,14 @@ func (c *Context) SaveVersion(version int) error {
 	buf := bytes.NewBuffer(nil)
 	err := binary.Write(buf, binary.LittleEndian, int32(version))
 	if err != nil {
-		return xerrors.Errorf("int to bytes: %+v", err)
+		return xerrors.Errorf("int to bytes: %v", err)
 	}
 	err = c.manager.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(c.bucketVersionName)
 		return b.Put(dbVersion, buf.Bytes())
 	})
 	if err != nil {
-		return xerrors.Errorf("tx error: %+v")
+		return xerrors.Errorf("tx error: %v")
 	}
 	return nil
 }
@@ -297,12 +297,12 @@ func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
 	err := c.manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(fullName)
 		if err != nil {
-			return xerrors.Errorf("create bucket: %+v", err)
+			return xerrors.Errorf("create bucket: %v", err)
 		}
 		return nil
 	})
 	if err != nil {
-		panic(xerrors.Errorf("tx error: %+v", err))
+		panic(xerrors.Errorf("tx error: %v", err))
 	}
 	return c.manager.db, fullName
 }

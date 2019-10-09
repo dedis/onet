@@ -141,7 +141,7 @@ func (l *LocalTest) StartProtocol(name string, t *Tree) (ProtocolInstance, error
 			// Node, since it is already dispatched as like a TreeNode ?
 			pi, err := l.Overlays[h.ServerIdentity.ID].StartProtocol(name, t, NilServiceID)
 			if err != nil {
-				return nil, xerrors.Errorf("creating protocol: %+v", err)
+				return nil, xerrors.Errorf("creating protocol: %v", err)
 			}
 			return pi, nil
 		}
@@ -160,7 +160,7 @@ func (l *LocalTest) CreateProtocol(name string, t *Tree) (ProtocolInstance, erro
 			// Node, since it is already dispatched as like a TreeNode ?
 			pi, err := l.Overlays[h.ServerIdentity.ID].CreateProtocol(name, t, NilServiceID)
 			if err != nil {
-				return nil, xerrors.Errorf("creating protocol: %+v", err)
+				return nil, xerrors.Errorf("creating protocol: %v", err)
 			}
 			return pi, nil
 		}
@@ -428,7 +428,7 @@ func (l *LocalTest) sendTreeNode(proto string, from, to *TreeNodeInstance, msg n
 	io := l.Overlays[to.ServerIdentity().ID].protoIO.getByName(proto)
 	err := to.overlay.TransmitMsg(onetMsg, io)
 	if err != nil {
-		return xerrors.Errorf("transmitting message: %+v", err)
+		return xerrors.Errorf("transmitting message: %v", err)
 	}
 	return nil
 }
@@ -498,7 +498,7 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 		var err error
 		tcpHost, err = network.NewTCPHost(id2, s)
 		if err != nil {
-			panic(xerrors.Errorf("tcp host: %+v", err))
+			panic(xerrors.Errorf("tcp host: %v", err))
 		}
 		id.Address = tcpHost.Address()
 		if port != 0 {
@@ -506,7 +506,7 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 		}
 		port, err := strconv.Atoi(id.Address.Port())
 		if err != nil {
-			panic(xerrors.Errorf("invalid port: %+v", err))
+			panic(xerrors.Errorf("invalid port: %v", err))
 		}
 		addrWS = net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
 		if l, err := net.Listen("tcp", addrWS); err == nil {

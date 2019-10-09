@@ -276,7 +276,7 @@ func (si *ServerIdentityToml) ServerIdentity(suite Suite) *ServerIdentity {
 func GlobalBind(address string) (string, error) {
 	_, port, err := net.SplitHostPort(address)
 	if err != nil {
-		return "", xerrors.Errorf("invalid address: %+v", err)
+		return "", xerrors.Errorf("invalid address: %v", err)
 	}
 	return ":" + port, nil
 }

@@ -106,11 +106,11 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 	network.RegisterMessage(SimulationConfigFile{})
 	bin, err := ioutil.ReadFile(dir + "/" + SimulationFileName)
 	if err != nil {
-		return nil, xerrors.Errorf("reading file: %+v", err)
+		return nil, xerrors.Errorf("reading file: %v", err)
 	}
 	_, msg, err := network.Unmarshal(bin, suite)
 	if err != nil {
-		return nil, xerrors.Errorf("unmarshaling: %+v", err)
+		return nil, xerrors.Errorf("unmarshaling: %v", err)
 	}
 
 	scf := msg.(*SimulationConfigFile)
@@ -122,7 +122,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 	}
 	sc.Tree, err = scf.TreeMarshal.MakeTree(sc.Roster)
 	if err != nil {
-		return nil, xerrors.Errorf("making tree: %+v", err)
+		return nil, xerrors.Errorf("making tree: %v", err)
 	}
 
 	var ret []*SimulationConfig
@@ -223,11 +223,11 @@ func NewSimulation(name string, conf string) (Simulation, error) {
 	}
 	simInst, err := sim(conf)
 	if err != nil {
-		return nil, xerrors.Errorf("creating simulation: %+v", err)
+		return nil, xerrors.Errorf("creating simulation: %v", err)
 	}
 	_, err = toml.Decode(conf, simInst)
 	if err != nil {
-		return nil, xerrors.Errorf("decoding toml: %+v", err)
+		return nil, xerrors.Errorf("decoding toml: %v", err)
 	}
 	return simInst, nil
 }

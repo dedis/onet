@@ -79,7 +79,7 @@ func ConnectSink(addr string) error {
 	log.Lvl3("Connecting to:", addr)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return xerrors.Errorf("dial: %+v", err)
+		return xerrors.Errorf("dial: %v", err)
 	}
 	log.Lvl3("Connected to sink:", addr)
 	global.sink = addr

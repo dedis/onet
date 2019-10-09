@@ -40,7 +40,7 @@ func NewTCPAddress(addr string) Address {
 func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
 	r, err := NewTCPRouterWithListenAddr(sid, suite, "")
 	if err != nil {
-		return nil, xerrors.Errorf("tcp router: %+v", err)
+		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
 	return r, nil
 }
@@ -51,7 +51,7 @@ func NewTCPRouterWithListenAddr(sid *ServerIdentity, suite Suite,
 	listenAddr string) (*Router, error) {
 	h, err := NewTCPHostWithListenAddr(sid, suite, listenAddr)
 	if err != nil {
-		return nil, xerrors.Errorf("tcp router: %+v", err)
+		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
 	r := NewRouter(sid, h)
 	return r, nil
@@ -99,7 +99,7 @@ func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
 			}
 			return
 		}
-		err = xerrors.Errorf("dial: %+v", err)
+		err = xerrors.Errorf("dial: %v", err)
 		if i < MaxRetryConnect {
 			time.Sleep(WaitRetry)
 		}
@@ -212,7 +212,7 @@ func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
 	// First write the size
 	packetSize := Size(len(b))
 	if err := binary.Write(c.conn, globalOrder, packetSize); err != nil {
-		return 0, xerrors.Errorf("buffer write: %+v", err)
+		return 0, xerrors.Errorf("buffer write: %v", err)
 	}
 	// Then send everything through the connection
 	// Send chunk by chunk
@@ -325,7 +325,7 @@ type TCPListener struct {
 func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 	l, err := NewTCPListenerWithListenAddr(addr, s, "")
 	if err != nil {
-		return nil, xerrors.Errorf("tcp listener: %+v", err)
+		return nil, xerrors.Errorf("tcp listener: %v", err)
 	}
 	return l, nil
 }
@@ -350,7 +350,7 @@ func NewTCPListenerWithListenAddr(addr Address,
 	}
 	listenOn, err := getListenAddress(addr, listenAddr)
 	if err != nil {
-		return nil, xerrors.Errorf("listener: %+v", err)
+		return nil, xerrors.Errorf("listener: %v", err)
 	}
 	for i := 0; i < MaxRetryConnect; i++ {
 		ln, err := net.Listen("tcp", listenOn)
@@ -375,7 +375,7 @@ func (t *TCPListener) Listen(fn func(Conn)) error {
 	}
 	err := t.listen(receiver)
 	if err != nil {
-		return xerrors.Errorf("listening: %+v", err)
+		return xerrors.Errorf("listening: %v", err)
 	}
 	return nil
 }
@@ -474,7 +474,7 @@ func getListenAddress(addr Address, listenAddr string) (string, error) {
 	}
 	_, port, err := net.SplitHostPort(addr.NetworkAddress())
 	if err != nil {
-		return "", xerrors.Errorf("invalid address: %+v", err)
+		return "", xerrors.Errorf("invalid address: %v", err)
 	}
 
 	// If 'listenAddr' only contains the host, combine it with the port
@@ -487,7 +487,7 @@ func getListenAddress(addr Address, listenAddr string) (string, error) {
 	// If host and port in `listenAddr`, choose this one.
 	hostListen, portListen, err := net.SplitHostPort(listenAddr)
 	if err != nil {
-		return "", xerrors.Errorf("invalid address: %+v", err)
+		return "", xerrors.Errorf("invalid address: %v", err)
 	}
 	if hostListen != "" && portListen != "" {
 		return listenAddr, nil
@@ -507,7 +507,7 @@ type TCPHost struct {
 func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
 	host, err := NewTCPHostWithListenAddr(sid, s, "")
 	if err != nil {
-		return nil, xerrors.Errorf("tcp host: %+v", err)
+		return nil, xerrors.Errorf("tcp host: %v", err)
 	}
 	return host, nil
 }
@@ -527,7 +527,7 @@ func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
 		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, s, listenAddr)
 	}
 	if err != nil {
-		return nil, xerrors.Errorf("tcp host: %+v", err)
+		return nil, xerrors.Errorf("tcp host: %v", err)
 	}
 	return h, nil
 }
@@ -539,13 +539,13 @@ func (t *TCPHost) Connect(si *ServerIdentity) (Conn, error) {
 	case PlainTCP:
 		c, err := NewTCPConn(si.Address, t.suite)
 		if err != nil {
-			return nil, xerrors.Errorf("tcp connection: %+v", err)
+			return nil, xerrors.Errorf("tcp connection: %v", err)
 		}
 		return c, nil
 	case TLS:
 		c, err := NewTLSConn(t.sid, si, t.suite)
 		if err != nil {
-			return nil, xerrors.Errorf("tcp connection: %+v", err)
+			return nil, xerrors.Errorf("tcp connection: %v", err)
 		}
 		return c, nil
 	case InvalidConnType:

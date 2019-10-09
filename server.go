@@ -155,14 +155,14 @@ func (c *Server) Close() error {
 
 	err := c.Router.Stop()
 	if err != nil {
-		err = xerrors.Errorf("stopping: %+v", err)
+		err = xerrors.Errorf("stopping: %v", err)
 		log.Error("While stopping router:", err)
 	}
 	c.WebSocket.stop()
 	c.overlay.Close()
 	err = c.serviceManager.closeDatabase()
 	if err != nil {
-		err = xerrors.Errorf("closing db: %+v", err)
+		err = xerrors.Errorf("closing db: %v", err)
 		log.Lvl3("Error closing database: " + err.Error())
 	}
 	log.Lvl3("Host Close", c.ServerIdentity.Address, "listening?", c.Router.Listening())
@@ -190,7 +190,7 @@ func (c *Server) GetService(name string) Service {
 func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
 	id, err := c.protocols.Register(name, protocol)
 	if err != nil {
-		return id, xerrors.Errorf("registering protocol: %+v", err)
+		return id, xerrors.Errorf("registering protocol: %v", err)
 	}
 	return id, nil
 }
@@ -203,7 +203,7 @@ func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) 
 	}
 	pi, err := fn(tni)
 	if err != nil {
-		return nil, xerrors.Errorf("creating protocol: %+v", err)
+		return nil, xerrors.Errorf("creating protocol: %v", err)
 	}
 	return pi, nil
 }
@@ -214,9 +214,9 @@ func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
 	if !c.Quiet {
-		log.Lvlf1("Starting server at %s on address %s with public key %s",
+		log.Lvlf1("Starting server at %s on address %s",
 			c.started.Format("2006-01-02 15:04:05"),
-			c.ServerIdentity.Address, c.ServerIdentity.Public)
+			c.ServerIdentity.Address)
 	}
 	go c.Router.Start()
 	go c.WebSocket.start()

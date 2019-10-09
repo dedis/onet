@@ -73,27 +73,27 @@ func Copy(dst, src string) error {
 	info, err := os.Stat(dst)
 	if err == nil && info.IsDir() {
 		if err := Copy(path.Join(dst, path.Base(src)), src); err != nil {
-			return xerrors.Errorf("copying folder: %+v", err)
+			return xerrors.Errorf("copying folder: %v", err)
 		}
 		return nil
 	}
 	fSrc, err := os.Open(src)
 	if err != nil {
-		return xerrors.Errorf("opening file: %+v", err)
+		return xerrors.Errorf("opening file: %v", err)
 	}
 	defer fSrc.Close()
 	stat, err := fSrc.Stat()
 	if err != nil {
-		return xerrors.Errorf("file info: %+v", err)
+		return xerrors.Errorf("file info: %v", err)
 	}
 	fDst, err := os.OpenFile(dst, os.O_CREATE|os.O_RDWR, stat.Mode())
 	if err != nil {
-		return xerrors.Errorf("opening file: %+v", err)
+		return xerrors.Errorf("opening file: %v", err)
 	}
 	defer fDst.Close()
 	_, err = io.Copy(fDst, fSrc)
 	if err != nil {
-		return xerrors.Errorf("copying file: %+v", err)
+		return xerrors.Errorf("copying file: %v", err)
 	}
 
 	return nil
