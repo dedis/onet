@@ -412,6 +412,15 @@ func ParseEnv() {
 			Error("Couldn't convert", dp, "to boolean")
 		}
 	}
+	dp := os.Getenv("DEBUG_FILEPATH")
+	if dp != "" {
+		dpBool, err := strconv.ParseBool(dp)
+		Lvl3("Setting absoluteFilePath to", dp, dpBool, err)
+		SetAbsoluteFilePath(dpBool)
+		if err != nil {
+			Error("Couldn't convert", dp, "to boolean")
+		}
+	}
 }
 
 // RegisterFlags adds the flags and the variables for the debug-control
@@ -428,6 +437,7 @@ func RegisterFlags() {
 	flag.BoolVar(&loggers[0].GetLoggerInfo().ShowTime, "debug-time", defaultShowTime, "Shows the time of each message")
 	flag.BoolVar(&loggers[0].GetLoggerInfo().UseColors, "debug-color", defaultUseColors, "Colors each message")
 	flag.BoolVar(&loggers[0].GetLoggerInfo().Padding, "debug-padding", defaultPadding, "Pads each message nicely")
+	flag.BoolVar(&loggers[0].GetLoggerInfo().AbsoluteFilePath, "debug-filepath", defaultAbsoluteFilePath, "extends the filename with the absolute path")
 }
 
 var timeoutFlagMutex sync.Mutex
