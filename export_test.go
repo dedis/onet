@@ -1,11 +1,21 @@
 package onet
 
+import "golang.org/x/xerrors"
+
 func (c *Server) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
-	return c.overlay.CreateProtocol(name, t, NilServiceID)
+	pi, err := c.overlay.CreateProtocol(name, t, NilServiceID)
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %v", err)
+	}
+	return pi, nil
 }
 
 func (c *Server) StartProtocol(name string, t *Tree) (ProtocolInstance, error) {
-	return c.overlay.StartProtocol(name, t, NilServiceID)
+	pi, err := c.overlay.StartProtocol(name, t, NilServiceID)
+	if err != nil {
+		return nil, xerrors.Errorf("starting protocol: %v", err)
+	}
+	return pi, nil
 }
 
 func (c *Server) Roster(id RosterID) (*Roster, bool) {

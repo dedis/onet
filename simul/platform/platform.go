@@ -6,7 +6,6 @@ package platform
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"go/build"
 	"os"
@@ -23,6 +22,7 @@ import (
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v3/app"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // The Life of a simulation:
@@ -234,7 +234,7 @@ func (r *RunConfig) Delete(field string) {
 }
 
 // ErrorFieldNotPresent signals that a field is not in the RunConfig.
-var ErrorFieldNotPresent = errors.New("field not present")
+var ErrorFieldNotPresent = xerrors.New("field not present")
 
 // GetInt returns the integer of the field, or error if not defined
 func (r *RunConfig) GetInt(field string) (int, error) {

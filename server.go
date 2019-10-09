@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -15,6 +14,7 @@ import (
 	"go.dedis.ch/onet/v3/cfgpath"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 	"rsc.io/goversion/version"
 )
 
@@ -155,12 +155,14 @@ func (c *Server) Close() error {
 
 	err := c.Router.Stop()
 	if err != nil {
+		err = xerrors.Errorf("stopping: %v", err)
 		log.Error("While stopping router:", err)
 	}
 	c.WebSocket.stop()
 	c.overlay.Close()
 	err = c.serviceManager.closeDatabase()
 	if err != nil {
+		err = xerrors.Errorf("closing db: %v", err)
 		log.Lvl3("Error closing database: " + err.Error())
 	}
 	log.Lvl3("Host Close", c.ServerIdentity.Address, "listening?", c.Router.Listening())
@@ -186,16 +188,24 @@ func (c *Server) GetService(name string) Service {
 // ProtocolRegister will sign up a new protocol to this Server.
 // It returns the ID of the protocol.
 func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
-	return c.protocols.Register(name, protocol)
+	id, err := c.protocols.Register(name, protocol)
+	if err != nil {
+		return id, xerrors.Errorf("registering protocol: %v", err)
+	}
+	return id, nil
 }
 
 // protocolInstantiate instantiate a protocol from its ID
 func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) (ProtocolInstance, error) {
 	fn, ok := c.protocols.instantiators[c.protocols.ProtocolIDToName(protoID)]
 	if !ok {
-		return nil, errors.New("No protocol constructor with this ID")
+		return nil, xerrors.New("No protocol constructor with this ID")
 	}
-	return fn(tni)
+	pi, err := fn(tni)
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %v", err)
+	}
+	return pi, nil
 }
 
 // Start makes the router and the WebSocket listen on their respective
@@ -204,9 +214,9 @@ func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
 	if !c.Quiet {
-		log.Lvlf1("Starting server at %s on address %s with public key %s",
+		log.Lvlf1("Starting server at %s on address %s",
 			c.started.Format("2006-01-02 15:04:05"),
-			c.ServerIdentity.Address, c.ServerIdentity.Public)
+			c.ServerIdentity.Address)
 	}
 	go c.Router.Start()
 	go c.WebSocket.start()

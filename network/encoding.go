@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"go.dedis.ch/kyber/v3/pairing/bn256"
-	"go.dedis.ch/kyber/v3/suites"
 	"reflect"
 	"sync"
+
+	"go.dedis.ch/kyber/v3/pairing/bn256"
+	"go.dedis.ch/kyber/v3/suites"
+	"golang.org/x/xerrors"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/protobuf"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {
@@ -131,23 +133,26 @@ func MessageType(msg Message) MessageTypeID {
 func Marshal(msg Message) ([]byte, error) {
 	var msgType MessageTypeID
 	if msgType = MessageType(msg); msgType == ErrorType {
-		return nil, fmt.Errorf("type of message %s not registered to the network library", reflect.TypeOf(msg))
+		return nil, xerrors.Errorf("type of message %s not registered to the network library", reflect.TypeOf(msg))
 	}
 	b := new(bytes.Buffer)
 	if err := binary.Write(b, globalOrder, msgType); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("buffer write: %v", err)
 	}
 	var buf []byte
 	var err error
 	if buf, err = protobuf.Encode(msg); err != nil {
-		log.Errorf("Error for protobuf encoding: %s %+v", err, msg)
+		log.Errorf("Error for protobuf encoding: %s %+v", msg, err)
 		if log.DebugVisible() > 0 {
 			log.Error(log.Stack())
 		}
-		return nil, err
+		return nil, xerrors.Errorf("encoding: %v", err)
 	}
 	_, err = b.Write(buf)
-	return b.Bytes(), err
+	if err != nil {
+		return nil, xerrors.Errorf("buffer write: %v", err)
+	}
+	return b.Bytes(), nil
 }
 
 // Unmarshal returns the type and the message out of a buffer. One can cast the
@@ -159,17 +164,17 @@ func Unmarshal(buf []byte, suite Suite) (MessageTypeID, Message, error) {
 	b := bytes.NewBuffer(buf)
 	var tID MessageTypeID
 	if err := binary.Read(b, globalOrder, &tID); err != nil {
-		return ErrorType, nil, err
+		return ErrorType, nil, xerrors.Errorf("buffer read: %v", err)
 	}
 	typ, ok := registry.get(tID)
 	if !ok {
-		return ErrorType, nil, fmt.Errorf("type %s not registered", tID.String())
+		return ErrorType, nil, xerrors.Errorf("type %s not registered", tID.String())
 	}
 	ptrVal := reflect.New(typ)
 	ptr := ptrVal.Interface()
 	constructors := DefaultConstructors(suite)
 	if err := protobuf.DecodeWithConstructors(b.Bytes(), ptr, constructors); err != nil {
-		return ErrorType, nil, err
+		return ErrorType, nil, xerrors.Errorf("decoding: %v", err)
 	}
 	return tID, ptrVal.Interface(), nil
 }

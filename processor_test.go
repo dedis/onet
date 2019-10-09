@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -23,6 +22,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 )
 
 const testServiceName = "testService"
@@ -241,7 +241,7 @@ type testPanicMsg struct{}
 func procMsg(msg *testMsg) (network.Message, error) {
 	// Return an error for testing
 	if msg.I == 42 {
-		return nil, errors.New("42 is NOT the answer")
+		return nil, xerrors.New("42 is NOT the answer")
 	}
 	return msg, nil
 }
@@ -249,7 +249,7 @@ func procMsg(msg *testMsg) (network.Message, error) {
 func procMsg2(msg *testMsg2) (network.Message, error) {
 	// Return an error for testing
 	if msg.I == 42 {
-		return nil, errors.New("42 is NOT the answer")
+		return nil, xerrors.New("42 is NOT the answer")
 	}
 	return nil, nil
 }
@@ -618,7 +618,7 @@ func procRestMsgGETWrong3(s *restMsgGETWrong3) (*testMsg, error) {
 
 func procRestMsgPOSTString(s *restMsgPOSTString) (*testMsg, error) {
 	if s.S != "42" {
-		return nil, errors.New("not the right answer")
+		return nil, xerrors.New("not the right answer")
 	}
 	return &testMsg{}, nil
 }

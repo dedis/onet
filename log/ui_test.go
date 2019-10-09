@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/xerrors"
 )
 
 func TestMain(m *testing.M) {
@@ -23,14 +24,23 @@ func TestInfo(t *testing.T) {
 	SetDebugVisible(1)
 }
 
+func TestError(t *testing.T) {
+	SetDebugVisible(1)
+	Error(xerrors.New("error with stack"))
+	assert.Contains(t, GetStdErr(), "/log/ui_test.go:")
+
+	Error(xerrors.New("test"), "and another message")
+	assert.NotContains(t, GetStdErr(), "/log/ui_test.go:")
+}
+
 func TestLvl(t *testing.T) {
 	SetDebugVisible(1)
 	Info("TestLvl")
-	assert.True(t, containsStdOut("I : (                             log.TestLvl:   0) - TestLvl\n"))
+	assert.Contains(t, GetStdOut(), "I : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 	Print("TestLvl")
-	assert.True(t, containsStdOut("I : (                             log.TestLvl:   0) - TestLvl\n"))
+	assert.Contains(t, GetStdOut(), "I : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 	Warn("TestLvl")
-	assert.True(t, containsStdErr("W : (                             log.TestLvl:   0) - TestLvl\n"))
+	assert.Contains(t, GetStdErr(), "W : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 }
 
 func TestPanic(t *testing.T) {

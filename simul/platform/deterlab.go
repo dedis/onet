@@ -17,7 +17,6 @@ package platform
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,6 +34,7 @@ import (
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/app"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Deterlab holds all fields necessary for a Deterlab-run
@@ -141,10 +141,10 @@ func (d *Deterlab) Build(build string, arg ...string) error {
 	var wg sync.WaitGroup
 
 	if err := os.RemoveAll(d.buildDir); err != nil {
-		return err
+		return xerrors.Errorf("removing folders: %v", err)
 	}
 	if err := os.Mkdir(d.buildDir, 0777); err != nil {
-		return err
+		return xerrors.Errorf("making folder: %v", err)
 	}
 
 	// start building the necessary binaries - it's always the same,
@@ -240,10 +240,10 @@ func (d *Deterlab) Cleanup() error {
 // deterlab-installation.
 func (d *Deterlab) Deploy(rc *RunConfig) error {
 	if err := os.RemoveAll(d.deployDir); err != nil {
-		return err
+		return xerrors.Errorf("removing folders: %v", err)
 	}
 	if err := os.Mkdir(d.deployDir, 0777); err != nil {
-		return err
+		return xerrors.Errorf("making folder: %v", err)
 	}
 
 	// Check for PreScript and copy it to the deploy-dir
@@ -252,7 +252,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 		_, err := os.Stat(d.PreScript)
 		if !os.IsNotExist(err) {
 			if err := app.Copy(d.deployDir, d.PreScript); err != nil {
-				return err
+				return xerrors.Errorf("copying: %v", err)
 			}
 		}
 	}
@@ -262,7 +262,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 	log.Lvl2("Localhost: Deploying and writing config-files")
 	sim, err := onet.NewSimulation(d.Simulation, string(rc.Toml()))
 	if err != nil {
-		return err
+		return xerrors.Errorf("simulation: %v", err)
 	}
 	// Initialize the deter-struct with our current structure (for debug-levels
 	// and such), then read in the app-configuration to overwrite eventual
@@ -271,7 +271,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 	deterConfig := d.deployDir + "/deter.toml"
 	_, err = toml.Decode(string(rc.Toml()), &deter)
 	if err != nil {
-		return err
+		return xerrors.Errorf("decoding toml: %v", err)
 	}
 	log.Lvl3("Creating hosts")
 	deter.createHosts()
@@ -280,7 +280,7 @@ func (d *Deterlab) Deploy(rc *RunConfig) error {
 
 	simulConfig, err = sim.Setup(d.deployDir, deter.Virt)
 	if err != nil {
-		return err
+		return xerrors.Errorf("simulation setup: %v", err)
 	}
 	simulConfig.Config = string(rc.Toml())
 	log.Lvl3("Saving configuration")
@@ -385,16 +385,16 @@ func (d *Deterlab) parseHosts(str string) error {
 	// Get the link-information, which is the second block in `expinfo`-output
 	infos := strings.Split(str, "\n\n")
 	if len(infos) < 2 {
-		return errors.New("didn't recognize output of 'expinfo'")
+		return xerrors.New("didn't recognize output of 'expinfo'")
 	}
 	linkInfo := infos[1]
 	// Test for correct version in case the API-output changes
 	if !strings.HasPrefix(linkInfo, "Virtual Lan/Link Info:") {
-		return errors.New("didn't recognize output of 'expinfo'")
+		return xerrors.New("didn't recognize output of 'expinfo'")
 	}
 	linkLines := strings.Split(linkInfo, "\n")
 	if len(linkLines) < 5 {
-		return errors.New("didn't recognice output of 'expinfo'")
+		return xerrors.New("didn't recognice output of 'expinfo'")
 	}
 	nodes := linkLines[3:]
 
@@ -408,7 +408,7 @@ func (d *Deterlab) parseHosts(str string) error {
 		}
 		matches := strings.Fields(node)
 		if len(matches) != 6 {
-			return errors.New("expinfo-output seems to have changed")
+			return xerrors.New("expinfo-output seems to have changed")
 		}
 		// Convert client-0:0 to client-0
 		name := strings.Split(matches[1], ":")[0]

@@ -16,6 +16,7 @@ import (
 	"go.dedis.ch/onet/v3/app"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/simul/monitor"
+	"golang.org/x/xerrors"
 )
 
 // Localhost is responsible for launching the app with the specified number of nodes
@@ -112,16 +113,16 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 	if runtime.GOOS == "darwin" {
 		files, err := exec.Command("ulimit", "-n").Output()
 		if err != nil {
-			return err
+			return xerrors.Errorf("ulimit: %v", err)
 		}
 		filesNbr, err := strconv.Atoi(strings.TrimSpace(string(files)))
 		if err != nil {
-			return err
+			return xerrors.Errorf("atoi: %v", err)
 		}
 		hosts, _ := strconv.Atoi(rc.Get("hosts"))
 		if filesNbr < hosts*2 {
 			maxfiles := 10000 + hosts*2
-			return fmt.Errorf("Maximum open files is too small. Please run the following command:\n"+
+			return xerrors.Errorf("Maximum open files is too small. Please run the following command:\n"+
 				"sudo sysctl -w kern.maxfiles=%d\n"+
 				"sudo sysctl -w kern.maxfilesperproc=%d\n"+
 				"ulimit -n %d\n"+
@@ -136,7 +137,7 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 		_, err := os.Stat(d.PreScript)
 		if !os.IsNotExist(err) {
 			if err := app.Copy(d.runDir, d.PreScript); err != nil {
-				return err
+				return xerrors.Errorf("copying: %v", err)
 			}
 		}
 	}
@@ -145,7 +146,7 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 	log.Lvl2("Localhost: Deploying and writing config-files for", d.servers, "servers")
 	sim, err := onet.NewSimulation(d.Simulation, string(rc.Toml()))
 	if err != nil {
-		return err
+		return xerrors.Errorf("simulation error: %v", err)
 	}
 	d.addresses = make([]string, d.servers)
 	for i := range d.addresses {
@@ -153,11 +154,11 @@ func (d *Localhost) Deploy(rc *RunConfig) error {
 	}
 	d.sc, err = sim.Setup(d.runDir, d.addresses)
 	if err != nil {
-		return err
+		return xerrors.Errorf("simulation setup: %v", err)
 	}
 	d.sc.Config = string(rc.Toml())
 	if err := d.sc.Save(d.runDir); err != nil {
-		return err
+		return xerrors.Errorf("saving folder: %v", err)
 	}
 	log.Lvl2("Localhost: Done deploying")
 	d.wgRun.Add(d.servers)
@@ -185,14 +186,14 @@ func (d *Localhost) Start(args ...string) error {
 		out, err := exec.Command("sh", "-c", "./"+d.PreScript+" localhost").CombinedOutput()
 		outStr := strings.TrimRight(string(out), "\n")
 		if err != nil {
-			return fmt.Errorf("error deploying PreScript: " + err.Error() + " " + outStr)
+			return xerrors.Errorf("error deploying PreScript: " + err.Error() + " " + outStr)
 		}
 		log.Lvl1(outStr)
 	}
 
 	err := monitor.ConnectSink("localhost:" + strconv.Itoa(d.monitorPort))
 	if err != nil {
-		return err
+		return xerrors.Errorf("monitor: %v", err)
 	}
 
 	for index := 0; index < d.servers; index++ {
@@ -237,10 +238,9 @@ func (d *Localhost) Wait() error {
 		log.Lvl3("Finished waiting for hosts:", e)
 		if e != nil {
 			if err := d.Cleanup(); err != nil {
-				log.Error("Couldn't cleanup running instances",
-					err)
+				log.Errorf("Couldn't cleanup running instances: %+v", err)
 			}
-			err = e
+			err = xerrors.Errorf("localhost error: %v", err)
 		}
 	case <-time.After(wait):
 		log.Lvl1("Quitting after waiting", wait)

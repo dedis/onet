@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/BurntSushi/toml"
@@ -10,6 +9,7 @@ import (
 	"go.dedis.ch/onet/v3/simul"
 	"go.dedis.ch/onet/v3/simul/manage"
 	"go.dedis.ch/onet/v3/simul/monitor"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -34,7 +34,7 @@ func NewSimulation(config string) (onet.Simulation, error) {
 
 	_, err := toml.Decode(config, es)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("decoding: %v", err)
 	}
 	return es, nil
 }
@@ -46,7 +46,7 @@ func (e *simulation) Setup(dir string, hosts []string) (
 	e.CreateRoster(sc, hosts, 2000)
 	err := e.CreateTree(sc)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating tree: %v", err)
 	}
 	return sc, nil
 }
@@ -61,13 +61,13 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 		round := monitor.NewTimeMeasure("round")
 		p, err := config.Overlay.CreateProtocol("Count", config.Tree, onet.NilServiceID)
 		if err != nil {
-			return err
+			return xerrors.Errorf("creating protocol: %v", err)
 		}
 		go p.Start()
 		children := <-p.(*manage.ProtocolCount).Count
 		round.Record()
 		if children != size {
-			return errors.New("Didn't get " + strconv.Itoa(size) +
+			return xerrors.New("Didn't get " + strconv.Itoa(size) +
 				" children")
 		}
 	}

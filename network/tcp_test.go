@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -343,7 +343,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	// the timeout from send too
 	select {
 	case err := <-connStat:
-		assert.Equal(t, ErrTimeout, err)
+		assert.True(t, xerrors.Is(err, ErrTimeout))
 	case <-time.After(10 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
@@ -627,11 +627,11 @@ func (d *dummyErr) Error() string {
 }
 
 func TestHandleError(t *testing.T) {
-	require.Equal(t, ErrClosed, handleError(errors.New("use of closed")))
-	require.Equal(t, ErrCanceled, handleError(errors.New("canceled")))
-	require.Equal(t, ErrEOF, handleError(errors.New("EOF")))
+	require.Equal(t, ErrClosed, handleError(xerrors.New("use of closed")))
+	require.Equal(t, ErrCanceled, handleError(xerrors.New("canceled")))
+	require.Equal(t, ErrEOF, handleError(xerrors.New("EOF")))
 
-	require.Equal(t, ErrUnknown, handleError(errors.New("random error")))
+	require.Equal(t, ErrUnknown, handleError(xerrors.New("random error")))
 
 	de := dummyErr{true, true}
 	de.temporary = false
@@ -717,14 +717,14 @@ func sendrcvProc(from, to *Router) error {
 		return err
 	}
 	if sentLen == 0 {
-		return errors.New("sentLen is zero")
+		return xerrors.New("sentLen is zero")
 	}
 
 	select {
 	case <-sp.relay:
 		err = nil
 	case <-time.After(1 * time.Second):
-		err = errors.New("timeout")
+		err = xerrors.New("timeout")
 	}
 	// delete the processing
 	to.RegisterProcessor(nil, statusMsgID)
@@ -739,7 +739,7 @@ func waitConnections(r *Router, sid *ServerIdentity) error {
 		}
 		time.Sleep(WaitRetry)
 	}
-	return fmt.Errorf("Didn't see connection to %s in router", sid.Address)
+	return xerrors.Errorf("Didn't see connection to %s in router", sid.Address)
 }
 
 func acceptAndClose(c Conn) {

@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // TreeNodeInstance represents a protocol-instance in a given TreeNode. It embeds an
@@ -150,12 +150,12 @@ func (n *TreeNodeInstance) IsLeaf() bool {
 // SendTo sends to a given node
 func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 	if to == nil {
-		return errors.New("Sent to a nil TreeNode")
+		return xerrors.New("Sent to a nil TreeNode")
 	}
 	n.msgDispatchQueueMutex.Lock()
 	if n.closing {
 		n.msgDispatchQueueMutex.Unlock()
-		return errors.New("is closing")
+		return xerrors.New("is closing")
 	}
 	n.msgDispatchQueueMutex.Unlock()
 	var c *GenericConfig
@@ -169,7 +169,10 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 
 	sentLen, err := n.overlay.SendToTreeNode(n.token, to, msg, n.protoIO, c)
 	n.tx.add(sentLen)
-	return err
+	if err != nil {
+		return xerrors.Errorf("sending: %v", err)
+	}
+	return nil
 }
 
 // Tree returns the tree of that node. Because the storage keeps the tree around
@@ -205,7 +208,11 @@ func (n *TreeNodeInstance) Suite() network.Suite {
 // RegisterChannel is a compatibility-method for RegisterChannelLength
 // and setting up a channel with length 100.
 func (n *TreeNodeInstance) RegisterChannel(c interface{}) error {
-	return n.RegisterChannelLength(c, DefaultChannelLength)
+	err := n.RegisterChannelLength(c, DefaultChannelLength)
+	if err != nil {
+		return xerrors.Errorf("registering channel length: %v", err)
+	}
+	return nil
 }
 
 // RegisterChannelLength takes a channel with a struct that contains two
@@ -224,24 +231,24 @@ func (n *TreeNodeInstance) RegisterChannelLength(c interface{}, length int) erro
 		val.Set(reflect.MakeChan(val.Type(), length))
 		return n.RegisterChannel(reflect.Indirect(val).Interface())
 	} else if reflect.ValueOf(c).IsNil() {
-		return errors.New("Can not Register a (value) channel not initialized")
+		return xerrors.New("Can not Register a (value) channel not initialized")
 	}
 	// Check we have the correct channel-type
 	if cr.Kind() != reflect.Chan {
-		return errors.New("Input is not channel")
+		return xerrors.New("Input is not channel")
 	}
 	if cr.Elem().Kind() == reflect.Slice {
 		flags += AggregateMessages
 		cr = cr.Elem()
 	}
 	if cr.Elem().Kind() != reflect.Struct {
-		return errors.New("Input is not channel of structure")
+		return xerrors.New("Input is not channel of structure")
 	}
 	if cr.Elem().NumField() != 2 {
-		return errors.New("Input is not channel of structure with 2 elements")
+		return xerrors.New("Input is not channel of structure with 2 elements")
 	}
 	if cr.Elem().Field(0).Type != reflect.TypeOf(&TreeNode{}) {
-		return errors.New("Input-channel doesn't have TreeNode as element")
+		return xerrors.New("Input-channel doesn't have TreeNode as element")
 	}
 	// Automatic registration of the message to the network library.
 	m := reflect.New(cr.Elem().Field(1).Type)
@@ -257,7 +264,7 @@ func (n *TreeNodeInstance) RegisterChannelLength(c interface{}, length int) erro
 func (n *TreeNodeInstance) RegisterChannels(channels ...interface{}) error {
 	for _, ch := range channels {
 		if err := n.RegisterChannel(ch); err != nil {
-			return fmt.Errorf("Error, could not register channel %T: %s",
+			return xerrors.Errorf("Error, could not register channel %T: %s",
 				ch, err.Error())
 		}
 	}
@@ -269,7 +276,7 @@ func (n *TreeNodeInstance) RegisterChannels(channels ...interface{}) error {
 func (n *TreeNodeInstance) RegisterChannelsLength(length int, channels ...interface{}) error {
 	for _, ch := range channels {
 		if err := n.RegisterChannelLength(ch, length); err != nil {
-			return fmt.Errorf("Error, could not register channel %T: %s",
+			return xerrors.Errorf("Error, could not register channel %T: %s",
 				ch, err.Error())
 		}
 	}
@@ -289,13 +296,13 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 	cr := reflect.TypeOf(c)
 	// Check we have the correct channel-type
 	if cr.Kind() != reflect.Func {
-		return errors.New("Input is not function")
+		return xerrors.New("Input is not function")
 	}
 	if cr.NumOut() != 1 {
-		return errors.New("Need exactly one return argument of type error")
+		return xerrors.New("Need exactly one return argument of type error")
 	}
 	if cr.Out(0) != reflect.TypeOf((*error)(nil)).Elem() {
-		return errors.New("return-type of message-handler needs to be error")
+		return xerrors.New("return-type of message-handler needs to be error")
 	}
 	ci := cr.In(0)
 	if ci.Kind() == reflect.Slice {
@@ -303,13 +310,13 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 		ci = ci.Elem()
 	}
 	if ci.Kind() != reflect.Struct {
-		return errors.New("Input is not a structure")
+		return xerrors.New("Input is not a structure")
 	}
 	if ci.NumField() != 2 {
-		return errors.New("Input is not a structure with 2 elements")
+		return xerrors.New("Input is not a structure with 2 elements")
 	}
 	if ci.Field(0).Type != reflect.TypeOf(&TreeNode{}) {
-		return errors.New("Input-handler doesn't have TreeNode as element")
+		return xerrors.New("Input-handler doesn't have TreeNode as element")
 	}
 	// Automatic registration of the message to the network library.
 	ptr := reflect.New(ci.Field(1).Type)
@@ -324,7 +331,7 @@ func (n *TreeNodeInstance) RegisterHandler(c interface{}) error {
 func (n *TreeNodeInstance) RegisterHandlers(handlers ...interface{}) error {
 	for _, h := range handlers {
 		if err := n.RegisterHandler(h); err != nil {
-			return fmt.Errorf("Error, could not register handler %T: %s",
+			return xerrors.Errorf("Error, could not register handler %T: %s",
 				h, err.Error())
 		}
 	}
@@ -362,9 +369,13 @@ func (n *TreeNodeInstance) closeDispatch() error {
 	log.Lvl3("Closed node", n.Info())
 	pni := n.ProtocolInstance()
 	if pni == nil {
-		return errors.New("Can't shutdown empty ProtocolInstance")
+		return xerrors.New("Can't shutdown empty ProtocolInstance")
 	}
-	return pni.Shutdown()
+	err := pni.Shutdown()
+	if err != nil {
+		return xerrors.Errorf("shutdown: %v", err)
+	}
+	return nil
 }
 
 // ProtocolName will return the string representing that protocol
@@ -382,7 +393,7 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 		for i, msg := range msgSlice {
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return err
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			msgs.Index(i).Set(m)
 		}
@@ -399,14 +410,14 @@ func (n *TreeNodeInstance) dispatchHandler(msgSlice []*ProtocolMsg) error {
 			log.Lvl4("Dispatching", msg, "to", n.ServerIdentity().Address)
 			m, err := n.createValueAndVerify(to, msg)
 			if err != nil {
-				return err
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			errV = f.Call([]reflect.Value{m})[0]
 		}
 	}
 	log.Lvlf4("%s Done with handler for %s", n.Name(), f.Type())
 	if !errV.IsNil() {
-		return errV.Interface().(error)
+		return xerrors.Errorf("handler: %v", errV.Interface())
 	}
 	return nil
 }
@@ -424,7 +435,7 @@ func (n *TreeNodeInstance) createValueAndVerify(t reflect.Type, msg *ProtocolMsg
 		// We can trust msg.ServerIdentity, because it is written in Router.handleConn and
 		// is not writable by the sending node.
 		if msg.ServerIdentity != nil && tn != nil && !tn.ServerIdentity.Equal(msg.ServerIdentity) {
-			return m, fmt.Errorf("ServerIdentity in the tree node referenced by the message (%v) does not match the ServerIdentity of the message originator (%v)",
+			return m, xerrors.Errorf("ServerIdentity in the tree node referenced by the message (%v) does not match the ServerIdentity of the message originator (%v)",
 				tn.ServerIdentity, msg.ServerIdentity)
 		}
 	}
@@ -438,7 +449,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 		// In rare occasions we write to a closed channel which throws a panic.
 		// Catch it here so we can find out better why this happens.
 		if r := recover(); r != nil {
-			log.Error("Shouldn't happen, please report an issue:", n.Info(), r, mt)
+			log.Error("Shouldn't happen, please report an issue:", n.Info(), mt, r)
 		}
 	}()
 	to := reflect.TypeOf(n.channels[mt])
@@ -450,7 +461,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			log.Lvl4("Dispatching aggregated to", to)
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return err
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			log.Lvl4("Adding msg", m, "to", n.ServerIdentity().Address)
 			out.Index(i).Set(m)
@@ -461,7 +472,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 			out := reflect.ValueOf(n.channels[mt])
 			m, err := n.createValueAndVerify(to.Elem(), msg)
 			if err != nil {
-				return err
+				return xerrors.Errorf("processing message: %v", err)
 			}
 			log.Lvl4(n.Name(), "Dispatching msg type", mt, " to", to, " :", m.Field(1).Interface())
 			if out.Len() < out.Cap() {
@@ -472,7 +483,7 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 					out.Send(m)
 				}
 			} else {
-				return fmt.Errorf("channel too small for msg %s in %s: "+
+				return xerrors.Errorf("channel too small for msg %s in %s: "+
 					"please use RegisterChannelLength()",
 					mt, n.ProtocolName())
 			}
@@ -560,9 +571,12 @@ func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
 		log.Lvl4("Dispatching to handler", n.ServerIdentity().Address)
 		err = n.dispatchHandler(msgs)
 	default:
-		return fmt.Errorf("message-type not handled by the protocol: %s", reflect.TypeOf(onetMsg.Msg))
+		return xerrors.Errorf("message-type not handled by the protocol: %s", reflect.TypeOf(onetMsg.Msg))
 	}
-	return err
+	if err != nil {
+		return xerrors.Errorf("dispatch: %v", err)
+	}
+	return nil
 }
 
 // setFlag makes sure a given flag is set
@@ -613,7 +627,11 @@ func (n *TreeNodeInstance) aggregate(onetMsg *ProtocolMsg) (network.MessageTypeI
 // startProtocol calls the Start() on the underlying protocol which in turn will
 // initiate the first message to its children
 func (n *TreeNodeInstance) startProtocol() error {
-	return n.instance.Start()
+	err := n.instance.Start()
+	if err != nil {
+		return xerrors.Errorf("starting protocol: %v", err)
+	}
+	return nil
 }
 
 // Done calls onDoneCallback if available and only finishes when the return-
@@ -687,7 +705,11 @@ func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) kyber.Point {
 // releases.
 func (n *TreeNodeInstance) CloseHost() error {
 	n.Host().callTestClose()
-	return n.Host().Close()
+	err := n.Host().Close()
+	if err != nil {
+		return xerrors.Errorf("closing host: %v", err)
+	}
+	return nil
 }
 
 // Name returns a human readable name of this Node (IP address).
@@ -739,7 +761,7 @@ func (n *TreeNodeInstance) Broadcast(msg interface{}) []error {
 	for _, node := range n.List() {
 		if !node.Equal(n.TreeNode()) {
 			if err := n.SendTo(node, msg); err != nil {
-				errs = append(errs, err)
+				errs = append(errs, xerrors.Errorf("sending: %v", err))
 			}
 		}
 	}
@@ -751,7 +773,7 @@ func (n *TreeNodeInstance) Multicast(msg interface{}, nodes ...*TreeNode) []erro
 	var errs []error
 	for _, node := range nodes {
 		if err := n.SendTo(node, msg); err != nil {
-			errs = append(errs, err)
+			errs = append(errs, xerrors.Errorf("sending: %v", err))
 		}
 	}
 	return errs
@@ -762,7 +784,11 @@ func (n *TreeNodeInstance) SendToParent(msg interface{}) error {
 	if n.IsRoot() {
 		return nil
 	}
-	return n.SendTo(n.Parent(), msg)
+	err := n.SendTo(n.Parent(), msg)
+	if err != nil {
+		return xerrors.Errorf("sending: %v", err)
+	}
+	return nil
 }
 
 // SendToChildren sends a given message to all children of the calling node.
@@ -775,7 +801,7 @@ func (n *TreeNodeInstance) SendToChildren(msg interface{}) error {
 	}
 	for _, node := range n.Children() {
 		if err := n.SendTo(node, msg); err != nil {
-			return err
+			return xerrors.Errorf("sending: %v", err)
 		}
 	}
 	return nil
@@ -802,7 +828,7 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 		go func(n2 *TreeNode) {
 			if err := n.SendTo(n2, msg); err != nil {
 				eMut.Lock()
-				errs = append(errs, errors.New(name+": "+err.Error()))
+				errs = append(errs, xerrors.Errorf("%s: %v", name, err))
 				eMut.Unlock()
 			}
 			wg.Done()
@@ -819,7 +845,10 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 // be handled by onet.
 func (n *TreeNodeInstance) CreateProtocol(name string, t *Tree) (ProtocolInstance, error) {
 	pi, err := n.overlay.CreateProtocol(name, t, n.Token().ServiceID)
-	return pi, err
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %v", err)
+	}
+	return pi, nil
 }
 
 // Host returns the underlying Host of this node.
@@ -844,7 +873,7 @@ func (n *TreeNodeInstance) SetConfig(c *GenericConfig) error {
 	n.configMut.Lock()
 	defer n.configMut.Unlock()
 	if n.config != nil {
-		return errors.New("Can't set config twice")
+		return xerrors.New("Can't set config twice")
 	}
 	n.config = c
 	return nil

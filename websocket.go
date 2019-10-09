@@ -3,7 +3,6 @@ package onet
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -19,6 +18,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
@@ -42,13 +42,18 @@ func NewCertificateReloader(certPath, keyPath string) (*CertificateReloader, err
 		keyPath:  keyPath,
 	}
 
-	return loader, loader.reload()
+	err := loader.reload()
+	if err != nil {
+		return nil, xerrors.Errorf("reloading certificate: %v", err)
+	}
+
+	return loader, nil
 }
 
 func (cr *CertificateReloader) reload() error {
 	newCert, err := tls.LoadX509KeyPair(cr.certPath, cr.keyPath)
 	if err != nil {
-		return err
+		return xerrors.Errorf("load x509: %v", err)
 	}
 
 	cr.Lock()
@@ -57,7 +62,10 @@ func (cr *CertificateReloader) reload() error {
 	cr.cert.Leaf, err = x509.ParseCertificate(newCert.Certificate[0])
 	cr.Unlock()
 
-	return err
+	if err != nil {
+		return xerrors.Errorf("parse x509: %v", err)
+	}
+	return nil
 }
 
 // GetCertificateFunc makes a function that can be passed to the TLSConfig
@@ -77,7 +85,7 @@ func (cr *CertificateReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (
 			cr.RUnlock()
 			err := cr.reload()
 			if err != nil {
-				return nil, err
+				return nil, xerrors.Errorf("reload certificate: %v", err)
 			}
 
 			cr.RLock()
@@ -195,7 +203,7 @@ func (w *WebSocket) start() {
 // path and it's sub-endpoints will be forwarded to ProcessClientRequest.
 func (w *WebSocket) registerService(service string, s Service) error {
 	if service == "ok" {
-		return errors.New("service name \"ok\" is not allowed")
+		return xerrors.New("service name \"ok\" is not allowed")
 	}
 
 	w.services[service] = s
@@ -303,7 +311,7 @@ outerReadLoop:
 						return
 					case reply, ok := <-tun.out:
 						if !ok {
-							err = errors.New("service finished streaming")
+							err = xerrors.New("service finished streaming")
 							close(tun.close)
 							break outerReadLoop
 						}
@@ -322,7 +330,7 @@ outerReadLoop:
 				}
 			}
 		} else {
-			log.Errorf("Got an error while executing %s/%s: %s", t.serviceName, path, err.Error())
+			log.Errorf("Got an error while executing %s/%s: %+v", t.serviceName, path, err)
 		}
 	}
 
@@ -425,7 +433,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			u, err := url.Parse(dst.URL)
 			if err != nil {
 				connLock.Unlock()
-				return nil, nil, err
+				return nil, nil, xerrors.Errorf("parsing url: %v", err)
 			}
 			if u.Scheme == "https" {
 				u.Scheme = "wss"
@@ -443,7 +451,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			hp, err := getWSHostPort(dst, false)
 			if err != nil {
 				connLock.Unlock()
-				return nil, nil, err
+				return nil, nil, xerrors.Errorf("parsing port: %v", err)
 			}
 
 			var wsProtocol string
@@ -473,7 +481,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		}
 		if err != nil {
 			connLock.Unlock()
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("dial: %v", err)
 		}
 		c.Lock()
 		c.connections[dest] = conn
@@ -489,7 +497,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
 	conn, connLock, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("new connection: %v", err)
 	}
 	defer connLock.Unlock()
 
@@ -504,15 +512,15 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 
 	log.Lvlf4("Sending %x to %s/%s", buf, c.service, path)
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("connection write: %v", err)
 	}
 
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("read deadline: %v", err)
 	}
 	_, rcv, err = conn.ReadMessage()
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("connection read: %v", err)
 	}
 	log.Lvlf4("Received %x", rcv)
 	return rcv, nil
@@ -527,16 +535,18 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret interface{}) error {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
-		return err
+		return xerrors.Errorf("encoding: %v", err)
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 	reply, err := c.Send(dst, path, buf)
 	if err != nil {
-		return err
+		return xerrors.Errorf("sending: %v", err)
 	}
 	if ret != nil {
-		return protobuf.DecodeWithConstructors(reply, ret,
-			network.DefaultConstructors(c.suite))
+		err := protobuf.DecodeWithConstructors(reply, ret, network.DefaultConstructors(c.suite))
+		if err != nil {
+			return xerrors.Errorf("decoding: %v", err)
+		}
 	}
 	return nil
 }
@@ -642,7 +652,7 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 	opt *ParallelOptions, decoder Decoder) (*network.ServerIdentity, error) {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("decoding: %v", err)
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
@@ -711,7 +721,7 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 				close(done)
 				return nil, err
 			}
-			errs = append(errs, err)
+			errs = append(errs, xerrors.Errorf("sending: %v", err))
 		}
 	}
 
@@ -724,7 +734,11 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 // as a structure for future enhancements. If opt is nil, then standard values will be taken.
 func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
 	opt *ParallelOptions) (*network.ServerIdentity, error) {
-	return c.SendProtobufParallelWithDecoder(nodes, msg, ret, opt, protobuf.Decode)
+	si, err := c.SendProtobufParallelWithDecoder(nodes, msg, ret, opt, protobuf.Decode)
+	if err != nil {
+		return nil, xerrors.Errorf("sending: %v", err)
+	}
+	return si, nil
 }
 
 // StreamingConn allows clients to read from it without sending additional
@@ -738,16 +752,19 @@ type StreamingConn struct {
 // no messages.
 func (c *StreamingConn) ReadMessage(ret interface{}) error {
 	if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-		return err
+		return xerrors.Errorf("read deadline: %v", err)
 	}
 	// No need to add bytes to counter here because this function is only
 	// called by the client.
 	_, buf, err := c.conn.ReadMessage()
 	if err != nil {
-		return err
+		return xerrors.Errorf("connection read: %v", err)
 	}
-	return protobuf.DecodeWithConstructors(buf, ret,
-		network.DefaultConstructors(c.suite))
+	err = protobuf.DecodeWithConstructors(buf, ret, network.DefaultConstructors(c.suite))
+	if err != nil {
+		return xerrors.Errorf("decoding: %v", err)
+	}
+	return nil
 }
 
 // Stream will send a request to start streaming, it returns a connection where
@@ -788,7 +805,7 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, erro
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return msgs, err
 }
@@ -811,7 +828,7 @@ func (c *Client) Close() error {
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return err
 }
@@ -853,7 +870,7 @@ func (c *Client) Rx() uint64 {
 func getWSHostPort(si *network.ServerIdentity, global bool) (string, error) {
 	p, err := strconv.Atoi(si.Address.Port())
 	if err != nil {
-		return "", err
+		return "", xerrors.Errorf("atoi: %v", err)
 	}
 	host := si.Address.Host()
 	if global {

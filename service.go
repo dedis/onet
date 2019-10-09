@@ -2,7 +2,6 @@ package onet
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
@@ -112,7 +112,7 @@ var ServiceFactory = serviceFactory{
 // A suite can be provided to override the default one
 func (s *serviceFactory) Register(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
 	if !s.ServiceID(name).Equal(NilServiceID) {
-		return NilServiceID, fmt.Errorf("service %s already registered", name)
+		return NilServiceID, xerrors.Errorf("service %s already registered", name)
 	}
 	id := ServiceID(uuid.NewV5(uuid.NamespaceURL, name))
 	s.mutex.Lock()
@@ -138,7 +138,7 @@ func (s *serviceFactory) Unregister(name string) error {
 		}
 	}
 	if index < 0 {
-		return errors.New("Didn't find service " + name)
+		return xerrors.New("Didn't find service " + name)
 	}
 	s.constructors = append(s.constructors[:index], s.constructors[index+1:]...)
 	return nil
@@ -147,18 +147,30 @@ func (s *serviceFactory) Unregister(name string) error {
 // RegisterNewService is a wrapper around service factory to register
 // a service with the default suite
 func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
-	return ServiceFactory.Register(name, nil, fn)
+	id, err := ServiceFactory.Register(name, nil, fn)
+	if err != nil {
+		return id, xerrors.Errorf("register service: %v", err)
+	}
+	return id, nil
 }
 
 // RegisterNewServiceWithSuite is wrapper around service factory to register
 // a service with a given suite
 func RegisterNewServiceWithSuite(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
-	return ServiceFactory.Register(name, suite, fn)
+	id, err := ServiceFactory.Register(name, suite, fn)
+	if err != nil {
+		return id, xerrors.Errorf("register service: %v", err)
+	}
+	return id, nil
 }
 
 // UnregisterService removes a service from the global pool.
 func UnregisterService(name string) error {
-	return ServiceFactory.Unregister(name)
+	err := ServiceFactory.Unregister(name)
+	if err != nil {
+		return xerrors.Errorf("register service: %v", err)
+	}
+	return nil
 }
 
 // registeredServiceIDs returns all the services registered
@@ -256,7 +268,7 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 	// Checks if we need a key pair and if it is available
 	suite := s.Suite(name)
 	if suite != nil && !con.ServerIdentity().HasServiceKeyPair(name) {
-		return nil, fmt.Errorf("Service `%s` requires a key pair. "+
+		return nil, xerrors.Errorf("Service `%s` requires a key pair. "+
 			"Use the interactive setup to generate a new file that will include this service.", name)
 	}
 
@@ -264,10 +276,14 @@ func (s *serviceFactory) start(name string, con *Context) (Service, error) {
 	defer s.mutex.RUnlock()
 	for _, c := range s.constructors {
 		if name == c.name {
-			return c.constructor(con)
+			service, err := c.constructor(con)
+			if err != nil {
+				return nil, xerrors.Errorf("creating service: %v", err)
+			}
+			return service, nil
 		}
 	}
-	return nil, errors.New("Didn't find service " + name)
+	return nil, xerrors.New("Didn't find service " + name)
 }
 
 // serviceManager is the place where all instantiated services are stored
@@ -339,7 +355,7 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 func openDb(path string) (*bbolt.DB, error) {
 	db, err := bbolt.Open(path, 0600, nil)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("opening db: %v", err)
 	}
 	return db, nil
 }
@@ -388,7 +404,7 @@ func (s *serviceManager) closeDatabase() error {
 	if s.delDb {
 		err := os.Remove(s.dbFileName())
 		if err != nil {
-			return err
+			return xerrors.Errorf("removing file: %v", err)
 		}
 	}
 	return nil
@@ -491,7 +507,7 @@ func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
 // the PI.
 func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfig) (pi ProtocolInstance, err error) {
 	if s.server.Closed() {
-		err = errors.New("will not pass protocol once the server is closed")
+		err = xerrors.New("will not pass protocol once the server is closed")
 		return
 	}
 	si, ok := s.serviceByID(tni.Token().ServiceID)
@@ -504,7 +520,7 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 	defer func() {
 		if r := recover(); r != nil {
 			pi = nil
-			err = fmt.Errorf("could not create new protocol: %v", r)
+			err = xerrors.Errorf("could not create new protocol: %v", r)
 			return
 		}
 	}()
@@ -512,6 +528,9 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 	pi, err = si.NewProtocol(tni, config)
 	if pi == nil && err == nil {
 		return defaultHandle()
+	}
+	if err != nil {
+		err = xerrors.Errorf("creating protocol: %v", err)
 	}
 	return
 }

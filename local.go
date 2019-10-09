@@ -2,7 +2,6 @@ package onet
 
 import (
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -17,6 +16,7 @@ import (
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // LeakyTestCheck represents an enum to indicate how deep CloseAll needs to
@@ -139,10 +139,14 @@ func (l *LocalTest) StartProtocol(name string, t *Tree) (ProtocolInstance, error
 		if h.ServerIdentity.ID.Equal(rootServerIdentityID) {
 			// XXX do we really need multiples overlays ? Can't we just use the
 			// Node, since it is already dispatched as like a TreeNode ?
-			return l.Overlays[h.ServerIdentity.ID].StartProtocol(name, t, NilServiceID)
+			pi, err := l.Overlays[h.ServerIdentity.ID].StartProtocol(name, t, NilServiceID)
+			if err != nil {
+				return nil, xerrors.Errorf("creating protocol: %v", err)
+			}
+			return pi, nil
 		}
 	}
-	return nil, errors.New("Didn't find server for tree-root")
+	return nil, xerrors.New("Didn't find server for tree-root")
 }
 
 // CreateProtocol takes a name and a tree and will create a
@@ -154,10 +158,14 @@ func (l *LocalTest) CreateProtocol(name string, t *Tree) (ProtocolInstance, erro
 		if h.ServerIdentity.ID.Equal(rootServerIdentityID) {
 			// XXX do we really need multiples overlays ? Can't we just use the
 			// Node, since it is already dispatched as like a TreeNode ?
-			return l.Overlays[h.ServerIdentity.ID].CreateProtocol(name, t, NilServiceID)
+			pi, err := l.Overlays[h.ServerIdentity.ID].CreateProtocol(name, t, NilServiceID)
+			if err != nil {
+				return nil, xerrors.Errorf("creating protocol: %v", err)
+			}
+			return pi, nil
 		}
 	}
-	return nil, errors.New("Didn't find server for tree-root")
+	return nil, xerrors.New("Didn't find server for tree-root")
 }
 
 // GenServers returns n Servers with a localRouter
@@ -252,7 +260,7 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 		}
 		time.Sleep(t / 10)
 	}
-	return errors.New("still have things lingering: " + strings.Join(lingering, "\n"))
+	return xerrors.New("still have things lingering: " + strings.Join(lingering, "\n"))
 }
 
 // CloseAll closes all the servers.
@@ -369,15 +377,15 @@ func (l *LocalTest) NewTreeNodeInstance(tn *TreeNode, protName string) (*TreeNod
 	l.panicClosed()
 	o := l.Overlays[tn.ServerIdentity.ID]
 	if o == nil {
-		return nil, errors.New("Didn't find corresponding overlay")
+		return nil, xerrors.New("Didn't find corresponding overlay")
 	}
 	tree := l.getTree(tn)
 	if tree == nil {
-		return nil, errors.New("Didn't find tree corresponding to TreeNode")
+		return nil, xerrors.New("Didn't find tree corresponding to TreeNode")
 	}
 	protID := ProtocolNameToID(protName)
 	if !l.Servers[tn.ServerIdentity.ID].protocols.ProtocolExists(protID) {
-		return nil, errors.New("Didn't find protocol: " + protName)
+		return nil, xerrors.New("Didn't find protocol: " + protName)
 	}
 	tok := &Token{
 		TreeID:     tree.ID,
@@ -406,10 +414,10 @@ func (l *LocalTest) sendTreeNode(proto string, from, to *TreeNodeInstance, msg n
 	ft := from.Tree()
 	tt := to.Tree()
 	if ft == nil || tt == nil {
-		return errors.New("cannot find tree")
+		return xerrors.New("cannot find tree")
 	}
 	if !ft.ID.Equal(tt.ID) {
-		return errors.New("Can't send from one tree to another")
+		return xerrors.New("Can't send from one tree to another")
 	}
 	onetMsg := &ProtocolMsg{
 		Msg:     msg,
@@ -418,7 +426,11 @@ func (l *LocalTest) sendTreeNode(proto string, from, to *TreeNodeInstance, msg n
 		To:      to.token,
 	}
 	io := l.Overlays[to.ServerIdentity().ID].protoIO.getByName(proto)
-	return to.overlay.TransmitMsg(onetMsg, io)
+	err := to.overlay.TransmitMsg(onetMsg, io)
+	if err != nil {
+		return xerrors.Errorf("transmitting message: %v", err)
+	}
+	return nil
 }
 
 // addPendingTreeMarshal takes a treeMarshal and adds it to the list of the
@@ -486,7 +498,7 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 		var err error
 		tcpHost, err = network.NewTCPHost(id2, s)
 		if err != nil {
-			panic(err)
+			panic(xerrors.Errorf("tcp host: %v", err))
 		}
 		id.Address = tcpHost.Address()
 		if port != 0 {
@@ -494,7 +506,7 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 		}
 		port, err := strconv.Atoi(id.Address.Port())
 		if err != nil {
-			panic(err)
+			panic(xerrors.Errorf("invalid port: %v", err))
 		}
 		addrWS = net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
 		if l, err := net.Listen("tcp", addrWS); err == nil {

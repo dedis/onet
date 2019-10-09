@@ -15,6 +15,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
+	"golang.org/x/xerrors"
 )
 
 type ContextData struct {
@@ -171,7 +172,10 @@ func createContext(t *testing.T, dbPath string) *Context {
 
 	err = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucket([]byte(name))
-		return err
+		if err != nil {
+			return xerrors.Errorf("creating bucket: %v", err)
+		}
+		return nil
 	})
 	require.Nil(t, err)
 	sm.db = db

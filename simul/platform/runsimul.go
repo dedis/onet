@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/onet/v3/simul/manage"
 	"go.dedis.ch/onet/v3/simul/monitor"
+	"golang.org/x/xerrors"
 )
 
 type simulInit struct{}
@@ -27,7 +27,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 	if monitorAddress != "" {
 		if err := monitor.ConnectSink(monitorAddress); err != nil {
 			log.Error("Couldn't connect monitor to sink:", err)
-			return errors.New("couldn't connect monitor to sink: " + err.Error())
+			return xerrors.New("couldn't connect monitor to sink: " + err.Error())
 		}
 	}
 	sims := make([]onet.Simulation, len(scs))
@@ -45,7 +45,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		cfg := &conf{}
 		_, err := toml.Decode(scs[0].Config, cfg)
 		if err != nil {
-			return errors.New("error while decoding config: " + err.Error())
+			return xerrors.New("error while decoding config: " + err.Error())
 		}
 		measureNodeBW = cfg.IndividualStats == ""
 	}
@@ -78,7 +78,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 
 		sim, err := onet.NewSimulation(simul, sc.Config)
 		if err != nil {
-			return errors.New("couldn't create new simulation: " + err.Error())
+			return xerrors.New("couldn't create new simulation: " + err.Error())
 		}
 		sims[i] = sim
 		// Need to store sc in a tmp-variable so it's correctly passed
@@ -99,7 +99,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
 			log.ErrFatal(err)
 			// not reached because of ErrFatal, but return it anyway.
-			return err
+			return xerrors.Errorf("sending: %v", err)
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
 			wgSimulInit.Done()
@@ -133,7 +133,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		for wait {
 			p, err := rootSC.Overlay.CreateProtocol("Count", rootSC.Tree, onet.NilServiceID)
 			if err != nil {
-				return errors.New("couldn't create protocol: " + err.Error())
+				return xerrors.New("couldn't create protocol: " + err.Error())
 			}
 			proto := p.(*manage.ProtocolCount)
 			proto.SetTimeout(timeout)
@@ -181,7 +181,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		closeTree := rootSC.Roster.GenerateBinaryTree()
 		pi, err := rootSC.Overlay.CreateProtocol("CloseAll", closeTree, onet.NilServiceID)
 		if err != nil {
-			return errors.New("couldn't create closeAll protocol: " + err.Error())
+			return xerrors.New("couldn't create closeAll protocol: " + err.Error())
 		}
 		pi.Start()
 	}
@@ -195,7 +195,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 
 	// Give a chance to the simulation to stop the servers and clean up but returns the simulation error anyway.
 	if simError != nil {
-		return errors.New("error from simulation run: " + simError.Error())
+		return xerrors.New("error from simulation run: " + simError.Error())
 	}
 	return nil
 }

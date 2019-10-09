@@ -2,14 +2,13 @@ package monitor
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net"
 	"time"
 
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // InvalidHostIndex is the default value when the measure is not assigned
@@ -75,12 +74,12 @@ func ConnectSink(addr string) error {
 	global.Lock()
 	defer global.Unlock()
 	if global.connection != nil {
-		return errors.New("Already connected to an endpoint")
+		return xerrors.New("Already connected to an endpoint")
 	}
 	log.Lvl3("Connecting to:", addr)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return err
+		return xerrors.Errorf("dial: %v", err)
 	}
 	log.Lvl3("Connected to sink:", addr)
 	global.sink = addr
@@ -251,7 +250,7 @@ func send(v interface{}) error {
 	global.Lock()
 	defer global.Unlock()
 	if global.connection == nil {
-		return fmt.Errorf("monitor's sink connection not initialized")
+		return xerrors.New("monitor's sink connection not initialized")
 	}
 	// For a large number of clients (˜10'000), the connection phase
 	// can take some time. This is a linear backoff to enable connection
@@ -268,7 +267,7 @@ func send(v interface{}) error {
 		continue
 	}
 	if !ok {
-		return errors.New("Could not send any measures")
+		return xerrors.New("Could not send any measures")
 	}
 	return nil
 }

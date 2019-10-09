@@ -7,10 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"errors"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -24,12 +23,12 @@ func TestTime(t *testing.T) {
 	SetDebugVisible(1)
 	GetStdOut()
 	Lvl1("No time")
-	assert.True(t, containsStdOut("1 : ("))
+	assert.True(t, containsStdOut("1 : "))
 	SetShowTime(true)
 	defer func() { SetShowTime(false) }()
 	Lvl1("With time")
 	str := GetStdOut()
-	if strings.Contains(str, "1 : (") {
+	if strings.Contains(str, "1 : ") {
 		t.Fatal("Didn't get correct string: ", str)
 	}
 	if strings.Contains(str, " +") {
@@ -55,6 +54,9 @@ func TestFlags(t *testing.T) {
 	if ShowTime() {
 		t.Fatal("ShowTime should be false")
 	}
+	if AbsoluteFilePath() {
+		t.Fatal("AbsoluteFilePath should be false")
+	}
 	if UseColors() {
 		t.Fatal("UseColors should be false")
 	}
@@ -64,6 +66,7 @@ func TestFlags(t *testing.T) {
 
 	os.Setenv("DEBUG_LVL", "3")
 	os.Setenv("DEBUG_TIME", "true")
+	os.Setenv("DEBUG_FILEPATH", "true")
 	os.Setenv("DEBUG_COLOR", "false")
 	os.Setenv("DEBUG_PADDING", "false")
 	ParseEnv()
@@ -72,6 +75,9 @@ func TestFlags(t *testing.T) {
 	}
 	if !ShowTime() {
 		t.Fatal("ShowTime should be true")
+	}
+	if !AbsoluteFilePath() {
+		t.Fatal("AbsoluteFilePath sgould be true")
 	}
 	if UseColors() {
 		t.Fatal("UseColors should be false")
@@ -140,20 +146,20 @@ func checkOutput(f func(), wantsStd, wantsErr bool) error {
 	errStr := GetStdErr()
 	if wantsStd {
 		if len(stdStr) == 0 {
-			return errors.New("Stdout was empty")
+			return xerrors.New("Stdout was empty")
 		}
 	} else {
 		if len(stdStr) > 0 {
-			return errors.New("Stdout was full")
+			return xerrors.New("Stdout was full")
 		}
 	}
 	if wantsErr {
 		if len(errStr) == 0 {
-			return errors.New("Stderr was empty")
+			return xerrors.New("Stderr was empty")
 		}
 	} else {
 		if len(errStr) > 0 {
-			return errors.New("Stderr was full")
+			return xerrors.New("Stderr was full")
 		}
 	}
 	return nil
@@ -171,8 +177,8 @@ func ExampleLvl2() {
 	SetDebugVisible(1)
 
 	// Output:
-	// 1 : (                         log.ExampleLvl2:   0) - Level1
-	// 2 : (                         log.ExampleLvl2:   0) - Level2
+	// 1 : fake_name.go:0 (log.ExampleLvl2)         - Level1
+	// 2 : fake_name.go:0 (log.ExampleLvl2)         - Level2
 }
 
 func ExampleLvl1() {
@@ -181,7 +187,7 @@ func ExampleLvl1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 : (                         log.ExampleLvl1:   0) - Multiple parameters
+	// 1 : fake_name.go:0 (log.ExampleLvl1)         - Multiple parameters
 }
 
 func ExampleLLvl1() {
@@ -193,10 +199,10 @@ func ExampleLLvl1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 : (                        log.ExampleLLvl1:   0) - Lvl output
-	// 1!: (                        log.ExampleLLvl1:   0) - LLvl output
-	// 1 : (                        log.ExampleLLvl1:   0) - Lvlf output
-	// 1!: (                        log.ExampleLLvl1:   0) - LLvlf output
+	// 1 : fake_name.go:0 (log.ExampleLLvl1)        - Lvl output
+	// 1!: fake_name.go:0 (log.ExampleLLvl1)        - LLvl output
+	// 1 : fake_name.go:0 (log.ExampleLLvl1)        - Lvlf output
+	// 1!: fake_name.go:0 (log.ExampleLLvl1)        - LLvlf output
 }
 
 func thisIsAVeryLongFunctionNameThatWillOverflow() {
@@ -212,9 +218,9 @@ func ExampleLvlf1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 : (                        log.ExampleLvlf1:   0) - Before
-	// 1 : (log.thisIsAVeryLongFunctionNameThatWillOverflow:   0) - Overflow
-	// 1 : (                        log.ExampleLvlf1:   0) - After
+	// 1 : fake_name.go:0 (log.ExampleLvlf1)        - Before
+	// 1 : fake_name.go:0 (log.thisIsAVeryLongFunctionNameThatWillOverflow) - Overflow
+	// 1 : fake_name.go:0 (log.ExampleLvlf1)        - After
 }
 
 func ExampleLvl3() {
@@ -226,9 +232,9 @@ func ExampleLvl3() {
 	OutputToBuf()
 
 	// Output:
-	// 1 : (log.ExampleLvl3:   0) - Before
-	// 1 : (log.thisIsAVeryLongFunctionNameThatWillOverflow:   0) - Overflow
-	// 1 : (log.ExampleLvl3:   0) - After
+	// 1 : fake_name.go:0 (log.ExampleLvl3) - Before
+	// 1 : fake_name.go:0 (log.thisIsAVeryLongFunctionNameThatWillOverflow) - Overflow
+	// 1 : fake_name.go:0 (log.ExampleLvl3) - After
 }
 
 func clearEnv() {

@@ -29,8 +29,17 @@ func Warn(args ...interface{}) {
 	lvlUI(lvlWarning, args...)
 }
 
-// Error prints out the error message and quits
+// Error prints out the error message and quits. If the
+// argument is an error, it will print the stack trace.
 func Error(args ...interface{}) {
+	last := len(args) - 1
+	if last >= 0 {
+		err, ok := args[last].(error)
+		if ok {
+			args[last] = fmt.Sprintf("%+v", err)
+		}
+	}
+
 	lvlUI(lvlError, args...)
 }
 

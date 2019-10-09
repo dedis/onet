@@ -2,7 +2,6 @@ package onet
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"sync"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 )
 
 const dummyServiceName = "dummyService"
@@ -644,7 +644,7 @@ func (ds *DummyService) ProcessClientRequest(req *http.Request, path string, buf
 	err := protobuf.Decode(buf, msg)
 	if err != nil {
 		ds.link <- false
-		return nil, nil, errors.New("wrong message")
+		return nil, nil, xerrors.New("wrong message")
 	}
 	if ds.firstTni == nil {
 		ds.firstTni = ds.c.NewTreeNodeInstance(ds.fakeTree, ds.fakeTree.Root, dummyServiceName)

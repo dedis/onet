@@ -3,7 +3,6 @@ package onet
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 )
 
 // ServiceProcessor allows for an easy integration of external messages
@@ -57,12 +57,12 @@ var errType = reflect.TypeOf((*error)(nil)).Elem()
 // network.Body will be converted to Body.
 func (p *ServiceProcessor) RegisterHandler(f interface{}) error {
 	if err := handlerInputCheck(f); err != nil {
-		return err
+		return xerrors.Errorf("input check: %v", err)
 	}
 
 	pm, sh, err := createServiceHandler(f)
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating handler: %v", err)
 	}
 	p.handlers[pm] = sh
 
@@ -93,32 +93,32 @@ func (p *ServiceProcessor) RegisterStreamingHandler(f interface{}) error {
 	// check output
 	ft := reflect.TypeOf(f)
 	if ft.NumOut() != 3 {
-		return errors.New("Need 3 return values: chan interface{}, chan bool and error")
+		return xerrors.New("Need 3 return values: chan interface{}, chan bool and error")
 	}
 	// first output
 	ret0 := ft.Out(0)
 	if ret0.Kind() != reflect.Chan {
-		return errors.New("1st return value must be a channel")
+		return xerrors.New("1st return value must be a channel")
 	}
 	if ret0.Elem().Kind() != reflect.Interface {
 		if ret0.Elem().Kind() != reflect.Ptr {
-			return errors.New("1st return value must be a channel of a *pointer* to a struct")
+			return xerrors.New("1st return value must be a channel of a *pointer* to a struct")
 		}
 		if ret0.Elem().Elem().Kind() != reflect.Struct {
-			return errors.New("1st return value must be a channel of a pointer to a *struct*")
+			return xerrors.New("1st return value must be a channel of a pointer to a *struct*")
 		}
 	}
 	// second output
 	ret1 := ft.Out(1)
 	if ret1.Kind() != reflect.Chan {
-		return errors.New("2nd return value must be a channel")
+		return xerrors.New("2nd return value must be a channel")
 	}
 	if ret1.Elem().Kind() != reflect.Bool {
-		return errors.New("2nd return value must be a boolean channel")
+		return xerrors.New("2nd return value must be a boolean channel")
 	}
 	// third output
 	if !ft.Out(2).Implements(errType) {
-		return errors.New("3rd return value has to implement error, but is: " +
+		return xerrors.New("3rd return value has to implement error, but is: " +
 			ft.Out(2).String())
 	}
 
@@ -151,7 +151,7 @@ const (
 func prepareHandlerGET(f interface{}) (kindGET, string, error) {
 	in0 := reflect.TypeOf(f).In(0).Elem()
 	if in0.Kind() != reflect.Struct {
-		return invalidGET, "", errors.New("input argument must be a struct")
+		return invalidGET, "", xerrors.New("input argument must be a struct")
 	}
 	if in0.NumField() == 0 {
 		return emptyGET, "", nil
@@ -162,9 +162,9 @@ func prepareHandlerGET(f interface{}) (kindGET, string, error) {
 		} else if in0.Field(0).Type.Kind() == reflect.Int {
 			return intGET, in0.Field(0).Name, nil
 		}
-		return invalidGET, "", errors.New("only byte slices and int are supported")
+		return invalidGET, "", xerrors.New("only byte slices and int are supported")
 	}
-	return invalidGET, "", errors.New("number of fields must be 0 or 1")
+	return invalidGET, "", xerrors.New("number of fields must be 0 or 1")
 }
 
 // RegisterRESTHandler takes a callback of type
@@ -191,36 +191,36 @@ func prepareHandlerGET(f interface{}) (kindGET, string, error) {
 func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method string, minVersion, maxVersion int) error {
 	// TODO support more methods
 	if method != "GET" && method != "POST" && method != "PUT" {
-		return errors.New("invalid REST method")
+		return xerrors.New("invalid REST method")
 	}
 	if minVersion > maxVersion {
-		return errors.New("min version is greater than max version")
+		return xerrors.New("min version is greater than max version")
 	}
 	if minVersion < 3 {
-		return errors.New("earliest supported API level must be greater or equal to 3")
+		return xerrors.New("earliest supported API level must be greater or equal to 3")
 	}
 	if err := handlerInputCheck(f); err != nil {
-		return err
+		return xerrors.Errorf("input check: %v", err)
 	}
 	resource, sh, err := createServiceHandler(f)
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating handler: %v", err)
 	}
 	var k kindGET
 	if method == "GET" {
 		k, _, err = prepareHandlerGET(f)
 		if err != nil {
-			return err
+			return xerrors.Errorf("preparing get handler: %v", err)
 		}
 	}
 
 	intRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/\d+$`, namespace, resource))
 	if err != nil {
-		return err
+		return xerrors.Errorf("regex: %v", err)
 	}
 	sliceRegex, err := regexp.Compile(fmt.Sprintf(`^/v\d/%s/%s/[0-9a-f]+$`, namespace, resource))
 	if err != nil {
-		return err
+		return xerrors.Errorf("regex: %v", err)
 	}
 	val0 := reflect.New(sh.msgType)
 
@@ -318,24 +318,24 @@ func createServiceHandler(f interface{}) (string, serviceHandler, error) {
 	// check output
 	ft := reflect.TypeOf(f)
 	if ft.NumOut() != 2 {
-		return "", serviceHandler{}, errors.New("Need 2 return values: network.Body and error")
+		return "", serviceHandler{}, xerrors.New("Need 2 return values: network.Body and error")
 	}
 	// first output
 	ret := ft.Out(0)
 	if ret.Kind() != reflect.Interface {
 		if ret.Kind() != reflect.Ptr {
 			return "", serviceHandler{},
-				errors.New("1st return value must be a *pointer* to a struct or an interface")
+				xerrors.New("1st return value must be a *pointer* to a struct or an interface")
 		}
 		if ret.Elem().Kind() != reflect.Struct {
 			return "", serviceHandler{},
-				errors.New("1st return value must be a pointer to a *struct* or an interface")
+				xerrors.New("1st return value must be a pointer to a *struct* or an interface")
 		}
 	}
 	// second output
 	if !ft.Out(1).Implements(errType) {
 		return "", serviceHandler{},
-			errors.New("2nd return value has to implement error, but is: " + ft.Out(1).String())
+			xerrors.New("2nd return value has to implement error, but is: " + ft.Out(1).String())
 	}
 
 	cr := ft.In(0)
@@ -348,17 +348,17 @@ func createServiceHandler(f interface{}) (string, serviceHandler, error) {
 func handlerInputCheck(f interface{}) error {
 	ft := reflect.TypeOf(f)
 	if ft.Kind() != reflect.Func {
-		return errors.New("Input is not a function")
+		return xerrors.New("Input is not a function")
 	}
 	if ft.NumIn() != 1 {
-		return errors.New("Need one argument: *struct")
+		return xerrors.New("Need one argument: *struct")
 	}
 	cr := ft.In(0)
 	if cr.Kind() != reflect.Ptr {
-		return errors.New("Argument must be a *pointer* to a struct")
+		return xerrors.New("Argument must be a *pointer* to a struct")
 	}
 	if cr.Elem().Kind() != reflect.Struct {
-		return errors.New("Argument must be a pointer to *struct*")
+		return xerrors.New("Argument must be a pointer to *struct*")
 	}
 	return nil
 }
@@ -368,7 +368,7 @@ func handlerInputCheck(f interface{}) error {
 func (p *ServiceProcessor) RegisterHandlers(procs ...interface{}) error {
 	for _, pr := range procs {
 		if err := p.RegisterHandler(pr); err != nil {
-			return err
+			return xerrors.Errorf("registering handler: %v", err)
 		}
 	}
 	return nil
@@ -379,7 +379,7 @@ func (p *ServiceProcessor) RegisterHandlers(procs ...interface{}) error {
 func (p *ServiceProcessor) RegisterStreamingHandlers(procs ...interface{}) error {
 	for _, pr := range procs {
 		if err := p.RegisterStreamingHandler(pr); err != nil {
-			return err
+			return xerrors.Errorf("registering handler: %v", err)
 		}
 	}
 	return nil
@@ -410,7 +410,7 @@ type StreamingTunnel struct {
 func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interface{}, ch chan bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic with %v", r)
+			err = xerrors.Errorf("panic with %v", r)
 		}
 	}()
 
@@ -424,7 +424,7 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	if streaming {
 		ierr := ret[2].Interface()
 		if ierr != nil {
-			err = ierr.(error)
+			err = xerrors.Errorf("processing error: %v", ierr)
 			return
 		}
 
@@ -434,7 +434,7 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	}
 	ierr := ret[1].Interface()
 	if ierr != nil {
-		err = ierr.(error)
+		err = xerrors.Errorf("processing error: %v", ierr)
 		return
 	}
 
@@ -448,14 +448,14 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 	mh, ok := p.handlers[path]
 	reply, stopServiceChan, err := func() (interface{}, chan bool, error) {
 		if !ok {
-			err := errors.New("The requested message hasn't been registered: " + path)
+			err := xerrors.New("The requested message hasn't been registered: " + path)
 			log.Error(err)
 			return nil, nil, err
 		}
 		msg := reflect.New(mh.msgType).Interface()
 		if err := protobuf.DecodeWithConstructors(buf, msg,
 			network.DefaultConstructors(p.Context.server.Suite())); err != nil {
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("decoding: %v", err)
 		}
 		return callInterfaceFunc(mh.handler, msg, mh.streaming)
 	}()
@@ -507,7 +507,7 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 	buf, err = protobuf.Encode(reply)
 	if err != nil {
 		log.Error(err)
-		return nil, nil, errors.New("")
+		return nil, nil, xerrors.Errorf("encoding: %v", err)
 	}
 	return buf, nil, nil
 }

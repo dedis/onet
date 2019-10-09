@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 var pairingSuite = suites.MustFind("bn256.adapter")
@@ -151,14 +151,14 @@ func createBFTree(hosts, bf int, tls bool, addresses []string) (*SimulationConfi
 	}
 	sb.CreateRoster(sc, addresses, 2000)
 	if len(sc.Roster.List) != hosts {
-		return nil, nil, errors.New("Didn't get correct number of entities")
+		return nil, nil, xerrors.New("Didn't get correct number of entities")
 	}
 	err := sb.CreateTree(sc)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !sc.Tree.IsNary(sc.Tree.Root, bf) {
-		return nil, nil, errors.New("Tree isn't " + strconv.Itoa(bf) + "-ary")
+		return nil, nil, xerrors.New("Tree isn't " + strconv.Itoa(bf) + "-ary")
 	}
 
 	return sc, sb, nil

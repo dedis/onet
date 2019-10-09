@@ -1,13 +1,13 @@
 package network
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/xerrors"
 )
 
 func TestLocalRouter(t *testing.T) {
@@ -98,8 +98,8 @@ func TestLocalConnCloseReceive(t *testing.T) {
 	<-ready
 	<-ready
 	_, err = outgoing.Receive()
-	assert.Equal(t, ErrClosed, err)
-	assert.Equal(t, ErrClosed, outgoing.Close())
+	assert.True(t, xerrors.Is(err, ErrClosed))
+	assert.True(t, xerrors.Is(outgoing.Close(), ErrClosed))
 	assert.Nil(t, listener.Stop())
 }
 
@@ -150,10 +150,10 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 	handshake := func(c Conn, sending, receiving Address) error {
 		sentLen, err := c.Send(&AddressTest{sending, int64(secret)})
 		if err != nil {
-			return err
+			return xerrors.Errorf("sending: %v", err)
 		}
 		if sentLen == 0 {
-			return fmt.Errorf("sentLen is zero")
+			return xerrors.Errorf("sentLen is zero")
 		}
 
 		p, err := c.Receive()
@@ -163,10 +163,10 @@ func testConnListener(ctx *LocalManager, done chan error, listenA, connA *Server
 
 		at := p.Msg.(*AddressTest)
 		if at.Addr != receiving {
-			return fmt.Errorf("Receiveid wrong address")
+			return xerrors.New("Receiveid wrong address")
 		}
 		if at.Val != int64(secret) {
-			return fmt.Errorf("Received wrong secret")
+			return xerrors.New("Received wrong secret")
 		}
 		return nil
 	}
@@ -284,10 +284,10 @@ func testLocalConn(t *testing.T, a1, a2 Address) {
 	<-incomingConn
 	// close the incoming conn, so Receive here should return an error
 	nm, err = outgoing.Receive()
-	if err != ErrClosed {
+	if !xerrors.Is(err, ErrClosed) {
 		t.Error("Receive should have returned an error")
 	}
-	assert.Equal(t, ErrClosed, outgoing.Close())
+	assert.True(t, xerrors.Is(outgoing.Close(), ErrClosed))
 	// close the listener
 	assert.Nil(t, listener.Stop())
 	<-ready

@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"errors"
 	"math"
 	"time"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/simul/monitor"
 	"go.dedis.ch/onet/v3/simul/platform"
+	"golang.org/x/xerrors"
 )
 
 // Configuration-variables
@@ -193,12 +193,12 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 
 	if err := deployP.Cleanup(); err != nil {
 		log.Error(err)
-		return nil, err
+		return nil, xerrors.Errorf("cleanup: %v", err)
 	}
 
 	if err := deployP.Deploy(rc); err != nil {
 		log.Error(err)
-		return nil, err
+		return nil, xerrors.Errorf("deploy: %v", err)
 	}
 
 	m := monitor.NewMonitor(stats[0])
@@ -210,7 +210,7 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 	buckets, err := rc.GetBuckets()
 	if err != nil {
 		if err != platform.ErrorFieldNotPresent {
-			return nil, err
+			return nil, xerrors.Errorf("db bucket: %v", err)
 		}
 
 		// Do nothing, there won't be any bucket.
@@ -258,11 +258,11 @@ func RunTest(deployP platform.Platform, rc *platform.RunConfig) ([]*monitor.Stat
 	select {
 	case err := <-done:
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("simulation error: %v", err)
 		}
 		return stats, nil
 	case <-time.After(timeout):
-		return nil, errors.New("simulation timeout")
+		return nil, xerrors.New("simulation timeout")
 	}
 }
 
