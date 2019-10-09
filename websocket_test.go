@@ -325,6 +325,59 @@ func TestClientTLS_Send(t *testing.T) {
 	require.True(t, client.Tx() > client.Rx())
 }
 
+func TestClientTLS_certfile_Send(t *testing.T) {
+	// like TestClientTLSfile_Send, but uses cert and key from a file
+	// to solve issue 583.
+	cert, key, err := getSelfSignedCertificateAndKey()
+	require.Nil(t, err)
+	CAPool := x509.NewCertPool()
+	CAPool.AppendCertsFromPEM(cert)
+
+	f1, err := ioutil.TempFile("", "cert")
+	require.NoError(t, err)
+	defer os.Remove(f1.Name())
+	f1.Write(cert)
+	f1.Close()
+
+	f2, err := ioutil.TempFile("", "key")
+	require.NoError(t, err)
+	defer os.Remove(f2.Name())
+	f2.Write(key)
+	f2.Close()
+
+	local := NewTCPTest(tSuite)
+	local.webSocketTLSCertificate = []byte(f1.Name())
+	local.webSocketTLSCertificateKey = []byte(f2.Name())
+	local.webSocketTLSReadFiles = true
+	defer local.CloseAll()
+
+	// register service
+	RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+		return &simpleService{
+			ctx: c,
+		}, nil
+	})
+	defer ServiceFactory.Unregister(backForthServiceName)
+
+	// create servers
+	servers, el, _ := local.GenTree(4, false)
+	client := local.NewClient(backForthServiceName)
+	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
+
+	r := &SimpleRequest{
+		ServerIdentities: el,
+		Val:              10,
+	}
+	sr := &SimpleResponse{}
+	require.Equal(t, uint64(0), client.Rx())
+	require.Equal(t, uint64(0), client.Tx())
+	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+	require.Equal(t, sr.Val, int64(10))
+	require.NotEqual(t, uint64(0), client.Rx())
+	require.NotEqual(t, uint64(0), client.Tx())
+	require.True(t, client.Tx() > client.Rx())
+}
+
 func TestClient_Parallel(t *testing.T) {
 	nbrNodes := 4
 	nbrParallel := 20
