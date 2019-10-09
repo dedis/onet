@@ -86,12 +86,12 @@ func lvl(lvl, skip int, args ...interface{}) {
 			continue
 		}
 
-		_, fn, line, _ := runtime.Caller(skip)
+		pc, fn, line, _ := runtime.Caller(skip)
+		funcName := filepath.Base(runtime.FuncForPC(pc).Name())
 		name := fn
 		if !lInfo.AbsoluteFilePath {
 			name = filepath.Base(fn)
 		}
-		lineStr := fmt.Sprintf("%d", line)
 
 		// For the testing-framework, we check the resulting string. So as not to
 		// have the tests fail every time somebody moves the functions, we put
@@ -101,13 +101,12 @@ func lvl(lvl, skip int, args ...interface{}) {
 			name = "fake_name.go"
 		}
 
+		caller := fmt.Sprintf("%s:%d (%s)", name, line, funcName)
+
 		if lInfo.UseColors {
 			// Only adjust the name and line padding if we also have color.
-			if len(name) > NamePadding && NamePadding > 0 {
-				NamePadding = len(name)
-			}
-			if len(lineStr) > LinePadding && LinePadding > 0 {
-				LinePadding = len(lineStr)
+			if len(caller) > NamePadding && NamePadding > 0 {
+				NamePadding = len(caller)
 			}
 		}
 
@@ -115,8 +114,6 @@ func lvl(lvl, skip int, args ...interface{}) {
 		if lInfo.Padding {
 			namePadding = NamePadding
 		}
-		fmtstr := fmt.Sprintf("%%%ds:%%d", namePadding)
-		caller := fmt.Sprintf(fmtstr, name, line)
 		if StaticMsg != "" {
 			caller += "@" + StaticMsg
 		}
@@ -144,7 +141,8 @@ func lvl(lvl, skip int, args ...interface{}) {
 		case lvlPanic:
 			lvlStr = "P"
 		}
-		str := fmt.Sprintf(": %s - %s", caller, message)
+		fmtstr := fmt.Sprintf(": %%-%ds - %%s", namePadding)
+		str := fmt.Sprintf(fmtstr, caller, message)
 		if lInfo.ShowTime {
 			ti := time.Now()
 			str = fmt.Sprintf("%s.%09d%s", ti.Format("06/02/01 15:04:05"), ti.Nanosecond(), str)

@@ -36,11 +36,11 @@ func TestError(t *testing.T) {
 func TestLvl(t *testing.T) {
 	SetDebugVisible(1)
 	Info("TestLvl")
-	assert.Contains(t, GetStdOut(), "I :                             fake_name.go:0 - TestLvl\n")
+	assert.Contains(t, GetStdOut(), "I : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 	Print("TestLvl")
-	assert.Contains(t, GetStdOut(), "I :                             fake_name.go:0 - TestLvl\n")
+	assert.Contains(t, GetStdOut(), "I : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 	Warn("TestLvl")
-	assert.Contains(t, GetStdErr(), "W :                             fake_name.go:0 - TestLvl\n")
+	assert.Contains(t, GetStdErr(), "W : fake_name.go:0 (log.TestLvl)             - TestLvl\n")
 }
 
 func TestPanic(t *testing.T) {

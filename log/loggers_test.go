@@ -87,6 +87,6 @@ func TestFileLogger(t *testing.T) {
 	Lvl2("testing2")
 	out, err := ioutil.ReadFile(path)
 	require.Nil(t, err)
-	require.Equal(t, "1 : fake_name.go:0 - testing1\n"+
-		"2 : fake_name.go:0 - testing2\n", string(out))
+	require.Equal(t, "1 : fake_name.go:0 (log.TestFileLogger) - testing1\n"+
+		"2 : fake_name.go:0 (log.TestFileLogger) - testing2\n", string(out))
 }

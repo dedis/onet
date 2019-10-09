@@ -170,8 +170,8 @@ func ExampleLvl2() {
 	SetDebugVisible(1)
 
 	// Output:
-	// 1 :                             fake_name.go:0 - Level1
-	// 2 :                             fake_name.go:0 - Level2
+	// 1 : fake_name.go:0 (log.ExampleLvl2)         - Level1
+	// 2 : fake_name.go:0 (log.ExampleLvl2)         - Level2
 }
 
 func ExampleLvl1() {
@@ -180,7 +180,7 @@ func ExampleLvl1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 :                             fake_name.go:0 - Multiple parameters
+	// 1 : fake_name.go:0 (log.ExampleLvl1)         - Multiple parameters
 }
 
 func ExampleLLvl1() {
@@ -192,10 +192,10 @@ func ExampleLLvl1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 :                             fake_name.go:0 - Lvl output
-	// 1!:                             fake_name.go:0 - LLvl output
-	// 1 :                             fake_name.go:0 - Lvlf output
-	// 1!:                             fake_name.go:0 - LLvlf output
+	// 1 : fake_name.go:0 (log.ExampleLLvl1)        - Lvl output
+	// 1!: fake_name.go:0 (log.ExampleLLvl1)        - LLvl output
+	// 1 : fake_name.go:0 (log.ExampleLLvl1)        - Lvlf output
+	// 1!: fake_name.go:0 (log.ExampleLLvl1)        - LLvlf output
 }
 
 func thisIsAVeryLongFunctionNameThatWillOverflow() {
@@ -211,9 +211,9 @@ func ExampleLvlf1() {
 	OutputToBuf()
 
 	// Output:
-	// 1 :                             fake_name.go:0 - Before
-	// 1 :                             fake_name.go:0 - Overflow
-	// 1 :                             fake_name.go:0 - After
+	// 1 : fake_name.go:0 (log.ExampleLvlf1)        - Before
+	// 1 : fake_name.go:0 (log.thisIsAVeryLongFunctionNameThatWillOverflow) - Overflow
+	// 1 : fake_name.go:0 (log.ExampleLvlf1)        - After
 }
 
 func ExampleLvl3() {
@@ -225,9 +225,9 @@ func ExampleLvl3() {
 	OutputToBuf()
 
 	// Output:
-	// 1 : fake_name.go:0 - Before
-	// 1 : fake_name.go:0 - Overflow
-	// 1 : fake_name.go:0 - After
+	// 1 : fake_name.go:0 (log.ExampleLvl3) - Before
+	// 1 : fake_name.go:0 (log.thisIsAVeryLongFunctionNameThatWillOverflow) - Overflow
+	// 1 : fake_name.go:0 (log.ExampleLvl3) - After
 }
 
 func clearEnv() {
