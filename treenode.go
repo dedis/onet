@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"go.dedis.ch/kyber/v3"
+	"go.dedis.ch/kyber/v4"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"golang.org/x/xerrors"
