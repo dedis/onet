@@ -1,17 +1,13 @@
 package network
 
 import (
-	"bytes"
 	"net"
 	"strings"
 	"sync"
 	"time"
 
-	"go.dedis.ch/kyber/v4"
-	"go.dedis.ch/kyber/v4/suites"
-	"go.dedis.ch/kyber/v4/util/encoding"
-	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/ciphersuite"
+
 	"go.dedis.ch/protobuf"
 	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
@@ -71,7 +67,7 @@ type Envelope struct {
 // It's based on a public key, and there can be one or more addresses to contact it.
 type ServerIdentity struct {
 	// This is the public key of that ServerIdentity
-	Public kyber.Point
+	PublicKey *ciphersuite.CipherData
 	// This is the configuration for the services
 	ServiceIdentities []ServiceIdentity
 	// The ServerIdentityID corresponding to that public key
@@ -82,7 +78,7 @@ type ServerIdentity struct {
 	Description string
 	// This is the private key, may be nil. It is not exported so that it will never
 	// be marshalled.
-	private kyber.Scalar
+	secretKey *ciphersuite.CipherData
 	// The URL where the WebSocket interface can be found. (If not set, then default is http, on port+1.)
 	// optional
 	URL string `protobuf:"opt"`
@@ -94,30 +90,23 @@ type ServerIdentityID uuid.UUID
 // ServiceIdentity contains the identity of a service which is its public and
 // private keys
 type ServiceIdentity struct {
-	Name    string
-	Suite   string
-	Public  kyber.Point
-	private kyber.Scalar
+	Name      string
+	PublicKey *ciphersuite.CipherData
+	secretKey *ciphersuite.CipherData
 }
 
 // GetPrivate returns the private key of the service identity if available
-func (sid *ServiceIdentity) GetPrivate() kyber.Scalar {
-	return sid.private
+func (sid *ServiceIdentity) GetPrivate() *ciphersuite.CipherData {
+	return sid.secretKey
 }
 
 // NewServiceIdentity creates a new identity
-func NewServiceIdentity(name string, suite suites.Suite, public kyber.Point, private kyber.Scalar) ServiceIdentity {
+func NewServiceIdentity(name string, public *ciphersuite.CipherData, private *ciphersuite.CipherData) ServiceIdentity {
 	return ServiceIdentity{
-		Name:    name,
-		Suite:   suite.String(),
-		Public:  public,
-		private: private,
+		Name:      name,
+		PublicKey: public,
+		secretKey: private,
 	}
-}
-
-// NewServiceIdentityFromPair creates a new identity using the provided key pair
-func NewServiceIdentityFromPair(name string, suite suites.Suite, kp *key.Pair) ServiceIdentity {
-	return NewServiceIdentity(name, suite, kp.Public, kp.Private)
 }
 
 // ServiceIdentities provides definitions to sort the array by service name
@@ -159,31 +148,29 @@ var ServerIdentityType = RegisterMessage(ServerIdentity{})
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
-	Public  string
-	Address Address
+	PublicKey ciphersuite.CipherData
+	Address   Address
 }
 
 // NewServerIdentity creates a new ServerIdentity based on a public key and with a slice
 // of IP-addresses where to find that entity. The Id is based on a
 // version5-UUID which can include a URL that is based on it's public key.
-func NewServerIdentity(public kyber.Point, address Address) *ServerIdentity {
+func NewServerIdentity(public *ciphersuite.CipherData, address Address) *ServerIdentity {
 	si := &ServerIdentity{
-		Public:  public,
-		Address: address,
+		PublicKey: public,
+		Address:   address,
 	}
-	if public != nil {
-		url := NamespaceURL + "id/" + public.String()
-		si.ID = ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url))
-	}
+	url := NamespaceURL + "id/" + public.String()
+	si.ID = ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url))
 	return si
 }
 
 // Equal tests on same public key
 func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
-	if si == nil || e2 == nil || si.Public == nil {
+	if si == nil || e2 == nil {
 		return false
 	}
-	return si.Public.Equal(e2.Public)
+	return si.PublicKey.Equal(e2.PublicKey)
 }
 
 // SetPrivate sets a private key associated with this ServerIdentity.
@@ -191,44 +178,44 @@ func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
 //
 // Before calling NewTCPRouter for a TLS server, you must set the private
 // key with SetPrivate.
-func (si *ServerIdentity) SetPrivate(p kyber.Scalar) {
-	si.private = p
+func (si *ServerIdentity) SetPrivate(p *ciphersuite.CipherData) {
+	si.secretKey = p
 }
 
 // GetPrivate returns the private key set with SetPrivate.
-func (si *ServerIdentity) GetPrivate() kyber.Scalar {
-	return si.private
+func (si *ServerIdentity) GetPrivate() *ciphersuite.CipherData {
+	return si.secretKey
 }
 
 // ServicePublic returns the public key of the service or the default
 // one if the service has not been registered with a suite
-func (si *ServerIdentity) ServicePublic(name string) kyber.Point {
+func (si *ServerIdentity) ServicePublic(name string) *ciphersuite.CipherData {
 	for _, srvid := range si.ServiceIdentities {
 		if srvid.Name == name {
-			return srvid.Public
+			return srvid.PublicKey
 		}
 	}
 
-	return si.Public
+	return si.PublicKey
 }
 
 // ServicePrivate returns the private key of the service or the default
 // one if the service has not been registered with a suite
-func (si *ServerIdentity) ServicePrivate(name string) kyber.Scalar {
+func (si *ServerIdentity) ServicePrivate(name string) *ciphersuite.CipherData {
 	for _, srvid := range si.ServiceIdentities {
 		if srvid.Name == name {
-			return srvid.private
+			return srvid.secretKey
 		}
 	}
 
-	return si.private
+	return si.secretKey
 }
 
 // HasServiceKeyPair returns true if the public and private keys are
 // generated for the given service. The default key pair is ignored.
 func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
 	for _, srvid := range si.ServiceIdentities {
-		if srvid.Name == name && srvid.Public != nil && srvid.private != nil {
+		if srvid.Name == name && srvid.PublicKey != nil && srvid.secretKey != nil {
 			return true
 		}
 	}
@@ -240,7 +227,7 @@ func (si *ServerIdentity) HasServiceKeyPair(name string) bool {
 // generated for the given service. The default public key is ignored.
 func (si *ServerIdentity) HasServicePublic(name string) bool {
 	for _, srvid := range si.ServiceIdentities {
-		if srvid.Name == name && srvid.Public != nil {
+		if srvid.Name == name && srvid.PublicKey != nil {
 			return true
 		}
 	}
@@ -248,26 +235,18 @@ func (si *ServerIdentity) HasServicePublic(name string) bool {
 }
 
 // Toml converts an ServerIdentity to a Toml-structure
-func (si *ServerIdentity) Toml(suite Suite) *ServerIdentityToml {
-	var buf bytes.Buffer
-	if err := encoding.WriteHexPoint(suite, &buf, si.Public); err != nil {
-		log.Error("Error while writing public key:", err)
-	}
+func (si *ServerIdentity) Toml() *ServerIdentityToml {
 	return &ServerIdentityToml{
-		Address: si.Address,
-		Public:  buf.String(),
+		Address:   si.Address,
+		PublicKey: *si.PublicKey,
 	}
 }
 
 // ServerIdentity converts an ServerIdentityToml structure back to an ServerIdentity
-func (si *ServerIdentityToml) ServerIdentity(suite Suite) *ServerIdentity {
-	pub, err := encoding.ReadHexPoint(suite, strings.NewReader(si.Public))
-	if err != nil {
-		log.Error("Error while reading public key:", err)
-	}
+func (si *ServerIdentityToml) ServerIdentity() *ServerIdentity {
 	return &ServerIdentity{
-		Public:  pub,
-		Address: si.Address,
+		PublicKey: &si.PublicKey,
+		Address:   si.Address,
 	}
 }
 

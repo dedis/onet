@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
@@ -37,8 +38,8 @@ func NewTCPAddress(addr string) Address {
 }
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
-func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
-	r, err := NewTCPRouterWithListenAddr(sid, suite, "")
+func NewTCPRouter(cr *ciphersuite.Registry, sid *ServerIdentity) (*Router, error) {
+	r, err := NewTCPRouterWithListenAddr(cr, sid, "")
 	if err != nil {
 		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
@@ -47,9 +48,8 @@ func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
 
 // NewTCPRouterWithListenAddr returns a new Router using TCPHost with the
 // given listen address as the underlying Host.
-func NewTCPRouterWithListenAddr(sid *ServerIdentity, suite Suite,
-	listenAddr string) (*Router, error) {
-	h, err := NewTCPHostWithListenAddr(sid, suite, listenAddr)
+func NewTCPRouterWithListenAddr(cr *ciphersuite.Registry, sid *ServerIdentity, listenAddr string) (*Router, error) {
+	h, err := NewTCPHostWithListenAddr(cr, sid, listenAddr)
 	if err != nil {
 		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
@@ -68,9 +68,6 @@ type TCPConn struct {
 	// The connection used
 	conn net.Conn
 
-	// the suite used to unmarshal messages
-	suite Suite
-
 	// closed indicator
 	closed    bool
 	closedMut sync.Mutex
@@ -87,15 +84,14 @@ type TCPConn struct {
 
 // NewTCPConn will open a TCPConn to the given address.
 // In case of an error it returns a nil TCPConn and the error.
-func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
+func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 	netAddr := addr.NetworkAddress()
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
 		c, err = net.DialTimeout("tcp", netAddr, dialTimeout)
 		if err == nil {
 			conn = &TCPConn{
-				conn:  c,
-				suite: suite,
+				conn: c,
 			}
 			return
 		}
@@ -119,12 +115,15 @@ func (c *TCPConn) Receive() (env *Envelope, e error) {
 		return nil, xerrors.Errorf("receiving: %w", err)
 	}
 
-	id, body, err := Unmarshal(buff, c.suite)
+	id, body, err := Unmarshal(buff)
+	if err != nil {
+		return nil, xerrors.Errorf("unmarshaling: %v")
+	}
 	return &Envelope{
 		MsgType: id,
 		Msg:     body,
 		Size:    Size(len(buff)),
-	}, err
+	}, nil
 }
 
 func (c *TCPConn) receiveRaw() ([]byte, error) {
@@ -278,13 +277,14 @@ func handleError(err error) error {
 
 	netErr, ok := err.(net.Error)
 	if !ok {
+		log.Errorf("Unknown error caught: %+v", err.Error())
 		return ErrUnknown
 	}
 	if netErr.Timeout() {
 		return ErrTimeout
 	}
 
-	log.Errorf("Unknown error caught: %s", err.Error())
+	log.Errorf("Unknown error caught: %+v", err.Error())
 	return ErrUnknown
 }
 
@@ -311,9 +311,6 @@ type TCPListener struct {
 
 	// Is this a TCP or a TLS listener?
 	conntype ConnType
-
-	// suite that is given to each incoming connection
-	suite Suite
 }
 
 // NewTCPListener returns a TCPListener. This function binds globally using
@@ -322,8 +319,8 @@ type TCPListener struct {
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
-func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
-	l, err := NewTCPListenerWithListenAddr(addr, s, "")
+func NewTCPListener(addr Address) (*TCPListener, error) {
+	l, err := NewTCPListenerWithListenAddr(addr, "")
 	if err != nil {
 		return nil, xerrors.Errorf("tcp listener: %v", err)
 	}
@@ -337,8 +334,7 @@ func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
-func NewTCPListenerWithListenAddr(addr Address,
-	s Suite, listenAddr string) (*TCPListener, error) {
+func NewTCPListenerWithListenAddr(addr Address, listenAddr string) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
 		return nil, xerrors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
@@ -346,7 +342,6 @@ func NewTCPListenerWithListenAddr(addr Address,
 		conntype:     addr.ConnType(),
 		quit:         make(chan bool),
 		quitListener: make(chan bool),
-		suite:        s,
 	}
 	listenOn, err := getListenAddress(addr, listenAddr)
 	if err != nil {
@@ -403,8 +398,7 @@ func (t *TCPListener) listen(fn func(Conn)) error {
 			continue
 		}
 		c := TCPConn{
-			conn:  conn,
-			suite: t.suite,
+			conn: conn,
 		}
 		fn(&c)
 	}
@@ -498,14 +492,14 @@ func getListenAddress(addr Address, listenAddr string) (string, error) {
 
 // TCPHost implements the Host interface using TCP connections.
 type TCPHost struct {
-	suite Suite
-	sid   *ServerIdentity
+	sid *ServerIdentity
+	cr  *ciphersuite.Registry
 	*TCPListener
 }
 
 // NewTCPHost returns a new Host using TCP connection based type.
-func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
-	host, err := NewTCPHostWithListenAddr(sid, s, "")
+func NewTCPHost(cr *ciphersuite.Registry, sid *ServerIdentity) (*TCPHost, error) {
+	host, err := NewTCPHostWithListenAddr(cr, sid, "")
 	if err != nil {
 		return nil, xerrors.Errorf("tcp host: %v", err)
 	}
@@ -514,17 +508,16 @@ func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
 
 // NewTCPHostWithListenAddr returns a new Host using TCP connection based type
 // listening on the given address.
-func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
-	listenAddr string) (*TCPHost, error) {
+func NewTCPHostWithListenAddr(cr *ciphersuite.Registry, sid *ServerIdentity, listenAddr string) (*TCPHost, error) {
 	h := &TCPHost{
-		suite: s,
-		sid:   sid,
+		sid: sid,
+		cr:  cr,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListenerWithListenAddr(sid, s, listenAddr)
+		h.TCPListener, err = NewTLSListenerWithListenAddr(cr, sid, listenAddr)
 	} else {
-		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, s, listenAddr)
+		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, listenAddr)
 	}
 	if err != nil {
 		return nil, xerrors.Errorf("tcp host: %v", err)
@@ -537,13 +530,13 @@ func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
 func (t *TCPHost) Connect(si *ServerIdentity) (Conn, error) {
 	switch si.Address.ConnType() {
 	case PlainTCP:
-		c, err := NewTCPConn(si.Address, t.suite)
+		c, err := NewTCPConn(si.Address)
 		if err != nil {
 			return nil, xerrors.Errorf("tcp connection: %v", err)
 		}
 		return c, nil
 	case TLS:
-		c, err := NewTLSConn(t.sid, si, t.suite)
+		c, err := NewTLSConn(t.cr, t.sid, si)
 		if err != nil {
 			return nil, xerrors.Errorf("tcp connection: %v", err)
 		}

@@ -99,7 +99,7 @@ func (r *Router) Unpause() {
 // blocking call until r.Stop() is called.
 func (r *Router) Start() {
 	if !r.Quiet {
-		log.Lvlf3("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
+		log.Lvlf3("New router with address %s and public key %s", r.address, r.ServerIdentity.PublicKey)
 	}
 
 	// Any incoming connection waits for the remote server identity
@@ -109,12 +109,11 @@ func (r *Router) Start() {
 		if err != nil {
 			if !strings.Contains(err.Error(), "EOF") {
 				// Avoid printing error message if it's just a stray connection.
-				log.Errorf("receiving server identity from %#v failed: %v",
+				log.Errorf("receiving server identity from %#v failed: %+v",
 					c.Remote().NetworkAddress(), err)
 			}
 			if err := c.Close(); err != nil {
-				log.Error("Couldn't close secure connection:",
-					err)
+				log.Error("Couldn't close secure connection:", err)
 			}
 			return
 		}
@@ -459,7 +458,7 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 	// Receive the other ServerIdentity
 	nm, err := c.Receive()
 	if err != nil {
-		return nil, xerrors.Errorf("Error while receiving ServerIdentity during negotiation %s", err)
+		return nil, xerrors.Errorf("Error while receiving ServerIdentity during negotiation: %v", err)
 	}
 	// Check if it is correct
 	if nm.MsgType != ServerIdentityType {
@@ -477,23 +476,23 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 			if len(cs.PeerCertificates) == 0 {
 				return nil, xerrors.New("TLS connection with no peer certs?")
 			}
-			pub, err := pubFromCN(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
+			pub, err := pubFromCN(cs.PeerCertificates[0].Subject.CommonName)
 			if err != nil {
 				return nil, xerrors.Errorf("decoding key: %v", err)
 			}
 
-			if !pub.Equal(dst.Public) {
+			if !pub.Equal(dst.PublicKey) {
 				return nil, xerrors.New("mismatch between certificate CommonName and ServerIdentity.Public")
 			}
 			log.Lvl4(r.address, "Public key from CommonName and ServerIdentity match:", pub)
 		} else {
 			// We get here for TCPConn && !tls.Conn. Make them wish they were using TLS...
 			if !r.UnauthOk {
-				log.Warn("Public key", dst.Public, "from ServerIdentity not authenticated.")
+				log.Warn("Public key", dst.PublicKey, "from ServerIdentity not authenticated.")
 			}
 		}
 	}
-	log.Lvlf3("%s: Identity received si=%v from %s", r.address, dst.Public, dst.Address)
+	log.Lvlf3("%s: Identity received si=%v from %s", r.address, dst.PublicKey, dst.Address)
 	return dst, nil
 }
 

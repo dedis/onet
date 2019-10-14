@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
 
-func NewTestRouterTCP(port int) (*Router, error) {
-	h, err := NewTestTCPHost(port)
+func NewTestRouterTCP(cr *ciphersuite.Registry, port int) (*Router, error) {
+	h, err := NewTestTCPHost(cr, port)
 	if err != nil {
 		return nil, xerrors.Errorf("tcp host: %v", err)
 	}
@@ -21,16 +22,19 @@ func NewTestRouterTCP(port int) (*Router, error) {
 	return r, nil
 }
 
-func NewTestRouterLocal(port int) (*Router, error) {
+func NewTestRouterLocal(cr *ciphersuite.Registry, port int) (*Router, error) {
 	h, err := NewTestLocalHost(port)
 	if err != nil {
 		return nil, xerrors.Errorf("local host: %v", err)
 	}
-	id := NewTestServerIdentity(h.addr)
+	id, err := NewTestServerIdentity(h.addr)
+	if err != nil {
+		return nil, err
+	}
 	return NewRouter(id, h), nil
 }
 
-type routerFactory func(port int) (*Router, error)
+type routerFactory func(cr *ciphersuite.Registry, port int) (*Router, error)
 
 // Test if router fits the interface such as calling Run(), then Stop(),
 // should return
@@ -42,7 +46,7 @@ func TestRouterLocal(t *testing.T) {
 }
 
 func testRouter(t *testing.T, fac routerFactory) {
-	h, err := fac(2004)
+	h, err := fac(testRegistry, 2004)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,8 +72,8 @@ func testRouter(t *testing.T, fac routerFactory) {
 // Test connection of multiple Hosts and sending messages back and forth
 // also tests for the counterIO interface that it works well
 func TestRouterErrorHandling(t *testing.T) {
-	h1, err1 := NewTestRouterTCP(2109)
-	h2, err2 := NewTestRouterTCP(2110)
+	h1, err1 := NewTestRouterTCP(testRegistry, 2109)
+	h2, err2 := NewTestRouterTCP(testRegistry, 2110)
 	if err1 != nil || err2 != nil {
 		t.Fatal("Could not setup hosts")
 	}
@@ -124,7 +128,7 @@ func TestRouterErrorHandling(t *testing.T) {
 }
 
 func TestRouterSendToSelf(t *testing.T) {
-	r, err := NewTestRouterTCP(0)
+	r, err := NewTestRouterTCP(testRegistry, 0)
 	require.Nil(t, err)
 
 	go r.Start()
@@ -152,9 +156,9 @@ func TestRouterSendToSelf(t *testing.T) {
 }
 
 func testRouterRemoveConnection(t *testing.T) {
-	r1, err := NewTestRouterTCP(2008)
+	r1, err := NewTestRouterTCP(testRegistry, 2008)
 	require.Nil(t, err)
-	r2, err := NewTestRouterTCP(2009)
+	r2, err := NewTestRouterTCP(testRegistry, 2009)
 	require.Nil(t, err)
 
 	defer r1.Stop()
@@ -186,14 +190,14 @@ func TestRouterAutoConnectionLocal(t *testing.T) {
 }
 
 func testRouterAutoConnection(t *testing.T, fac routerFactory) {
-	h1, err := fac(2007)
+	h1, err := fac(testRegistry, 2007)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = h1.Send(&ServerIdentity{Address: NewLocalAddress("127.1.2.3:2890")}, &SimpleMessage{12})
 	require.NotNil(t, err, "Should not be able to send")
 
-	h2, err := fac(2008)
+	h2, err := fac(testRegistry, 2008)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,8 +259,8 @@ func testRouterAutoConnection(t *testing.T, fac routerFactory) {
 // Test connection of multiple Hosts and sending messages back and forth
 // also tests for the counterIO interface that it works well
 func TestRouterMessaging(t *testing.T) {
-	h1, err1 := NewTestRouterTCP(2009)
-	h2, err2 := NewTestRouterTCP(2010)
+	h1, err1 := NewTestRouterTCP(testRegistry, 2009)
+	h2, err2 := NewTestRouterTCP(testRegistry, 2010)
 	if err1 != nil || err2 != nil {
 		t.Fatal("Could not setup hosts")
 	}
@@ -362,7 +366,7 @@ func testRouterLotsOfConn(t *testing.T, fac routerFactory, nbrRouter int) {
 	wg2.Add(nbrRouter)
 	for i := 0; i < nbrRouter; i++ {
 		go func(j int) {
-			r, err := fac(2000 + j)
+			r, err := fac(testRegistry, 2000+j)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -414,8 +418,8 @@ func TestRouterSendMsgDuplexLocal(t *testing.T) {
 	testRouterSendMsgDuplex(t, NewTestRouterLocal)
 }
 func testRouterSendMsgDuplex(t *testing.T, fac routerFactory) {
-	h1, err1 := fac(2011)
-	h2, err2 := fac(2012)
+	h1, err1 := fac(testRegistry, 2011)
+	h2, err2 := fac(testRegistry, 2012)
 	if err1 != nil {
 		t.Fatal("Could not setup hosts: ", err1)
 	}
@@ -454,8 +458,8 @@ func testRouterSendMsgDuplex(t *testing.T, fac routerFactory) {
 func TestRouterExchange(t *testing.T) {
 	log.OutputToBuf()
 	defer log.OutputToOs()
-	router1, err := NewTestRouterTCP(7878)
-	router2, err2 := NewTestRouterTCP(8787)
+	router1, err := NewTestRouterTCP(testRegistry, 7878)
+	router2, err2 := NewTestRouterTCP(testRegistry, 8787)
 	if err != nil || err2 != nil {
 		t.Fatal("Could not setup host", err, err2)
 	}
@@ -468,7 +472,7 @@ func TestRouterExchange(t *testing.T) {
 	}()
 	<-done
 	// try correctly
-	c, err := NewTCPConn(router1.ServerIdentity.Address, tSuite)
+	c, err := NewTCPConn(router1.ServerIdentity.Address)
 	if err != nil {
 		t.Fatal("Couldn't connect to host1:", err)
 	}
@@ -484,7 +488,7 @@ func TestRouterExchange(t *testing.T) {
 	c.Close()
 
 	// try messing with the connections here
-	c, err = NewTCPConn(router1.ServerIdentity.Address, tSuite)
+	c, err = NewTCPConn(router1.ServerIdentity.Address)
 	if err != nil {
 		t.Fatal("Couldn't connect to host1:", err)
 	}
@@ -505,15 +509,19 @@ func TestRouterExchange(t *testing.T) {
 }
 
 func TestRouterRxTx(t *testing.T) {
-	router1, err := NewTestRouterTCP(0)
+	router1, err := NewTestRouterTCP(testRegistry, 0)
 	log.ErrFatal(err)
-	router2, err := NewTestRouterTCP(0)
+	router2, err := NewTestRouterTCP(testRegistry, 0)
 	log.ErrFatal(err)
 	go router1.Start()
 	go router2.Start()
 
 	addr := NewAddress(router1.address.ConnType(), "127.0.0.1:"+router1.address.Port())
-	si1 := NewServerIdentity(Suite.Point(tSuite).Null(), addr)
+	pk, _, err := unsecureSuite.KeyPair()
+	require.NoError(t, err)
+	pkdata, err := pk.Pack()
+	require.NoError(t, err)
+	si1 := NewServerIdentity(pkdata, addr)
 
 	sentLen, err := router2.Send(si1, si1)
 	require.Nil(t, err)
@@ -599,7 +607,7 @@ func (c *testConn) Type() ConnType {
 // This test insures that an unknown error cannot end up as an infinite loop
 // when handling a connection
 func TestRouterHandleUnknownError(t *testing.T) {
-	router, err := NewTestRouterTCP(0)
+	router, err := NewTestRouterTCP(testRegistry, 0)
 	require.NoError(t, err)
 
 	router.wg.Add(1)

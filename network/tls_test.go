@@ -6,20 +6,25 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v4/suites"
-	"go.dedis.ch/kyber/v4/util/key"
+	"go.dedis.ch/onet/v4/ciphersuite"
+	"go.dedis.ch/protobuf"
 )
 
-func NewTestTLSHost(suite suites.Suite, port int) (*TCPHost, error) {
+func NewTestTLSHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTLSAddress("127.0.0.1:" + strconv.Itoa(port))
-	kp := key.NewKeyPair(suite)
-	e := NewServerIdentity(kp.Public, addr)
-	e.SetPrivate(kp.Private)
-	return NewTCPHost(e, suite)
+	pk, sk, err := unsecureSuite.KeyPair()
+	if err != nil {
+		return nil, err
+	}
+	pkdata, _ := pk.Pack()
+	skdata, _ := sk.Pack()
+	e := NewServerIdentity(pkdata, addr)
+	e.SetPrivate(skdata)
+	return NewTCPHost(cr, e)
 }
 
-func NewTestRouterTLS(suite suites.Suite, port int) (*Router, error) {
-	h, err := NewTestTLSHost(suite, port)
+func NewTestRouterTLS(cr *ciphersuite.Registry, port int) (*Router, error) {
+	h, err := NewTestTLSHost(cr, port)
 	if err != nil {
 		return nil, err
 	}
@@ -34,18 +39,13 @@ type hello struct {
 }
 
 func TestTLS(t *testing.T) {
-	testTLS(t, tSuite)
+	testTLS(t, testRegistry)
 }
 
-func TestTLS_bn256(t *testing.T) {
-	s := suites.MustFind("bn256.g2")
-	testTLS(t, s)
-}
-
-func testTLS(t *testing.T, s suites.Suite) {
-	r1, err := NewTestRouterTLS(s, 0)
+func testTLS(t *testing.T, cr *ciphersuite.Registry) {
+	r1, err := NewTestRouterTLS(cr, 0)
 	require.Nil(t, err, "new tcp router")
-	r2, err := NewTestRouterTLS(s, 0)
+	r2, err := NewTestRouterTLS(cr, 0)
 	require.Nil(t, err, "new tcp router 2")
 
 	ready := make(chan bool)
@@ -99,17 +99,17 @@ func testTLS(t *testing.T, s suites.Suite) {
 }
 
 func BenchmarkMsgTCP(b *testing.B) {
-	r1, err := NewTestRouterTCP(0)
+	r1, err := NewTestRouterTCP(testRegistry, 0)
 	require.Nil(b, err, "new tcp router")
-	r2, err := NewTestRouterTCP(0)
+	r2, err := NewTestRouterTCP(testRegistry, 0)
 	require.Nil(b, err, "new tcp router 2")
 	benchmarkMsg(b, r1, r2)
 }
 
 func BenchmarkMsgTLS(b *testing.B) {
-	r1, err := NewTestRouterTLS(tSuite, 0)
+	r1, err := NewTestRouterTLS(testRegistry, 0)
 	require.Nil(b, err, "new tls router")
-	r2, err := NewTestRouterTLS(tSuite, 0)
+	r2, err := NewTestRouterTLS(testRegistry, 0)
 	require.Nil(b, err, "new tls router 2")
 	benchmarkMsg(b, r1, r2)
 }
@@ -167,19 +167,27 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 }
 
 func Test_pubFromCN(t *testing.T) {
-	p1 := tSuite.Point().Pick(tSuite.RandomStream())
+	pk, _, err := unsecureSuite.KeyPair()
+	require.NoError(t, err)
+
+	pkdata, err := pk.Pack()
+	require.NoError(t, err)
+
+	pkbuf, err := protobuf.Encode(pkdata)
+	require.NoError(t, err)
 
 	// old-style
-	cn := p1.String()
+	cn := string(pkbuf)
 
-	p2, err := pubFromCN(tSuite, cn)
+	p2, err := pubFromCN(cn)
 	require.NoError(t, err)
-	require.True(t, p2.Equal(p1))
+	require.True(t, p2.Equal(pkdata))
 
 	// new-style
-	cn = pubToCN(p1)
-
-	p2, err = pubFromCN(tSuite, cn)
+	cn, err = pubToCN(pkdata)
 	require.NoError(t, err)
-	require.True(t, p2.Equal(p1))
+
+	p2, err = pubFromCN(cn)
+	require.NoError(t, err)
+	require.True(t, p2.Equal(pkdata))
 }

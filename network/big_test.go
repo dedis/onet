@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v4/log"
 )
 
@@ -50,8 +51,9 @@ func TestTCPHugeConnections(t *testing.T) {
 	// Create all hosts and open the connections
 	for i := 0; i < nbrHosts; i++ {
 		addr := NewTCPAddress("localhost:" + strconv.Itoa(2000+i))
-		ids[i] = NewTestServerIdentity(addr)
-		hosts[i], err = NewTCPListener(addr, tSuite)
+		ids[i], err = NewTestServerIdentity(addr)
+		require.NoError(t, err)
+		hosts[i], err = NewTCPListener(addr)
 		if err != nil {
 			t.Fatal("Error setting up host:", err)
 		}
@@ -97,7 +99,7 @@ func TestTCPHugeConnections(t *testing.T) {
 			wg.Add(1)
 			var err error
 			log.Lvl5("Connecting", ids[i], "with", ids[j])
-			conns[i][j], err = NewTCPConn(ids[j].Address, tSuite)
+			conns[i][j], err = NewTCPConn(ids[j].Address)
 			if err != nil {
 				t.Fatal("Couldn't open:", err)
 			}
