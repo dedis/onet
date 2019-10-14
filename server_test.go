@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v4/log"
 	bbolt "go.etcd.io/bbolt"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )

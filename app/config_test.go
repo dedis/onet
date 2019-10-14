@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v4/pairing"
 	"go.dedis.ch/kyber/v4/suites"
-	"go.dedis.ch/onet/v3"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v4"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/network"
 )
 
 var o bytes.Buffer

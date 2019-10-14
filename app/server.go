@@ -13,10 +13,10 @@ import (
 
 	"go.dedis.ch/kyber/v4/util/encoding"
 	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v3"
-	"go.dedis.ch/onet/v3/cfgpath"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v4"
+	"go.dedis.ch/onet/v4/cfgpath"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
 )
 

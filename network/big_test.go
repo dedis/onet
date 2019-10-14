@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v4/log"
 )
 
 /*

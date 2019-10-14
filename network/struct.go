@@ -11,7 +11,7 @@ import (
 	"go.dedis.ch/kyber/v4/suites"
 	"go.dedis.ch/kyber/v4/util/encoding"
 	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/protobuf"
 	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"

@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v4/suites"
 	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/network"
 )
 
 var prefix = "127.0.0.1:"

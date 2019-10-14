@@ -19,8 +19,8 @@ import (
 	"go.dedis.ch/kyber/v4/sign/bls"
 	"go.dedis.ch/kyber/v4/util/key"
 	"go.dedis.ch/kyber/v4/util/random"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/protobuf"
 	"golang.org/x/xerrors"
 )

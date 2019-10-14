@@ -1,4 +1,4 @@
-module go.dedis.ch/onet/v3
+module go.dedis.ch/onet/v4
 
 require (
 	github.com/BurntSushi/toml v0.3.1

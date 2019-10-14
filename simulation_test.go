@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v4/suites"
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
 
