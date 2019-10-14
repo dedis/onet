@@ -12,10 +12,10 @@ import (
 	"runtime"
 	"strconv"
 
-	"go.dedis.ch/onet/v3"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/simul/monitor"
-	"go.dedis.ch/onet/v3/simul/platform"
+	"go.dedis.ch/onet/v4"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/simul/monitor"
+	"go.dedis.ch/onet/v4/simul/platform"
 )
 
 var kill = false

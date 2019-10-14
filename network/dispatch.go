@@ -3,7 +3,7 @@ package network
 import (
 	"sync"
 
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
 
@@ -148,6 +148,6 @@ type defaultProcessor struct {
 func (dp *defaultProcessor) Process(msg *Envelope) {
 	err := dp.fn(msg)
 	if err != nil {
-		log.Errorf("error while processing msg type %v from %v: %v", msg.MsgType, msg.ServerIdentity, err)
+		log.Errorf("error while processing msg type %v from %v: %+v", msg.MsgType, msg.ServerIdentity, err)
 	}
 }

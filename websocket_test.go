@@ -22,8 +22,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/onet/v3/log"
-	"go.dedis.ch/onet/v3/network"
+	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/protobuf"
 	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"

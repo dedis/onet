@@ -7,12 +7,12 @@ import (
 	"reflect"
 	"sync"
 
-	"go.dedis.ch/kyber/v3/pairing/bn256"
-	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/kyber/v4/pairing/bn256"
+	"go.dedis.ch/kyber/v4/suites"
 	"golang.org/x/xerrors"
 
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/kyber/v4"
+	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/protobuf"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
