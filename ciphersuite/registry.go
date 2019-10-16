@@ -79,10 +79,10 @@ func (cr *Registry) UnpackSignature(p *CipherData) (Signature, error) {
 }
 
 // KeyPair returns a random secret key and its associated public key.
-func (cr *Registry) KeyPair(name Name) (PublicKey, SecretKey, error) {
+func (cr *Registry) KeyPair(name Name) (PublicKey, SecretKey) {
 	c, err := cr.get(name)
 	if err != nil {
-		return nil, nil, err
+		panic(err)
 	}
 
 	return c.KeyPair()

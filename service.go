@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"sync"
 
-	"go.dedis.ch/kyber/v4/suites"
-	"go.dedis.ch/kyber/v4/util/key"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	bbolt "go.etcd.io/bbolt"
@@ -98,7 +97,7 @@ type serviceEntry struct {
 	constructor NewServiceFunc
 	serviceID   ServiceID
 	name        string
-	suite       suites.Suite
+	suite       ciphersuite.CipherSuite
 }
 
 // ServiceFactory is the global service factory to instantiate Services
@@ -110,7 +109,7 @@ var ServiceFactory = serviceFactory{
 // mapping and the creation function.
 //
 // A suite can be provided to override the default one
-func (s *serviceFactory) Register(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
+func (s *serviceFactory) Register(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) (ServiceID, error) {
 	if !s.ServiceID(name).Equal(NilServiceID) {
 		return NilServiceID, xerrors.Errorf("service %s already registered", name)
 	}
@@ -156,7 +155,7 @@ func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
 
 // RegisterNewServiceWithSuite is wrapper around service factory to register
 // a service with a given suite
-func RegisterNewServiceWithSuite(name string, suite suites.Suite, fn NewServiceFunc) (ServiceID, error) {
+func RegisterNewServiceWithSuite(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) (ServiceID, error) {
 	id, err := ServiceFactory.Register(name, suite, fn)
 	if err != nil {
 		return id, xerrors.Errorf("register service: %v", err)
@@ -192,8 +191,8 @@ func (s *serviceFactory) generateKeyPairs(si *network.ServerIdentity) {
 	for _, name := range ServiceFactory.RegisteredServiceNames() {
 		suite := ServiceFactory.Suite(name)
 		if suite != nil {
-			pair := key.NewKeyPair(suite)
-			sid := network.NewServiceIdentityFromPair(name, suite, pair)
+			pk, sk := suite.KeyPair()
+			sid := network.NewServiceIdentity(name, pk.Pack(), sk.Pack())
 
 			services = append(services, sid)
 		}
@@ -225,7 +224,7 @@ func (s *serviceFactory) ServiceID(name string) ServiceID {
 }
 
 // Suite returns the suite registered with the service or nil
-func (s *serviceFactory) Suite(name string) suites.Suite {
+func (s *serviceFactory) Suite(name string) ciphersuite.CipherSuite {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, c := range s.constructors {
@@ -239,7 +238,7 @@ func (s *serviceFactory) Suite(name string) suites.Suite {
 
 // SuiteByID returns the suite registered with the service or nil
 // using the generated service ID
-func (s *serviceFactory) SuiteByID(id ServiceID) suites.Suite {
+func (s *serviceFactory) SuiteByID(id ServiceID) ciphersuite.CipherSuite {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, c := range s.constructors {
@@ -361,14 +360,14 @@ func openDb(path string) (*bbolt.DB, error) {
 }
 
 func (s *serviceManager) dbFileNameOld() string {
-	pub, _ := s.server.ServerIdentity.Public.MarshalBinary()
+	pub := s.server.ServerIdentity.PublicKey.String()
 	return path.Join(s.dbPath, fmt.Sprintf("%x.db", pub))
 }
 
 func (s *serviceManager) dbFileName() string {
-	pub, _ := s.server.ServerIdentity.Public.MarshalBinary()
+	pub := s.server.ServerIdentity.PublicKey
 	h := sha256.New()
-	h.Write(pub)
+	pub.WriteTo(h)
 	return path.Join(s.dbPath, fmt.Sprintf("%x.db", h.Sum(nil)))
 }
 

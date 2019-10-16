@@ -12,14 +12,9 @@ import (
 
 func NewTestTLSHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTLSAddress("127.0.0.1:" + strconv.Itoa(port))
-	pk, sk, err := unsecureSuite.KeyPair()
-	if err != nil {
-		return nil, err
-	}
-	pkdata, _ := pk.Pack()
-	skdata, _ := sk.Pack()
-	e := NewServerIdentity(pkdata, addr)
-	e.SetPrivate(skdata)
+	pk, sk := unsecureSuite.KeyPair()
+	e := NewServerIdentity(pk.Pack(), addr)
+	e.SetPrivate(sk.Pack())
 	return NewTCPHost(cr, e)
 }
 
@@ -167,13 +162,9 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 }
 
 func Test_pubFromCN(t *testing.T) {
-	pk, _, err := unsecureSuite.KeyPair()
-	require.NoError(t, err)
+	pk, _ := unsecureSuite.KeyPair()
 
-	pkdata, err := pk.Pack()
-	require.NoError(t, err)
-
-	pkbuf, err := protobuf.Encode(pkdata)
+	pkbuf, err := protobuf.Encode(pk.Pack())
 	require.NoError(t, err)
 
 	// old-style
@@ -181,13 +172,13 @@ func Test_pubFromCN(t *testing.T) {
 
 	p2, err := pubFromCN(cn)
 	require.NoError(t, err)
-	require.True(t, p2.Equal(pkdata))
+	require.True(t, p2.Equal(pk.Pack()))
 
 	// new-style
-	cn, err = pubToCN(pkdata)
+	cn, err = pubToCN(pk.Pack())
 	require.NoError(t, err)
 
 	p2, err = pubFromCN(cn)
 	require.NoError(t, err)
-	require.True(t, p2.Equal(pkdata))
+	require.True(t, p2.Equal(pk.Pack()))
 }

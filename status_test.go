@@ -20,10 +20,10 @@ func TestSRStruct(t *testing.T) {
 }
 
 func TestStatusHost(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewTCPTest(testSuite)
 	defer l.CloseAll()
 
-	c := l.NewServer(tSuite, 2050)
+	c := l.NewServer(testSuite, 2050)
 	defer c.Close()
 
 	stats := c.GetStatus()

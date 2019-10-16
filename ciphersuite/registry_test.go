@@ -10,8 +10,7 @@ func TestCipherRegistry_BasicUsage(t *testing.T) {
 	r := NewRegistry()
 	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
-	pk, sk, err := r.KeyPair(UnsecureCipherSuiteName)
-	require.NoError(t, err)
+	pk, sk := r.KeyPair(UnsecureCipherSuiteName)
 
 	sig, err := r.Sign(sk, []byte{1, 2, 3})
 	require.NoError(t, err)

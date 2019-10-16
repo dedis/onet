@@ -55,7 +55,7 @@ func TestServiceRegistration(t *testing.T) {
 	}
 
 	var nameWithSuite = "dummyWithSuite"
-	sid, err := RegisterNewServiceWithSuite(nameWithSuite, tSuite, func(c *Context) (Service, error) {
+	sid, err := RegisterNewServiceWithSuite(nameWithSuite, testSuite, func(c *Context) (Service, error) {
 		return &DummyService{}, nil
 	})
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestServiceNew(t *testing.T) {
 	var local *LocalTest
 	servers := make(chan bool)
 	go func() {
-		local = NewLocalTest(tSuite)
+		local = NewLocalTest(testSuite)
 		local.GenServers(1)
 		servers <- true
 	}()
@@ -98,7 +98,7 @@ func TestServiceNew(t *testing.T) {
 // won't start if the key pair is not provided in the conode toml file.
 func TestService_StartWithKP(t *testing.T) {
 	dummyWithSuite := "dummyWithSuite"
-	RegisterNewServiceWithSuite(dummyWithSuite, tSuite, func(c *Context) (Service, error) {
+	RegisterNewServiceWithSuite(dummyWithSuite, testSuite, func(c *Context) (Service, error) {
 		return &DummyService{}, nil
 	})
 
@@ -130,13 +130,13 @@ func TestServiceProcessRequest(t *testing.T) {
 	log.ErrFatal(err)
 	defer UnregisterService(dummyServiceName)
 
-	local := NewTCPTest(tSuite)
+	local := NewTCPTest(testSuite)
 	hs := local.GenServers(2)
 	server := hs[0]
 	log.Lvl1("Host created and listening")
 	defer local.CloseAll()
 	// Send a request to the service
-	client := NewClient(tSuite, dummyServiceName)
+	client := NewClient(dummyServiceName)
 	log.Lvl1("Sending request to service...")
 	_, err = client.Send(server.ServerIdentity, "nil", []byte("a"))
 	log.Lvl2("Got reply")
@@ -158,7 +158,7 @@ func TestServiceRequestNewProtocol(t *testing.T) {
 	})
 
 	defer UnregisterService(dummyServiceName)
-	local := NewTCPTest(tSuite)
+	local := NewTCPTest(testSuite)
 	hs := local.GenServers(2)
 	server := hs[0]
 	client := local.NewClient(dummyServiceName)
@@ -217,7 +217,7 @@ func TestServiceNewProtocol(t *testing.T) {
 	})
 
 	defer UnregisterService(dummyServiceName)
-	local := NewTCPTest(tSuite)
+	local := NewTCPTest(testSuite)
 	defer local.CloseAll()
 	hs := local.GenServers(3)
 	server1, server2 := hs[0], hs[1]
@@ -261,7 +261,7 @@ func TestServiceProcessor(t *testing.T) {
 		c.RegisterProcessor(s, dummyMsgType)
 		return s, nil
 	})
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 	hs := local.GenServers(2)
 	server1, server2 := hs[0], hs[1]
@@ -280,7 +280,7 @@ func TestServiceProcessor(t *testing.T) {
 }
 
 func TestServiceBackForthProtocol(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	local := NewTCPTest(testSuite)
 	defer local.CloseAll()
 
 	// register service
@@ -311,7 +311,7 @@ func TestServiceBackForthProtocol(t *testing.T) {
 }
 
 func TestPanicNewProto(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	local := NewTCPTest(testSuite)
 	defer local.CloseAll()
 
 	name := "panicSvc"
@@ -345,7 +345,7 @@ func TestPanicNewProto(t *testing.T) {
 }
 
 func TestServiceManager_Service(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 	servers, _, _ := local.GenTree(2, true)
 
@@ -357,7 +357,7 @@ func TestServiceManager_Service(t *testing.T) {
 }
 
 func TestServiceMessages(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 	servers, _, _ := local.GenTree(2, true)
 
@@ -369,7 +369,7 @@ func TestServiceMessages(t *testing.T) {
 }
 
 func TestServiceProtocolInstantiation(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 	servers, _, tree := local.GenTree(2, true)
 
@@ -390,7 +390,7 @@ func TestServiceProtocolInstantiation(t *testing.T) {
 }
 
 func TestServiceGenericConfig(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 	servers, _, tree := local.GenTree(2, true)
 
@@ -544,7 +544,7 @@ type simpleService struct {
 
 func (s *simpleService) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	msg := &SimpleRequest{}
-	err := protobuf.DecodeWithConstructors(buf, msg, network.DefaultConstructors(tSuite))
+	err := protobuf.Decode(buf, msg)
 	if err != nil {
 		return nil, nil, err
 	}

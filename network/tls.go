@@ -132,7 +132,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	//
 	// Do this using the same standardized ASN.1 marshaling that x509 uses so
 	// that anyone trying to check these signatures themselves in another language
-	// will be able to easily do so with their own x509 + kyber implementation.
+	// will be able to easily do so with their own x509.
 	sk, err := cm.cr.UnpackSecretKey(cm.si.GetPrivate())
 	if err != nil {
 		return nil, xerrors.Errorf("unpacking secret key: %v", err)
@@ -154,12 +154,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	serial := new(big.Int)
 	serial.SetBytes(r)
 
-	sigdata, err := sig.Pack()
-	if err != nil {
-		return nil, xerrors.Errorf("packing signature: %v", err)
-	}
-
-	sigbuf, err := protobuf.Encode(sigdata)
+	sigbuf, err := protobuf.Encode(sig.Pack())
 	if err != nil {
 		return nil, xerrors.Errorf("encoding signature: %v", err)
 	}

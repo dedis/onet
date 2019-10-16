@@ -6,12 +6,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v4/suites"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 )
-
-var tSuite = suites.MustFind("Ed25519")
 
 const clientServiceName = "ClientService"
 
@@ -24,13 +21,13 @@ func init() {
 }
 
 func Test_panicClose(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	l.CloseAll()
 	require.Panics(t, func() { l.genLocalHosts(2) })
 }
 
 func Test_showPanic(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	c := make(chan bool)
 	go func() {
 		<-c
@@ -45,7 +42,7 @@ func Test_showPanic(t *testing.T) {
 
 func Test_showFail(t *testing.T) {
 	t.Skip("I have no idea how I can have this test passing... It tests that CloseAll doesn't test goroutines when a test fails.")
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	c := make(chan bool)
 	go func() {
 		<-c
@@ -62,7 +59,7 @@ func Test_showFail(t *testing.T) {
 }
 
 func TestGenLocalHost(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	hosts := l.genLocalHosts(2)
 	defer l.CloseAll()
 
@@ -73,7 +70,7 @@ func TestGenLocalHost(t *testing.T) {
 }
 
 func TestGenLocalHostAfter(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	defer l.CloseAll()
 	hosts := l.genLocalHosts(2)
 	hosts2 := l.genLocalHosts(2)
@@ -83,17 +80,17 @@ func TestGenLocalHostAfter(t *testing.T) {
 // This tests the client-connection in the case of a non-garbage-collected
 // client that stays in the service.
 func TestNewTCPTest(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewTCPTest(testSuite)
 	_, el, _ := l.GenTree(3, true)
 	defer l.CloseAll()
 
-	c1 := NewClient(tSuite, clientServiceName)
+	c1 := NewClient(clientServiceName)
 	err := c1.SendProtobuf(el.List[0], &SimpleMessage{}, nil)
 	log.ErrFatal(err)
 }
 
 func TestLocalTCPGenConnectableRoster(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewTCPTest(testSuite)
 	defer l.CloseAll()
 	servers := l.GenServers(3)
 	roster := *l.GenRosterFromHost(servers...)
@@ -107,7 +104,7 @@ func TestLocalTCPGenConnectableRoster(t *testing.T) {
 
 // Tests whether TestClose is called in the service.
 func TestTestClose(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewTCPTest(testSuite)
 	servers, _, _ := l.GenTree(1, true)
 	services := l.GetServices(servers, clientServiceID)
 	pingpong := make(chan bool, 1)
@@ -126,7 +123,7 @@ func TestTestClose(t *testing.T) {
 }
 
 func TestWaitDone(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewTCPTest(testSuite)
 	servers, ro, _ := l.GenTree(1, true)
 	defer l.CloseAll()
 
@@ -176,7 +173,7 @@ func (c *clientService) TestClose() {
 func newClientService(c *Context) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
-		cl:               NewClient(c.server.Suite(), clientServiceName),
+		cl:               NewClient(clientServiceName),
 		click:            make(chan bool, 1),
 		closed:           make(chan bool, 1),
 	}

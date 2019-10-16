@@ -356,7 +356,6 @@ type Client struct {
 	service         string
 	connections     map[destination]*websocket.Conn
 	connectionsLock map[destination]*sync.Mutex
-	suite           network.Suite
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
@@ -368,26 +367,20 @@ type Client struct {
 
 // NewClient returns a client using the service s. On the first Send, the
 // connection will be started, until Close is called.
-func NewClient(suite network.Suite, s string) *Client {
+func NewClient(s string) *Client {
 	return &Client{
 		service:         s,
 		connections:     make(map[destination]*websocket.Conn),
 		connectionsLock: make(map[destination]*sync.Mutex),
-		suite:           suite,
 	}
 }
 
 // NewClientKeep returns a Client that doesn't close the connection between
 // two messages if it's the same server.
-func NewClientKeep(suite network.Suite, s string) *Client {
-	cl := NewClient(suite, s)
+func NewClientKeep(s string) *Client {
+	cl := NewClient(s)
 	cl.keep = true
 	return cl
-}
-
-// Suite returns the cryptographic suite in use on this connection.
-func (c *Client) Suite() network.Suite {
-	return c.suite
 }
 
 func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
@@ -543,7 +536,7 @@ func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret 
 		return xerrors.Errorf("sending: %v", err)
 	}
 	if ret != nil {
-		err := protobuf.DecodeWithConstructors(reply, ret, network.DefaultConstructors(c.suite))
+		err := protobuf.Decode(reply, ret)
 		if err != nil {
 			return xerrors.Errorf("decoding: %v", err)
 		}
@@ -744,8 +737,7 @@ func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg inter
 // StreamingConn allows clients to read from it without sending additional
 // requests.
 type StreamingConn struct {
-	conn  *websocket.Conn
-	suite network.Suite
+	conn *websocket.Conn
 }
 
 // ReadMessage read more data from the connection, it will block if there are
@@ -760,7 +752,7 @@ func (c *StreamingConn) ReadMessage(ret interface{}) error {
 	if err != nil {
 		return xerrors.Errorf("connection read: %v", err)
 	}
-	err = protobuf.DecodeWithConstructors(buf, ret, network.DefaultConstructors(c.suite))
+	err = protobuf.Decode(buf, ret)
 	if err != nil {
 		return xerrors.Errorf("decoding: %v", err)
 	}
@@ -788,7 +780,7 @@ func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (Streaming
 	c.Lock()
 	c.tx += uint64(len(buf))
 	c.Unlock()
-	return StreamingConn{conn, c.Suite()}, nil
+	return StreamingConn{conn}, nil
 }
 
 // SendToAll sends a message to all ServerIdentities of the Roster and returns

@@ -12,8 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"go.dedis.ch/kyber/v4"
-	"go.dedis.ch/kyber/v4/util/key"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
@@ -66,7 +65,7 @@ type LocalTest struct {
 	// the context for the local connections
 	// it enables to have multiple local test running simultaneously
 	ctx   *network.LocalManager
-	Suite network.Suite
+	suite ciphersuite.CipherSuite
 	path  string
 	// Once closed is set, do not allow further operations on it,
 	// since now the temp directory is gone.
@@ -86,7 +85,7 @@ const (
 
 // NewLocalTest creates a new Local handler that can be used to test protocols
 // locally
-func NewLocalTest(s network.Suite) *LocalTest {
+func NewLocalTest(suite ciphersuite.CipherSuite) *LocalTest {
 	dir, err := ioutil.TempDir("", "onet")
 	if err != nil {
 		log.Fatal("could not create temp directory: ", err)
@@ -101,32 +100,31 @@ func NewLocalTest(s network.Suite) *LocalTest {
 		Check:      CheckAll,
 		mode:       Local,
 		ctx:        network.NewLocalManager(),
-		Suite:      s,
+		suite:      suite,
 		path:       dir,
 		latestPort: 2000,
 	}
 }
 
 // NewLocalTestT is like NewLocalTest but also stores the testing.T variable.
-func NewLocalTestT(s network.Suite, t *testing.T) *LocalTest {
-	l := NewLocalTest(s)
+func NewLocalTestT(suite ciphersuite.CipherSuite, t *testing.T) *LocalTest {
+	l := NewLocalTest(suite)
 	l.T = t
 	return l
 }
 
 // NewTCPTest returns a LocalTest but using a TCPRouter as the underlying
 // communication layer.
-func NewTCPTest(s network.Suite) *LocalTest {
-	t := NewLocalTest(s)
+func NewTCPTest(suite ciphersuite.CipherSuite) *LocalTest {
+	t := NewLocalTest(suite)
 	t.mode = TCP
 	return t
 }
 
 // NewTCPTestWithTLS returns a LocalTest but using a TCPRouter as the
 // underlying communication layer and containing information for TLS setup.
-func NewTCPTestWithTLS(s network.Suite, wsTLSCertificate []byte,
-	wsTLSCertificateKey []byte) *LocalTest {
-	t := NewLocalTest(s)
+func NewTCPTestWithTLS(suite ciphersuite.CipherSuite, wsTLSCertificate []byte, wsTLSCertificateKey []byte) *LocalTest {
+	t := NewLocalTest(suite)
 	t.mode = TCP
 	t.webSocketTLSCertificate = wsTLSCertificate
 	t.webSocketTLSCertificateKey = wsTLSCertificateKey
@@ -176,7 +174,7 @@ func (l *LocalTest) GenServers(n int) []*Server {
 	l.panicClosed()
 	servers := l.genLocalHosts(n)
 	for _, server := range servers {
-		server.ServerIdentity.SetPrivate(server.private)
+		server.ServerIdentity.SetPrivate(server.secretKey.Pack())
 		l.Servers[server.ServerIdentity.ID] = server
 		l.Overlays[server.ServerIdentity.ID] = server.overlay
 		l.Services[server.ServerIdentity.ID] = server.serviceManager.services
@@ -452,8 +450,8 @@ func (l *LocalTest) checkPendingTreeMarshal(c *Server, el *Roster) {
 }
 
 // GetPrivate returns the private key of a server
-func (l *LocalTest) GetPrivate(c *Server) kyber.Scalar {
-	return c.private
+func (l *LocalTest) GetPrivate(c *Server) ciphersuite.SecretKey {
+	return c.secretKey
 }
 
 // GetServices returns a slice of all services asked for.
@@ -468,30 +466,32 @@ func (l *LocalTest) GetServices(servers []*Server, sid ServiceID) []Service {
 
 // MakeSRS creates and returns nbr Servers, the associated Roster and the
 // Service object of the first server in the list having sid as a ServiceID.
-func (l *LocalTest) MakeSRS(s network.Suite, nbr int, sid ServiceID) ([]*Server, *Roster, Service) {
+func (l *LocalTest) MakeSRS(nbr int, sid ServiceID) ([]*Server, *Roster, Service) {
 	l.panicClosed()
 	servers := l.GenServers(nbr)
 	el := l.GenRosterFromHost(servers...)
 	return servers, el, l.Services[servers[0].ServerIdentity.ID][sid]
 }
 
-// NewPrivIdentity returns a secret + ServerIdentity. The SI will have
-// "localserver:+port as first address.
-func NewPrivIdentity(suite network.Suite, port int) (kyber.Scalar, *network.ServerIdentity) {
+func newPrivIdentity(suite ciphersuite.CipherSuite, port int) (ciphersuite.SecretKey, *network.ServerIdentity) {
 	address := network.NewLocalAddress("127.0.0.1:" + strconv.Itoa(port))
-	kp := key.NewKeyPair(suite)
-	id := network.NewServerIdentity(kp.Public, address)
+	pk, sk := suite.KeyPair()
+	id := network.NewServerIdentity(pk.Pack(), address)
 	ServiceFactory.generateKeyPairs(id)
 
-	return kp.Private, id
+	return sk, id
 }
 
 // NewTCPServer creates a new server with a tcpRouter with "localhost:"+port as an
 // address.
-func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server {
-	priv, id := NewPrivIdentity(s, port)
-	addr := network.NewTCPAddress(id.Address.NetworkAddress())
-	id2 := network.NewServerIdentity(id.Public, addr)
+func newTCPServer(suite ciphersuite.CipherSuite, port int, path string, wantsTLS bool) *Server {
+	sk, si := newPrivIdentity(suite, port)
+	addr := network.NewTCPAddress(si.Address.NetworkAddress())
+	id2 := network.NewServerIdentity(si.PublicKey, addr)
+
+	cr := ciphersuite.NewRegistry()
+	cr.RegisterCipherSuite(suite)
+
 	var tcpHost *network.TCPHost
 	var addrWS string
 	// For the websocket we need a port at the address one higher than the
@@ -499,19 +499,19 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 	// available. Else redo the search.
 	for {
 		var err error
-		tcpHost, err = network.NewTCPHost(id2, s)
+		tcpHost, err = network.NewTCPHost(cr, id2)
 		if err != nil {
 			panic(xerrors.Errorf("tcp host: %v", err))
 		}
-		id.Address = tcpHost.Address()
+		si.Address = tcpHost.Address()
 		if port != 0 {
 			break
 		}
-		port, err := strconv.Atoi(id.Address.Port())
+		port, err := strconv.Atoi(si.Address.Port())
 		if err != nil {
 			panic(xerrors.Errorf("invalid port: %v", err))
 		}
-		addrWS = net.JoinHostPort(id.Address.Host(), strconv.Itoa(port+1))
+		addrWS = net.JoinHostPort(si.Address.Host(), strconv.Itoa(port+1))
 		if l, err := net.Listen("tcp", addrWS); err == nil {
 			l.Close()
 			break
@@ -522,30 +522,34 @@ func newTCPServer(s network.Suite, port int, path string, wantsTLS bool) *Server
 	if wantsTLS {
 		scheme += "s"
 	}
-	id.URL = scheme + "://" + addrWS
+	si.URL = scheme + "://" + addrWS
 
-	id.Address = network.NewAddress(id.Address.ConnType(), "127.0.0.1:"+id.Address.Port())
+	si.Address = network.NewAddress(si.Address.ConnType(), "127.0.0.1:"+si.Address.Port())
 
-	router := network.NewRouter(id, tcpHost)
+	router := network.NewRouter(si, tcpHost)
 	router.UnauthOk = true
-	return newServer(s, path, router, priv)
+	return newServer(cr, path, router, sk.Pack())
 }
 
 // NewLocalServer returns a new server using a LocalRouter (channels) to communicate.
 // At the return of this function, the router is already Run()ing in a go
 // routine.
-func NewLocalServer(s network.Suite, port int) *Server {
+func NewLocalServer(suite ciphersuite.CipherSuite, port int) *Server {
 	dir, err := ioutil.TempDir("", "example")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	priv, id := NewPrivIdentity(s, port)
-	localRouter, err := network.NewLocalRouter(id, s)
+	sk, si := newPrivIdentity(suite, port)
+	localRouter, err := network.NewLocalRouter(si)
 	if err != nil {
 		panic(err)
 	}
-	h := newServer(s, dir, localRouter, priv)
+
+	cr := ciphersuite.NewRegistry()
+	cr.RegisterCipherSuite(suite)
+
+	h := newServer(cr, dir, localRouter, sk.Pack())
 	h.StartInBackground()
 	return h
 }
@@ -555,7 +559,7 @@ func NewLocalServer(s network.Suite, port int) *Server {
 func (l *LocalTest) NewClient(serviceName string) *Client {
 	switch l.mode {
 	case TCP:
-		return NewClient(l.Suite, serviceName)
+		return NewClient(serviceName)
 	default:
 		log.Fatal("Can't make local client")
 		return nil
@@ -567,7 +571,7 @@ func (l *LocalTest) NewClient(serviceName string) *Client {
 func (l *LocalTest) NewClientKeep(serviceName string) *Client {
 	switch l.mode {
 	case TCP:
-		return NewClientKeep(l.Suite, serviceName)
+		return NewClientKeep(serviceName)
 	default:
 		log.Fatal("Can't make local client")
 		return nil
@@ -581,7 +585,7 @@ func (l *LocalTest) genLocalHosts(n int) []*Server {
 	for i := 0; i < n; i++ {
 		port := l.latestPort
 		l.latestPort += 10
-		servers[i] = l.NewServer(l.Suite, port)
+		servers[i] = l.NewServer(l.suite, port)
 	}
 	return servers
 }
@@ -593,12 +597,12 @@ func (l LocalTest) wantsTLS() bool {
 // NewServer returns a new server which type is determined by the local mode:
 // TCP or Local. If it's TCP, then an available port is used, otherwise, the
 // port given in argument is used.
-func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
+func (l *LocalTest) NewServer(suite ciphersuite.CipherSuite, port int) *Server {
 	l.panicClosed()
 	var server *Server
 	switch l.mode {
 	case TCP:
-		server = l.newTCPServer(s)
+		server = l.newTCPServer(suite)
 		// Set TLS certificate if any configuration available
 		if l.wantsTLS() {
 			server.WebSocket.Lock()
@@ -625,16 +629,16 @@ func (l *LocalTest) NewServer(s network.Suite, port int) *Server {
 		}
 		server.StartInBackground()
 	default:
-		server = l.NewLocalServer(s, port)
+		server = l.NewLocalServer(suite, port)
 	}
 	return server
 }
 
 // NewTCPServer returns a new TCP Server attached to this LocalTest, configured
 // for TLS if possible (if anything in LocalTest.webSocketTLSCertificate/Key).
-func (l *LocalTest) newTCPServer(s network.Suite) *Server {
+func (l *LocalTest) newTCPServer(suite ciphersuite.CipherSuite) *Server {
 	l.panicClosed()
-	server := newTCPServer(s, 0, l.path, l.wantsTLS())
+	server := newTCPServer(suite, 0, l.path, l.wantsTLS())
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services
@@ -644,14 +648,18 @@ func (l *LocalTest) newTCPServer(s network.Suite) *Server {
 
 // NewLocalServer returns a fresh Host using local connections within the context
 // of this LocalTest
-func (l *LocalTest) NewLocalServer(s network.Suite, port int) *Server {
+func (l *LocalTest) NewLocalServer(suite ciphersuite.CipherSuite, port int) *Server {
 	l.panicClosed()
-	priv, id := NewPrivIdentity(s, port)
-	localRouter, err := network.NewLocalRouterWithManager(l.ctx, id, s)
+	priv, id := newPrivIdentity(suite, port)
+	localRouter, err := network.NewLocalRouterWithManager(l.ctx, id)
 	if err != nil {
 		panic(err)
 	}
-	server := newServer(s, l.path, localRouter, priv)
+
+	cr := ciphersuite.NewRegistry()
+	cr.RegisterCipherSuite(suite)
+
+	server := newServer(cr, l.path, localRouter, priv.Pack())
 	server.StartInBackground()
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay

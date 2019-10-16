@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/network"
 )
 
 const treeStoreTimeout = 200 * time.Millisecond
@@ -61,11 +62,15 @@ func TestTreeStorage_Registration(t *testing.T) {
 func TestTreeStorage_GetRoster(t *testing.T) {
 	store := newTreeStorage(treeStoreTimeout)
 
-	store.Set(&Tree{Roster: &Roster{ID: RosterID{1}}})
-	store.Set(&Tree{Roster: &Roster{ID: RosterID{2}}})
+	ro1 := genRoster(testSuite, []network.Address{""})
+	ro2 := genRoster(testSuite, []network.Address{""})
+	ro3 := genRoster(testSuite, []network.Address{""})
 
-	require.NotNil(t, store.GetRoster(RosterID{2}))
-	require.Nil(t, store.GetRoster(RosterID{3}))
+	store.Set(&Tree{ID: TreeID(ro1.GetID()), Roster: ro1})
+	store.Set(&Tree{ID: TreeID(ro2.GetID()), Roster: ro2})
+
+	require.NotNil(t, store.GetRoster(ro1.GetID()))
+	require.Nil(t, store.GetRoster(ro3.GetID()))
 }
 
 // Tests that the tree won't be removed if it is set again after a remove

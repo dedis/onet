@@ -11,10 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"go.dedis.ch/kyber/v4/util/encoding"
-	"go.dedis.ch/kyber/v4/util/key"
 	"go.dedis.ch/onet/v4"
 	"go.dedis.ch/onet/v4/cfgpath"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
@@ -41,7 +40,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // no public IP can be configured, localhost will be used.
 // If everything is OK, the configuration-files will be written.
 // In case of an error this method Fatals.
-func InteractiveConfig(suite network.Suite, binaryName string) {
+func InteractiveConfig(suite ciphersuite.CipherSuite, binaryName string) {
 	log.Info("Setting up a cothority-server.")
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
 	// let's dissect the port / IP
@@ -130,11 +129,10 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 	services := GenerateServiceKeyPairs()
 
 	// create the keys
-	privStr, pubStr := createKeyPair(suite)
+	pk, sk := suite.KeyPair()
 	conf := &CothorityConfig{
-		Suite:    suite.String(),
-		Public:   pubStr,
-		Private:  privStr,
+		Public:   pk.Pack(),
+		Private:  sk.Pack(),
 		Address:  publicAddress,
 		Services: services,
 		Description: Input("New cothority",
@@ -165,12 +163,7 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		}
 	}
 
-	public, err := encoding.StringHexToPoint(suite, pubStr)
-	if err != nil {
-		log.Fatal("Impossible to parse public key:", err)
-	}
-
-	server := NewServerToml(suite, public, publicAddress, conf.Description, services)
+	server := NewServerToml(pk.Pack(), publicAddress, conf.Description, services)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
@@ -184,11 +177,10 @@ func GenerateServiceKeyPairs() map[string]ServiceConfig {
 	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
 		serviceSuite := onet.ServiceFactory.Suite(name)
 		if serviceSuite != nil {
-			private, public := createKeyPair(serviceSuite)
+			pk, sk := serviceSuite.KeyPair()
 			si := ServiceConfig{
-				Suite:   serviceSuite.String(),
-				Public:  public,
-				Private: private,
+				Public:  pk.Pack(),
+				Private: sk.Pack(),
 			}
 
 			services[name] = si
@@ -206,23 +198,6 @@ func checkOverwrite(file string) bool {
 		return InputYN(true, "Configuration file "+file+" already exists. Override?")
 	}
 	return true
-}
-
-// createKeyPair returns the private and public key in hexadecimal representation.
-func createKeyPair(suite network.Suite) (string, string) {
-	log.Infof("Creating private and public keys for suite %v.", suite.String())
-	kp := key.NewKeyPair(suite)
-	privStr, err := encoding.ScalarToStringHex(suite, kp.Private)
-	if err != nil {
-		log.Fatal("Error formating private key to hexadecimal. Abort.")
-	}
-	pubStr, err := encoding.PointToStringHex(suite, kp.Public)
-	if err != nil {
-		log.Fatal("Could not parse public key. Abort.")
-	}
-
-	log.Info("Public key:", pubStr)
-	return privStr, pubStr
 }
 
 // saveFiles takes a CothorityConfig and its filename, and a GroupToml and its filename,
@@ -343,12 +318,12 @@ func tryConnect(ip, binding network.Address) error {
 
 // RunServer starts a conode with the given config file name. It can
 // be used by different apps (like CoSi, for example)
-func RunServer(configFilename string) {
+func RunServer(cr *ciphersuite.Registry, configFilename string) {
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
 		log.Fatalf("[-] Configuration file does not exist. %s", configFilename)
 	}
 	// Let's read the config
-	_, server, err := ParseCothority(configFilename)
+	_, server, err := ParseCothority(cr, configFilename)
 	if err != nil {
 		log.Fatal("Couldn't parse config:", err)
 	}

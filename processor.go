@@ -453,8 +453,7 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 			return nil, nil, err
 		}
 		msg := reflect.New(mh.msgType).Interface()
-		if err := protobuf.DecodeWithConstructors(buf, msg,
-			network.DefaultConstructors(p.Context.server.Suite())); err != nil {
+		if err := protobuf.Decode(buf, msg); err != nil {
 			return nil, nil, xerrors.Errorf("decoding: %v", err)
 		}
 		return callInterfaceFunc(mh.handler, msg, mh.streaming)

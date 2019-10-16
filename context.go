@@ -70,11 +70,6 @@ func (c *Context) ServerIdentity() *network.ServerIdentity {
 	return c.server.ServerIdentity
 }
 
-// Suite returns the suite for the context's associated server.
-func (c *Context) Suite() network.Suite {
-	return c.server.Suite()
-}
-
 // ServiceID returns the service-id.
 func (c *Context) ServiceID() ServiceID {
 	return c.serviceID
@@ -204,7 +199,7 @@ func (c *Context) Load(key []byte) (interface{}, error) {
 		return nil, nil
 	}
 
-	_, ret, err := network.Unmarshal(buf, c.server.suite)
+	_, ret, err := network.Unmarshal(buf)
 	if err != nil {
 		return nil, xerrors.Errorf("unmarshaling: %v")
 	}

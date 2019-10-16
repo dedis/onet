@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"go.dedis.ch/kyber/v4/suites"
 	"go.dedis.ch/onet/v4"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 )
 
-var tSuite = suites.MustFind("Ed25519")
+var testSuite = &ciphersuite.UnsecureCipherSuite{}
 
 func TestMain(m *testing.M) {
 	log.MainTest(m)
@@ -17,7 +17,7 @@ func TestMain(m *testing.M) {
 
 // Tests a 2-node system
 func TestCloseAll(t *testing.T) {
-	local := onet.NewLocalTest(tSuite)
+	local := onet.NewLocalTest(testSuite)
 	nbrNodes := 2
 	_, _, tree := local.GenTree(nbrNodes, true)
 	defer local.CloseAll()

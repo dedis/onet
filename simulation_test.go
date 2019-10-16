@@ -9,18 +9,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v4/suites"
 	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
 
-var pairingSuite = suites.MustFind("bn256.adapter")
-
 func registerService() {
-	RegisterNewServiceWithSuite("simulationTestService", tSuite, func(c *Context) (Service, error) {
+	RegisterNewServiceWithSuite("simulationTestService", testSuite, func(c *Context) (Service, error) {
 		return nil, nil
 	})
-	RegisterNewServiceWithSuite("simulationTestService2", pairingSuite, func(c *Context) (Service, error) {
+	RegisterNewServiceWithSuite("simulationTestService2", testSuite, func(c *Context) (Service, error) {
 		return nil, nil
 	})
 }
@@ -88,7 +85,7 @@ func TestSimulationLoadSave(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig("Ed25519", dir, sc.Roster.List[0].Address.NetworkAddress())
+	sc2, err := LoadSimulationConfig(testSuite, dir, sc.Roster.List[0].Address.NetworkAddress())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +112,7 @@ func TestSimulationMultipleInstances(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig("Ed25519", dir, sc.Roster.List[0].Address.Host())
+	sc2, err := LoadSimulationConfig(testSuite, dir, sc.Roster.List[0].Address.Host())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,11 +139,12 @@ func closeAll(scs []*SimulationConfig) {
 }
 
 func createBFTree(hosts, bf int, tls bool, addresses []string) (*SimulationConfig, *SimulationBFTree, error) {
-	sc := &SimulationConfig{}
+	sc := &SimulationConfig{
+		Suite: testSuite,
+	}
 	sb := &SimulationBFTree{
 		Hosts: hosts,
 		BF:    bf,
-		Suite: "Ed25519",
 		TLS:   tls,
 	}
 	sb.CreateRoster(sc, addresses, 2000)

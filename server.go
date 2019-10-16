@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"go.dedis.ch/kyber/v4"
 	"go.dedis.ch/onet/v4/cfgpath"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
@@ -21,9 +21,10 @@ import (
 // Server connects the Router, the Overlay, and the Services together. It sets
 // up everything and returns once a working network has been set up.
 type Server struct {
-	// Our private-key
-	private kyber.Scalar
 	*network.Router
+
+	// Our private-key
+	secretKey ciphersuite.SecretKey
 	// Overlay handles the mapping from tree and entityList to ServerIdentity.
 	// It uses tokens to represent an unique ProtocolInstance in the system
 	overlay *Overlay
@@ -41,8 +42,6 @@ type Server struct {
 	// once everything's up and running
 	closeitChannel chan bool
 	IsStarted      bool
-
-	suite network.Suite
 }
 
 func dbPathFromEnv() string {
@@ -57,7 +56,7 @@ func dbPathFromEnv() string {
 // If dbPath is "", the server will write its database to the default
 // location. If dbPath is != "", it is considered a temp dir, and the
 // DB is deleted on close.
-func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Scalar) *Server {
+func newServer(cr *ciphersuite.Registry, dbPath string, r *network.Router, pkey *ciphersuite.CipherData) *Server {
 	delDb := false
 	if dbPath == "" {
 		dbPath = dbPathFromEnv()
@@ -66,43 +65,39 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		delDb = true
 	}
 
-	c := &Server{
-		private:              pkey,
+	sk, err := cr.UnpackSecretKey(pkey)
+	if err != nil {
+		panic(err)
+	}
+
+	srv := &Server{
+		secretKey:            sk,
 		statusReporterStruct: newStatusReporterStruct(),
 		Router:               r,
 		protocols:            newProtocolStorage(),
-		suite:                s,
 		closeitChannel:       make(chan bool),
 	}
-	c.overlay = NewOverlay(c)
-	c.WebSocket = NewWebSocket(r.ServerIdentity)
-	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
-	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
-	return c
+	srv.overlay = NewOverlay(srv, cr)
+	srv.WebSocket = NewWebSocket(r.ServerIdentity)
+	srv.serviceManager = newServiceManager(srv, srv.overlay, dbPath, delDb)
+	srv.statusReporterStruct.RegisterStatusReporter("Generic", srv)
+	return srv
 }
 
 // NewServerTCP returns a new Server out of a private-key and its related
 // public key within the ServerIdentity. The server will use a default
 // TcpRouter as Router.
-func NewServerTCP(e *network.ServerIdentity, suite network.Suite) *Server {
-	return NewServerTCPWithListenAddr(e, suite, "")
+func NewServerTCP(cr *ciphersuite.Registry, e *network.ServerIdentity) *Server {
+	return NewServerTCPWithListenAddr(cr, e, "")
 }
 
 // NewServerTCPWithListenAddr returns a new Server out of a private-key and
 // its related public key within the ServerIdentity. The server will use a
 // TcpRouter listening on the given address as Router.
-func NewServerTCPWithListenAddr(e *network.ServerIdentity, suite network.Suite,
-	listenAddr string) *Server {
-	r, err := network.NewTCPRouterWithListenAddr(e, suite, listenAddr)
+func NewServerTCPWithListenAddr(cr *ciphersuite.Registry, e *network.ServerIdentity, listenAddr string) *Server {
+	r, err := network.NewTCPRouterWithListenAddr(cr, e, listenAddr)
 	log.ErrFatal(err)
-	return newServer(suite, "", r, e.GetPrivate())
-}
-
-// Suite can (and should) be used to get the underlying Suite.
-// Currently the suite is hardcoded into the network library.
-// Don't use network.Suite but Host's Suite function instead if possible.
-func (c *Server) Suite() network.Suite {
-	return c.suite
+	return newServer(cr, "", r, e.GetPrivate())
 }
 
 var gover version.Version

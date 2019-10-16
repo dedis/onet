@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"sync"
 
-	"go.dedis.ch/kyber/v4"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
@@ -192,17 +192,6 @@ func (n *TreeNodeInstance) Tree() *Tree {
 // Roster returns the entity-list
 func (n *TreeNodeInstance) Roster() *Roster {
 	return n.Tree().Roster
-}
-
-// Suite can be used to get the kyber.Suite associated with the service. It can
-// be either the default suite or the one registered with the service.
-func (n *TreeNodeInstance) Suite() network.Suite {
-	suite := ServiceFactory.SuiteByID(n.token.ServiceID)
-	if suite != nil {
-		return suite
-	}
-
-	return n.overlay.suite()
 }
 
 // RegisterChannel is a compatibility-method for RegisterChannelLength
@@ -656,47 +645,51 @@ func (n *TreeNodeInstance) OnDoneCallback(fn func() bool) {
 	n.onDoneCallback = fn
 }
 
-// Private returns the private key of the service entity
-func (n *TreeNodeInstance) Private() kyber.Scalar {
+// SecretKey returns the private key of the service entity
+func (n *TreeNodeInstance) SecretKey() ciphersuite.SecretKey {
 	serviceName := ServiceFactory.Name(n.token.ServiceID)
 
-	return n.Host().ServerIdentity.ServicePrivate(serviceName)
-}
-
-// Public returns the public key of the service, either the specific
-// or the default if not available
-func (n *TreeNodeInstance) Public() kyber.Point {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
-
-	return n.Host().ServerIdentity.ServicePublic(serviceName)
-}
-
-// Aggregate returns the sum of all public key of the roster for this TreeNodeInstance, either the specific
-// or the default if one or more of the nodes don't have the service-public key available.
-func (n *TreeNodeInstance) Aggregate() kyber.Point {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
-
-	agg, err := n.Roster().ServiceAggregate(serviceName)
+	data := n.Host().ServerIdentity.ServicePrivate(serviceName)
+	sk, err := n.overlay.cr.UnpackSecretKey(data)
 	if err != nil {
-		return n.Roster().Aggregate
+		panic(err)
 	}
-	return agg
+	return sk
 }
 
-// Publics makes a list of public keys for the service
-// associated with the instance
-func (n *TreeNodeInstance) Publics() []kyber.Point {
+// PublicKey returns the public key of the service, either the specific
+// or the default if not available
+func (n *TreeNodeInstance) PublicKey() ciphersuite.PublicKey {
 	serviceName := ServiceFactory.Name(n.token.ServiceID)
 
-	return n.Roster().ServicePublics(serviceName)
+	data := n.Host().ServerIdentity.ServicePublic(serviceName)
+	pk, err := n.overlay.cr.UnpackPublicKey(data)
+	if err != nil {
+		panic(err)
+	}
+	return pk
+}
+
+// PublicKeys makes a list of public keys for the service
+// associated with the instance
+func (n *TreeNodeInstance) PublicKeys() ([]ciphersuite.PublicKey, error) {
+	serviceName := ServiceFactory.Name(n.token.ServiceID)
+	cr := n.overlay.cr
+
+	return n.Roster().servicePublicKeys(cr, serviceName)
 }
 
 // NodePublic returns the public key associated with the node's service
 // stored in the given server identity
-func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) kyber.Point {
+func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) ciphersuite.PublicKey {
 	serviceName := ServiceFactory.Name(n.token.ServiceID)
 
-	return si.ServicePublic(serviceName)
+	data := si.ServicePublic(serviceName)
+	pk, err := n.overlay.cr.UnpackPublicKey(data)
+	if err != nil {
+		panic(err)
+	}
+	return pk
 }
 
 // CloseHost closes the underlying onet.Host (which closes the overlay

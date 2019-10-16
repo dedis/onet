@@ -126,7 +126,7 @@ func (ts *treeStorage) GetRoster(id RosterID) *Roster {
 	defer ts.Unlock()
 
 	for _, tree := range ts.trees {
-		if tree.Roster.ID.Equal(id) {
+		if tree.Roster.GetID().Equal(id) {
 			return tree.Roster
 		}
 	}

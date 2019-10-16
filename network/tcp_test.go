@@ -647,35 +647,17 @@ func TestHandleError(t *testing.T) {
 
 func NewTestTCPHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTCPAddress("127.0.0.1:" + strconv.Itoa(port))
-	pk, sk, err := unsecureSuite.KeyPair()
-	if err != nil {
-		return nil, err
-	}
-	pkdata, err := pk.Pack()
-	if err != nil {
-		return nil, err
-	}
-	skdata, err := sk.Pack()
-	if err != nil {
-		return nil, err
-	}
+	pk, sk := unsecureSuite.KeyPair()
 
-	e := NewServerIdentity(pkdata, addr)
-	e.SetPrivate(skdata)
+	e := NewServerIdentity(pk.Pack(), addr)
+	e.SetPrivate(sk.Pack())
 	return NewTCPHost(cr, e)
 }
 
 // Returns a ServerIdentity out of the address
 func NewTestServerIdentity(address Address) (*ServerIdentity, error) {
-	pk, _, err := unsecureSuite.KeyPair()
-	if err != nil {
-		return nil, err
-	}
-	pkdata, err := pk.Pack()
-	if err != nil {
-		return nil, err
-	}
-	e := NewServerIdentity(pkdata, address)
+	pk, _ := unsecureSuite.KeyPair()
+	e := NewServerIdentity(pk.Pack(), address)
 	return e, nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 const (
@@ -29,7 +29,7 @@ func init() {
 }
 
 func TestNodeChannelCreateSlice(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(2, true)
 	defer local.CloseAll()
 
@@ -51,7 +51,7 @@ func TestNodeChannelCreateSlice(t *testing.T) {
 }
 
 func TestNodeChannelCreate(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(2, true)
 	defer local.CloseAll()
 
@@ -87,7 +87,7 @@ func TestNodeChannelCreate(t *testing.T) {
 }
 
 func TestNodeChannel(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(2, true)
 	defer local.CloseAll()
 
@@ -124,7 +124,7 @@ func TestNodeChannel(t *testing.T) {
 
 // Test instantiation of Node
 func TestNodeNew(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	defer local.CloseAll()
 
 	hosts, _, tree := local.GenTree(2, true)
@@ -146,7 +146,7 @@ func TestNodeNew(t *testing.T) {
 }
 
 func TestTreeNodeProtocolHandlers(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()
 	log.Lvl2("Sending to children")
@@ -182,7 +182,7 @@ func TestTreeNodeProtocolHandlers(t *testing.T) {
 }
 
 func TestTreeNodeMsgAggregation(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()
 	root, err := local.StartProtocol(ProtocolChannelsName, tree)
@@ -222,7 +222,7 @@ func TestTreeNodeMsgAggregation(t *testing.T) {
 
 func TestTreeNodeFlags(t *testing.T) {
 	testType := network.MessageTypeID(uuid.Nil)
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(testSuite)
 	_, _, tree := local.GenTree(3, true)
 	defer local.CloseAll()
 	p, err := local.CreateProtocol(ProtocolChannelsName, tree)
@@ -351,7 +351,7 @@ func (p *ProtocolHandlers) Dispatch() error {
 }
 
 func TestNodeBlocking(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(testSuite)
 	_, _, tree := l.GenTree(2, true)
 	defer l.CloseAll()
 

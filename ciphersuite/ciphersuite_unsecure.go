@@ -2,7 +2,7 @@ package ciphersuite
 
 import "crypto/rand"
 
-const nonceLength = 32
+const nonceLength = 16
 
 // UnsecureCipherSuiteName is the reference name for the cipher suite
 // intended to be used for testing.
@@ -26,14 +26,18 @@ func (pk *UnsecurePublicKey) Name() Name {
 }
 
 // Pack returns the cipher data of the public key.
-func (pk *UnsecurePublicKey) Pack() (*CipherData, error) {
-	return &CipherData{Data: pk.data, Name: pk.Name()}, nil
+func (pk *UnsecurePublicKey) Pack() *CipherData {
+	return &CipherData{Data: pk.data, Name: pk.Name()}
 }
 
 // Unpack tries to convert the cipher data back to a public key.
 func (pk *UnsecurePublicKey) Unpack(p *CipherData) error {
 	pk.data = p.Data
 	return nil
+}
+
+func (pk *UnsecurePublicKey) String() string {
+	return string(pk.data)
 }
 
 // UnsecureSecretKey is the secret key implementation of the unsecure
@@ -54,14 +58,18 @@ func (sk *UnsecureSecretKey) Name() Name {
 }
 
 // Pack returns the cipher data for the secret key.
-func (sk *UnsecureSecretKey) Pack() (*CipherData, error) {
-	return &CipherData{Data: sk.data, Name: sk.Name()}, nil
+func (sk *UnsecureSecretKey) Pack() *CipherData {
+	return &CipherData{Data: sk.data, Name: sk.Name()}
 }
 
 // Unpack tries to convert the cipher data back to a secret key.
 func (sk *UnsecureSecretKey) Unpack(p *CipherData) error {
 	sk.data = p.Data
 	return nil
+}
+
+func (sk *UnsecureSecretKey) String() string {
+	return string(sk.data)
 }
 
 // UnsecureSignature is the signature implementation of the unsecure
@@ -82,14 +90,18 @@ func (s *UnsecureSignature) Name() Name {
 }
 
 // Pack returns the cipher data of a signature.
-func (s *UnsecureSignature) Pack() (*CipherData, error) {
-	return &CipherData{Data: s.data, Name: s.Name()}, nil
+func (s *UnsecureSignature) Pack() *CipherData {
+	return &CipherData{Data: s.data, Name: s.Name()}
 }
 
 // Unpack tries to convert a cipher data back to a signature.
 func (s *UnsecureSignature) Unpack(p *CipherData) error {
 	s.data = p.Data
 	return nil
+}
+
+func (s *UnsecureSignature) String() string {
+	return string(s.data)
 }
 
 // UnsecureCipherSuite provides a cipher suite that can be used for testing
@@ -121,8 +133,8 @@ func (c *UnsecureCipherSuite) Signature() Signature {
 
 // KeyPair generates a valid pair of public and secret key for the
 // unsecure cipher suite.
-func (c *UnsecureCipherSuite) KeyPair() (PublicKey, SecretKey, error) {
-	return newUnsecurePublicKey(), newUnsecureSecretKey(), nil
+func (c *UnsecureCipherSuite) KeyPair() (PublicKey, SecretKey) {
+	return newUnsecurePublicKey(), newUnsecureSecretKey()
 }
 
 // Sign takes a secret key and a message and returns the signature of

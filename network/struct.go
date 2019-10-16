@@ -148,7 +148,7 @@ var ServerIdentityType = RegisterMessage(ServerIdentity{})
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
-	PublicKey ciphersuite.CipherData
+	PublicKey *ciphersuite.CipherData
 	Address   Address
 }
 
@@ -190,6 +190,10 @@ func (si *ServerIdentity) GetPrivate() *ciphersuite.CipherData {
 // ServicePublic returns the public key of the service or the default
 // one if the service has not been registered with a suite
 func (si *ServerIdentity) ServicePublic(name string) *ciphersuite.CipherData {
+	if name == "" {
+		return si.PublicKey
+	}
+
 	for _, srvid := range si.ServiceIdentities {
 		if srvid.Name == name {
 			return srvid.PublicKey
@@ -238,14 +242,14 @@ func (si *ServerIdentity) HasServicePublic(name string) bool {
 func (si *ServerIdentity) Toml() *ServerIdentityToml {
 	return &ServerIdentityToml{
 		Address:   si.Address,
-		PublicKey: *si.PublicKey,
+		PublicKey: si.PublicKey,
 	}
 }
 
 // ServerIdentity converts an ServerIdentityToml structure back to an ServerIdentity
 func (si *ServerIdentityToml) ServerIdentity() *ServerIdentity {
 	return &ServerIdentity{
-		PublicKey: &si.PublicKey,
+		PublicKey: si.PublicKey,
 		Address:   si.Address,
 	}
 }

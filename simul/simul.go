@@ -15,6 +15,7 @@ import (
 	"flag"
 	"os"
 
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/simul/platform"
 )
@@ -49,14 +50,14 @@ func init() {
 // simulation to run.
 // If given an array of rcs, each element will be interpreted as a .toml-file
 // to load and simulate.
-func Start(rcs ...string) {
+func Start(suite ciphersuite.CipherSuite, rcs ...string) {
 	wd, err := os.Getwd()
 	if len(rcs) > 0 {
 		log.ErrFatal(err)
 		for _, rc := range rcs {
 			log.Lvl1("Running toml-file:", rc)
 			os.Args = []string{os.Args[0], rc}
-			Start()
+			Start(suite)
 		}
 		return
 	}

@@ -41,7 +41,9 @@ func NewSimulation(config string) (onet.Simulation, error) {
 // Setup creates the tree used for that simulation
 func (e *simulation) Setup(dir string, hosts []string) (
 	*onet.SimulationConfig, error) {
-	sc := &onet.SimulationConfig{}
+	sc := &onet.SimulationConfig{
+		Suite: testSuite,
+	}
 	e.CreateRoster(sc, hosts, 2000)
 	err := e.CreateTree(sc)
 	if err != nil {
@@ -74,5 +76,5 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 }
 
 func main() {
-	simul.Start()
+	simul.Start(testSuite)
 }

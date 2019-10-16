@@ -11,17 +11,11 @@ import (
 func TestServerIdentity(t *testing.T) {
 	log.OutputToBuf()
 	defer log.OutputToOs()
-	pk1, _, err := unsecureSuite.KeyPair()
-	require.NoError(t, err)
-	pk1data, err := pk1.Pack()
-	require.NoError(t, err)
-	pk2, _, err := unsecureSuite.KeyPair()
-	require.NoError(t, err)
-	pk2data, err := pk2.Pack()
-	require.NoError(t, err)
+	pk1, _ := unsecureSuite.KeyPair()
+	pk2, _ := unsecureSuite.KeyPair()
 
-	si1 := NewServerIdentity(pk1data, NewLocalAddress("1"))
-	si2 := NewServerIdentity(pk2data, NewLocalAddress("2"))
+	si1 := NewServerIdentity(pk1.Pack(), NewLocalAddress("1"))
+	si2 := NewServerIdentity(pk2.Pack(), NewLocalAddress("2"))
 
 	if si1.Equal(si2) || !si1.Equal(si1) {
 		t.Error("Stg's wrong with ServerIdentity")
@@ -40,7 +34,7 @@ func TestServerIdentity(t *testing.T) {
 	if si11.Address != si1.Address || !si11.PublicKey.Equal(si1.PublicKey) {
 		t.Error("Stg wrong with toml -> Si")
 	}
-	t1.PublicKey = ciphersuite.CipherData{}
+	t1.PublicKey = &ciphersuite.CipherData{}
 	si12 := t1.ServerIdentity()
 	if si12.PublicKey != nil && si12.PublicKey.Equal(si1.PublicKey) {
 		t.Error("stg wrong with wrong toml -> wrong si")
@@ -75,28 +69,18 @@ func TestGlobalBind(t *testing.T) {
 // TestServiceIdentity checks that service identities are instantiated
 // correctly and that we can access the keys
 func TestServiceIdentity(t *testing.T) {
-	pk, sk, err := unsecureSuite.KeyPair()
-	require.NoError(t, err)
-	pkdata, err := pk.Pack()
-	require.NoError(t, err)
-	skdata, err := sk.Pack()
-	require.NoError(t, err)
-	si := NewServerIdentity(pkdata, NewLocalAddress("1"))
-	si.SetPrivate(skdata)
+	pk, sk := unsecureSuite.KeyPair()
+	si := NewServerIdentity(pk.Pack(), NewLocalAddress("1"))
+	si.SetPrivate(sk.Pack())
 
-	spk, sks, err := unsecureSuite.KeyPair()
-	require.NoError(t, err)
-	spkdata, err := spk.Pack()
-	require.NoError(t, err)
-	sksdata, err := sks.Pack()
-	require.NoError(t, err)
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spkdata, sksdata))
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spkdata, nil))
+	spk, sks := unsecureSuite.KeyPair()
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spk.Pack(), sks.Pack()))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spk.Pack(), nil))
 
-	require.Equal(t, spkdata, si.ServicePublic("a"))
-	require.Equal(t, sksdata, si.ServicePrivate("a"))
-	require.Equal(t, pkdata, si.ServicePublic("c"))
-	require.Equal(t, skdata, si.ServicePrivate("c"))
+	require.Equal(t, spk.Pack(), si.ServicePublic("a"))
+	require.Equal(t, sks.Pack(), si.ServicePrivate("a"))
+	require.Equal(t, pk.Pack(), si.ServicePublic("c"))
+	require.Equal(t, sk.Pack(), si.ServicePrivate("c"))
 	require.True(t, si.HasServiceKeyPair("a"))
 	require.False(t, si.HasServiceKeyPair("b"))
 	require.False(t, si.HasServiceKeyPair("c"))

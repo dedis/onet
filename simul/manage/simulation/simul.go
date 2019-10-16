@@ -5,6 +5,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v4"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/simul"
 	"go.dedis.ch/onet/v4/simul/manage"
@@ -29,8 +30,6 @@ type simulation struct {
 // initialised using the config-file
 func NewSimulation(config string) (onet.Simulation, error) {
 	es := &simulation{}
-	// Set defaults before toml.Decode
-	es.Suite = "Ed25519"
 
 	_, err := toml.Decode(config, es)
 	if err != nil {
@@ -42,7 +41,9 @@ func NewSimulation(config string) (onet.Simulation, error) {
 // Setup creates the tree used for that simulation
 func (e *simulation) Setup(dir string, hosts []string) (
 	*onet.SimulationConfig, error) {
-	sc := &onet.SimulationConfig{}
+	sc := &onet.SimulationConfig{
+		Suite: &ciphersuite.UnsecureCipherSuite{},
+	}
 	e.CreateRoster(sc, hosts, 2000)
 	err := e.CreateTree(sc)
 	if err != nil {
@@ -75,5 +76,5 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 }
 
 func main() {
-	simul.Start()
+	simul.Start(&ciphersuite.UnsecureCipherSuite{})
 }
