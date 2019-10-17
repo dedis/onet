@@ -11,13 +11,17 @@ import (
 	"go.dedis.ch/onet/v4/network"
 )
 
+var treenodeTestBuilder = NewDefaultBuilder()
+
 func init() {
 	GlobalProtocolRegister(spawnName, newSpawnProto)
 	GlobalProtocolRegister(pingPongProtoName, newPingPongProto)
+
+	treenodeTestBuilder.SetSuite(testSuite)
 }
 
 func TestTreeNodeInstance_KeyPairs(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	_, _, tree := local.GenTree(5, true)
@@ -33,7 +37,7 @@ func TestTreeNodeInstance_KeyPairs(t *testing.T) {
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	hosts, _, tree := local.GenTree(1, true)
@@ -52,11 +56,11 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 }
 
 func TestTreeNodeRxTx(t *testing.T) {
-	local := NewTCPTest(testSuite)
+	local := NewTCPTest(treenodeTestBuilder)
 	testTreeNodeRxTx(t, local)
 	local.CloseAll()
 
-	local = NewLocalTest(testSuite)
+	local = NewLocalTest(treenodeTestBuilder)
 	testTreeNodeRxTx(t, local)
 	local.CloseAll()
 }
@@ -73,7 +77,7 @@ func testTreeNodeRxTx(t *testing.T, local *LocalTest) {
 }
 
 func TestHandlerReturn(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	hosts, _, tree := local.GenTree(1, true)
@@ -107,7 +111,7 @@ func (p *configProcessor) Process(env *network.Envelope) {
 }
 
 func TestConfigPropagation(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 	const treeSize = 3
 	var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
@@ -148,7 +152,7 @@ func TestConfigPropagation(t *testing.T) {
 }
 
 func TestTreeNodeInstance_RegisterChannel(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	_, _, tree := local.GenTree(3, true)

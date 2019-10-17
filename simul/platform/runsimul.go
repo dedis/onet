@@ -6,7 +6,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v4"
-	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/onet/v4/simul/manage"
@@ -18,8 +17,8 @@ type simulInit struct{}
 type simulInitDone struct{}
 
 // Simulate starts the server and will setup the protocol.
-func Simulate(suite ciphersuite.CipherSuite, serverAddress, simul, monitorAddress string) error {
-	scs, err := onet.LoadSimulationConfig(suite, ".", serverAddress)
+func Simulate(builder onet.Builder, serverAddress, simul, monitorAddress string) error {
+	scs, err := onet.LoadSimulationConfig(builder, ".", serverAddress)
 	if err != nil {
 		// We probably are not needed
 		log.Lvl2(err, serverAddress)

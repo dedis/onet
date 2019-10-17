@@ -86,210 +86,11 @@ type GenericConfig struct {
 	Data []byte
 }
 
-// A serviceFactory is used to register a NewServiceFunc
-type serviceFactory struct {
-	constructors []serviceEntry
-	mutex        sync.RWMutex
-}
-
-// A serviceEntry holds all references to a service
-type serviceEntry struct {
-	constructor NewServiceFunc
-	serviceID   ServiceID
-	name        string
-	suite       ciphersuite.CipherSuite
-}
-
-// ServiceFactory is the global service factory to instantiate Services
-var ServiceFactory = serviceFactory{
-	constructors: []serviceEntry{},
-}
-
-// Register takes a name and a function, then creates a ServiceID out of it and stores the
-// mapping and the creation function.
-//
-// A suite can be provided to override the default one
-func (s *serviceFactory) Register(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) (ServiceID, error) {
-	if !s.ServiceID(name).Equal(NilServiceID) {
-		return NilServiceID, xerrors.Errorf("service %s already registered", name)
-	}
-	id := ServiceID(uuid.NewV5(uuid.NamespaceURL, name))
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.constructors = append(s.constructors, serviceEntry{
-		constructor: fn,
-		serviceID:   id,
-		name:        name,
-		suite:       suite,
-	})
-	return id, nil
-}
-
-// Unregister - mainly for tests
-func (s *serviceFactory) Unregister(name string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	index := -1
-	for i, c := range s.constructors {
-		if c.name == name {
-			index = i
-			break
-		}
-	}
-	if index < 0 {
-		return xerrors.New("Didn't find service " + name)
-	}
-	s.constructors = append(s.constructors[:index], s.constructors[index+1:]...)
-	return nil
-}
-
-// RegisterNewService is a wrapper around service factory to register
-// a service with the default suite
-func RegisterNewService(name string, fn NewServiceFunc) (ServiceID, error) {
-	id, err := ServiceFactory.Register(name, nil, fn)
-	if err != nil {
-		return id, xerrors.Errorf("register service: %v", err)
-	}
-	return id, nil
-}
-
-// RegisterNewServiceWithSuite is wrapper around service factory to register
-// a service with a given suite
-func RegisterNewServiceWithSuite(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) (ServiceID, error) {
-	id, err := ServiceFactory.Register(name, suite, fn)
-	if err != nil {
-		return id, xerrors.Errorf("register service: %v", err)
-	}
-	return id, nil
-}
-
-// UnregisterService removes a service from the global pool.
-func UnregisterService(name string) error {
-	err := ServiceFactory.Unregister(name)
-	if err != nil {
-		return xerrors.Errorf("register service: %v", err)
-	}
-	return nil
-}
-
-// registeredServiceIDs returns all the services registered
-func (s *serviceFactory) registeredServiceIDs() []ServiceID {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	var ids = make([]ServiceID, 0, len(s.constructors))
-	for _, c := range s.constructors {
-		ids = append(ids, c.serviceID)
-	}
-	return ids
-}
-
-// generateKeyPairs generates the key pairs for the services that
-// have a suite registered with them. Other ones will use the default
-// suite and the associated key pair.
-func (s *serviceFactory) generateKeyPairs(si *network.ServerIdentity) {
-	services := []network.ServiceIdentity{}
-	for _, name := range ServiceFactory.RegisteredServiceNames() {
-		suite := ServiceFactory.Suite(name)
-		if suite != nil {
-			pk, sk := suite.KeyPair()
-			sid := network.NewServiceIdentity(name, pk.Pack(), sk.Pack())
-
-			services = append(services, sid)
-		}
-	}
-	si.ServiceIdentities = services
-}
-
-// RegisteredServiceNames returns all the names of the services registered
-func (s *serviceFactory) RegisteredServiceNames() []string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	var names = make([]string, 0, len(s.constructors))
-	for _, n := range s.constructors {
-		names = append(names, n.name)
-	}
-	return names
-}
-
-// ServiceID returns the ServiceID out of the name of the service
-func (s *serviceFactory) ServiceID(name string) ServiceID {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, c := range s.constructors {
-		if name == c.name {
-			return c.serviceID
-		}
-	}
-	return NilServiceID
-}
-
-// Suite returns the suite registered with the service or nil
-func (s *serviceFactory) Suite(name string) ciphersuite.CipherSuite {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, c := range s.constructors {
-		if name == c.name {
-			return c.suite
-		}
-	}
-
-	return nil
-}
-
-// SuiteByID returns the suite registered with the service or nil
-// using the generated service ID
-func (s *serviceFactory) SuiteByID(id ServiceID) ciphersuite.CipherSuite {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, c := range s.constructors {
-		if id == c.serviceID {
-			return c.suite
-		}
-	}
-
-	return nil
-}
-
-// Name returns the Name out of the ID
-func (s *serviceFactory) Name(id ServiceID) string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, c := range s.constructors {
-		if id.Equal(c.serviceID) {
-			return c.name
-		}
-	}
-	return ""
-}
-
-// start launches a new service
-func (s *serviceFactory) start(name string, con *Context) (Service, error) {
-	// Checks if we need a key pair and if it is available
-	suite := s.Suite(name)
-	if suite != nil && !con.ServerIdentity().HasServiceKeyPair(name) {
-		return nil, xerrors.Errorf("Service `%s` requires a key pair. "+
-			"Use the interactive setup to generate a new file that will include this service.", name)
-	}
-
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	for _, c := range s.constructors {
-		if name == c.name {
-			service, err := c.constructor(con)
-			if err != nil {
-				return nil, xerrors.Errorf("creating service: %v", err)
-			}
-			return service, nil
-		}
-	}
-	return nil, xerrors.New("Didn't find service " + name)
-}
-
 // serviceManager is the place where all instantiated services are stored
 // It gives access to: all the currently running services
 type serviceManager struct {
 	// the actual services
-	services map[ServiceID]Service
+	services map[string]Service
 	// making sure we're not racing for services
 	servicesMutex sync.Mutex
 	// the onet host
@@ -305,7 +106,7 @@ type serviceManager struct {
 
 // newServiceManager will create a serviceStore out of all the registered Service
 func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
-	services := make(map[ServiceID]Service)
+	services := make(map[string]Service)
 	s := &serviceManager{
 		services:   services,
 		server:     srv,
@@ -327,26 +128,27 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 		srv.ProtocolRegister(name, inst)
 	}
 
-	ids := ServiceFactory.registeredServiceIDs()
-	for _, id := range ids {
-		name := ServiceFactory.Name(id)
-		log.Lvl3("Starting service", name)
-
-		cont := newContext(srv, o, id, s)
-
-		srvc, err := ServiceFactory.start(name, cont)
-		if err != nil {
-			log.Fatalf("Trying to instantiate service %v: %v", name, err)
-		}
-		log.Lvl3("Started Service", name)
-		s.servicesMutex.Lock()
-		services[id] = srvc
-		s.servicesMutex.Unlock()
-		srv.WebSocket.registerService(name, srvc)
-	}
 	log.Lvl3(srv.Address(), "instantiated all services")
 	srv.statusReporterStruct.RegisterStatusReporter("Db", s)
 	return s
+}
+
+func (s *serviceManager) register(suite ciphersuite.CipherSuite, name string, fn NewServiceFunc) error {
+	if suite != nil && !s.server.ServerIdentity.HasServiceKeyPair(name) {
+		return xerrors.Errorf("Service `%s` requires a key pair. "+
+			"Use the interactive setup to generate a new file that will include this service.", name)
+	}
+
+	ctx := newContext(name, s)
+	srvc, err := fn(ctx)
+	if err != nil {
+		return xerrors.Errorf("creating service: %v", err)
+	}
+
+	s.services[name] = srvc
+	s.server.WebSocket.registerService(name, srvc)
+
+	return nil
 }
 
 // openDb opens a database at `path`. It creates the database if it does not exist.
@@ -465,8 +267,8 @@ func (s *serviceManager) registerProcessorFunc(msgType network.MessageTypeID, fn
 func (s *serviceManager) availableServices() (ret []string) {
 	s.servicesMutex.Lock()
 	defer s.servicesMutex.Unlock()
-	for id := range s.services {
-		ret = append(ret, ServiceFactory.Name(id))
+	for name := range s.services {
+		ret = append(ret, name)
 	}
 	return
 }
@@ -474,13 +276,10 @@ func (s *serviceManager) availableServices() (ret []string) {
 // service returns the service implementation being registered to this name or
 // nil if no service by this name is available.
 func (s *serviceManager) service(name string) Service {
-	id := ServiceFactory.ServiceID(name)
-	if id.Equal(NilServiceID) {
-		return nil
-	}
 	s.servicesMutex.Lock()
 	defer s.servicesMutex.Unlock()
-	ser, ok := s.services[id]
+
+	ser, ok := s.services[name]
 	if !ok {
 		log.Error("this service is not instantiated")
 		return nil
@@ -488,15 +287,18 @@ func (s *serviceManager) service(name string) Service {
 	return ser
 }
 
-func (s *serviceManager) serviceByID(id ServiceID) (Service, bool) {
-	var serv Service
-	var ok bool
+func (s *serviceManager) serviceByID(id ServiceID) (Service, string) {
 	s.servicesMutex.Lock()
 	defer s.servicesMutex.Unlock()
-	if serv, ok = s.services[id]; !ok {
-		return nil, false
+
+	for name, service := range s.services {
+		serviceID := ServiceID(uuid.NewV5(uuid.NamespaceURL, name))
+		if serviceID.Equal(id) {
+			return service, name
+		}
 	}
-	return serv, true
+
+	return nil, ""
 }
 
 // newProtocol contains the logic of how and where a ProtocolInstance is
@@ -509,9 +311,9 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 		err = xerrors.New("will not pass protocol once the server is closed")
 		return
 	}
-	si, ok := s.serviceByID(tni.Token().ServiceID)
+	si, _ := s.serviceByID(tni.Token().ServiceID)
 	defaultHandle := func() (ProtocolInstance, error) { return s.server.protocolInstantiate(tni.Token().ProtoID, tni) }
-	if !ok {
+	if si == nil {
 		// let onet handle it
 		return defaultHandle()
 	}

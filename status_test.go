@@ -20,16 +20,22 @@ func TestSRStruct(t *testing.T) {
 }
 
 func TestStatusHost(t *testing.T) {
-	l := NewTCPTest(testSuite)
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService("abc", nil, func(c *Context) (Service, error) {
+		return nil, nil
+	})
+
+	l := NewTCPTest(builder)
 	defer l.CloseAll()
 
-	c := l.NewServer(testSuite, 2050)
+	c := l.NewServer(2050)
 	defer c.Close()
 
 	stats := c.GetStatus()
-	a := ServiceFactory.RegisteredServiceNames()
+	count := len(c.serviceManager.services)
 	services := strings.Split(stats.Field["Available_Services"], ",")
-	assert.Equal(t, len(services), len(a))
+	assert.Equal(t, len(services), count)
 }
 
 type dummyTestReporter struct {

@@ -65,7 +65,7 @@ func TestOverlayDispatchFailure(t *testing.T) {
 		return &ps, nil
 	}
 	GlobalProtocolRegister("ProtocolOverlay", fn)
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 
 	// Redirect output so we can check for the failure
@@ -105,7 +105,7 @@ func TestOverlayDone(t *testing.T) {
 		return &ps, nil
 	}
 	GlobalProtocolRegister("ProtocolOverlay", fn)
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 	h, _, tree := local.GenTree(1, true)
 	h1 := h[0]
@@ -186,7 +186,7 @@ func TestOverlayCatastrophicFailure(t *testing.T) {
 		return &ps, err
 	}
 	GlobalProtocolRegister("ProtocolCatastrophic", fn)
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 
 	h, _, tree := local.GenTree(3, true)
@@ -208,7 +208,7 @@ func TestOverlayCatastrophicFailure(t *testing.T) {
 // Test when a peer receives a New Roster, it can create the trees that are
 // waiting on this specific entitiy list, to be constructed.
 func TestOverlayPendingTreeMarshal(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	hosts, el, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
@@ -259,7 +259,7 @@ func (op *overlayProc) Types() []network.MessageTypeID {
 
 // Test propagation of tree - both known and unknown
 func TestOverlayTreePropagation(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	hosts, _, tree := local.GenTree(2, false)
 	defer local.CloseAll()
 	h1 := hosts[0]
@@ -309,7 +309,7 @@ func TestOverlayTreePropagation(t *testing.T) {
 
 // Tests if a tree can be requested even after a failure
 func TestOverlayTreeFailure(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	hosts, _, tree := local.GenTree(3, false)
 	defer local.CloseAll()
 
@@ -336,7 +336,7 @@ func TestOverlayTreeFailure(t *testing.T) {
 
 // Tests that the tree is not registered when bad parameters are provided
 func TestOverlayHandlersBadParameters(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(localTestBuilder)
 	hosts, ro, tree := local.GenTree(1, false)
 	defer local.CloseAll()
 	h := hosts[0]

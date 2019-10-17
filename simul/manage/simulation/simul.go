@@ -17,7 +17,11 @@ import (
 Defines the simulation for the count-protocol
 */
 
+var builder = onet.NewDefaultBuilder()
+
 func init() {
+	builder.SetSuite(&ciphersuite.UnsecureCipherSuite{})
+
 	onet.SimulationRegister("Count", NewSimulation)
 }
 
@@ -39,11 +43,8 @@ func NewSimulation(config string) (onet.Simulation, error) {
 }
 
 // Setup creates the tree used for that simulation
-func (e *simulation) Setup(dir string, hosts []string) (
-	*onet.SimulationConfig, error) {
-	sc := &onet.SimulationConfig{
-		Suite: &ciphersuite.UnsecureCipherSuite{},
-	}
+func (e *simulation) Setup(dir string, hosts []string) (*onet.SimulationConfig, error) {
+	sc := &onet.SimulationConfig{Builder: builder}
 	e.CreateRoster(sc, hosts, 2000)
 	err := e.CreateTree(sc)
 	if err != nil {
@@ -76,5 +77,5 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 }
 
 func main() {
-	simul.Start(&ciphersuite.UnsecureCipherSuite{})
+	simul.Start(builder)
 }

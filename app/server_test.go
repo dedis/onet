@@ -11,14 +11,11 @@ import (
 )
 
 func TestInteractiveConfig(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	tmp, err := ioutil.TempDir("", "conode")
 	log.ErrFatal(err)
 
 	setInput("127.0.0.1:2000\nConode1\n" + tmp)
-	InteractiveConfig(testSuite, tmp+"/config.bin")
+	InteractiveConfig(testBuilder, tmp+"/config.bin")
 
 	cr := ciphersuite.NewRegistry()
 	cr.RegisterCipherSuite(testSuite)

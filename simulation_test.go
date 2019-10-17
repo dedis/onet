@@ -13,18 +13,16 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func registerService() {
-	RegisterNewServiceWithSuite("simulationTestService", testSuite, func(c *Context) (Service, error) {
-		return nil, nil
-	})
-	RegisterNewServiceWithSuite("simulationTestService2", testSuite, func(c *Context) (Service, error) {
-		return nil, nil
-	})
-}
+var simTestBuilder = NewDefaultBuilder()
 
-func unregisterService() {
-	UnregisterService("simulationTestService")
-	UnregisterService("simulationTestService2")
+func init() {
+	simTestBuilder.SetSuite(testSuite)
+	simTestBuilder.SetService("simulationTestService", testSuite, func(c *Context) (Service, error) {
+		return nil, nil
+	})
+	simTestBuilder.SetService("simulationTestService2", testSuite, func(c *Context) (Service, error) {
+		return nil, nil
+	})
 }
 
 func TestSimulationBF(t *testing.T) {
@@ -74,9 +72,6 @@ func TestSimulationBigTree(t *testing.T) {
 }
 
 func TestSimulationLoadSave(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	sc, _, err := createBFTree(7, 2, false, []string{"127.0.0.1", "127.0.0.2"})
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +80,7 @@ func TestSimulationLoadSave(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig(testSuite, dir, sc.Roster.List[0].Address.NetworkAddress())
+	sc2, err := LoadSimulationConfig(simTestBuilder, dir, sc.Roster.List[0].Address.NetworkAddress())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +107,7 @@ func TestSimulationMultipleInstances(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig(testSuite, dir, sc.Roster.List[0].Address.Host())
+	sc2, err := LoadSimulationConfig(simTestBuilder, dir, sc.Roster.List[0].Address.Host())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,9 +134,7 @@ func closeAll(scs []*SimulationConfig) {
 }
 
 func createBFTree(hosts, bf int, tls bool, addresses []string) (*SimulationConfig, *SimulationBFTree, error) {
-	sc := &SimulationConfig{
-		Suite: testSuite,
-	}
+	sc := &SimulationConfig{Builder: simTestBuilder}
 	sb := &SimulationBFTree{
 		Hosts: hosts,
 		BF:    bf,

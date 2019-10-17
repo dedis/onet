@@ -25,112 +25,22 @@ func init() {
 	network.RegisterMessage(SimpleMessageBack{})
 	network.RegisterMessage(SimpleRequest{})
 	dummyMsgType = network.RegisterMessage(DummyMsg{})
-	RegisterNewService(ismServiceName, newServiceMessages)
-	RegisterNewService(dummyService2Name, newDummyService2)
 	GlobalProtocolRegister(dummyProtocolName, newDummyProtocol2)
-}
-
-func TestServiceRegistration(t *testing.T) {
-	var name = "dummy"
-	RegisterNewService(name, func(c *Context) (Service, error) {
-		return &DummyService{}, nil
-	})
-
-	names := ServiceFactory.RegisteredServiceNames()
-	var found bool
-	for _, n := range names {
-		if n == name {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("Name not found !?")
-	}
-	ServiceFactory.Unregister(name)
-	names = ServiceFactory.RegisteredServiceNames()
-	for _, n := range names {
-		if n == name {
-			t.Fatal("Dummy should not be found!")
-		}
-	}
-
-	var nameWithSuite = "dummyWithSuite"
-	sid, err := RegisterNewServiceWithSuite(nameWithSuite, testSuite, func(c *Context) (Service, error) {
-		return &DummyService{}, nil
-	})
-	require.NoError(t, err)
-
-	suite := ServiceFactory.Suite(nameWithSuite)
-	require.NotNil(t, suite)
-	suite = ServiceFactory.SuiteByID(sid)
-	require.NotNil(t, suite)
-
-	suite = ServiceFactory.Suite(name)
-	require.Nil(t, suite)
-
-	UnregisterService(nameWithSuite)
-}
-
-func TestServiceNew(t *testing.T) {
-	ds := &DummyService{
-		link: make(chan bool, 1),
-	}
-	RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
-		ds.c = c
-		ds.link <- true
-		return ds, nil
-	})
-	defer UnregisterService(dummyServiceName)
-	var local *LocalTest
-	servers := make(chan bool)
-	go func() {
-		local = NewLocalTest(testSuite)
-		local.GenServers(1)
-		servers <- true
-	}()
-
-	<-servers
-	waitOrFatal(ds.link, t)
-	local.CloseAll()
-}
-
-// TestService_StartWithKP checks that services with a registered suite
-// won't start if the key pair is not provided in the conode toml file.
-func TestService_StartWithKP(t *testing.T) {
-	dummyWithSuite := "dummyWithSuite"
-	RegisterNewServiceWithSuite(dummyWithSuite, testSuite, func(c *Context) (Service, error) {
-		return &DummyService{}, nil
-	})
-
-	si := &network.ServerIdentity{}
-	ctx := &Context{
-		server: &Server{
-			Router: &network.Router{ServerIdentity: si},
-		},
-	}
-	_, err := ServiceFactory.start(dummyWithSuite, ctx)
-	require.Contains(t, err.Error(), "requires a key pair")
-
-	ServiceFactory.generateKeyPairs(si)
-	_, err = ServiceFactory.start(dummyWithSuite, ctx)
-	require.NoError(t, err)
-
-	UnregisterService(dummyWithSuite)
 }
 
 func TestServiceProcessRequest(t *testing.T) {
 	link := make(chan bool, 1)
-	_, err := RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
 		ds := &DummyService{
 			link: link,
 			c:    c,
 		}
 		return ds, nil
 	})
-	log.ErrFatal(err)
-	defer UnregisterService(dummyServiceName)
 
-	local := NewTCPTest(testSuite)
+	local := NewTCPTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	log.Lvl1("Host created and listening")
@@ -138,7 +48,7 @@ func TestServiceProcessRequest(t *testing.T) {
 	// Send a request to the service
 	client := NewClient(dummyServiceName)
 	log.Lvl1("Sending request to service...")
-	_, err = client.Send(server.ServerIdentity, "nil", []byte("a"))
+	_, err := client.Send(server.ServerIdentity, "nil", []byte("a"))
 	log.Lvl2("Got reply")
 	require.Error(t, err)
 	// wait for the link
@@ -152,13 +62,14 @@ func TestServiceRequestNewProtocol(t *testing.T) {
 	ds := &DummyService{
 		link: make(chan bool, 1),
 	}
-	RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
+
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
 		ds.c = c
 		return ds, nil
 	})
-
-	defer UnregisterService(dummyServiceName)
-	local := NewTCPTest(testSuite)
+	local := NewTCPTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	client := local.NewClient(dummyServiceName)
@@ -196,7 +107,9 @@ func TestServiceNewProtocol(t *testing.T) {
 	}
 	var count int
 	countMutex := sync.Mutex{}
-	RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
 		countMutex.Lock()
 		defer countMutex.Unlock()
 		log.Lvl2("Creating service", count)
@@ -216,8 +129,7 @@ func TestServiceNewProtocol(t *testing.T) {
 		return localDs, nil
 	})
 
-	defer UnregisterService(dummyServiceName)
-	local := NewTCPTest(testSuite)
+	local := NewTCPTest(builder)
 	defer local.CloseAll()
 	hs := local.GenServers(3)
 	server1, server2 := hs[0], hs[1]
@@ -250,7 +162,9 @@ func TestServiceProcessor(t *testing.T) {
 		link: make(chan bool),
 	}
 	var count int
-	RegisterNewService(dummyServiceName, func(c *Context) (Service, error) {
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
 		var s *DummyService
 		if count == 0 {
 			s = ds1
@@ -261,12 +175,11 @@ func TestServiceProcessor(t *testing.T) {
 		c.RegisterProcessor(s, dummyMsgType)
 		return s, nil
 	})
-	local := NewLocalTest(testSuite)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	hs := local.GenServers(2)
 	server1, server2 := hs[0], hs[1]
 
-	defer UnregisterService(dummyServiceName)
 	// create two servers
 	log.Lvl1("Host created and listening")
 	// create request
@@ -280,18 +193,17 @@ func TestServiceProcessor(t *testing.T) {
 }
 
 func TestServiceBackForthProtocol(t *testing.T) {
-	local := NewTCPTest(testSuite)
-	defer local.CloseAll()
-
-	// register service
-	_, err := RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
 		return &simpleService{
 			ctx:      c,
 			newProto: make(chan bool, 10),
 		}, nil
 	})
-	log.ErrFatal(err)
-	defer ServiceFactory.Unregister(backForthServiceName)
+
+	local := NewTCPTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(4, false)
@@ -305,29 +217,29 @@ func TestServiceBackForthProtocol(t *testing.T) {
 		Val:              10,
 	}
 	sr := &SimpleResponse{}
-	err = client.SendProtobuf(servers[0].ServerIdentity, r, sr)
+	err := client.SendProtobuf(servers[0].ServerIdentity, r, sr)
 	log.ErrFatal(err)
 	require.Equal(t, sr.Val, int64(10))
 }
 
 func TestPanicNewProto(t *testing.T) {
-	local := NewTCPTest(testSuite)
-	defer local.CloseAll()
-
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
 	name := "panicSvc"
-	panicID, err := RegisterNewService(name, func(c *Context) (Service, error) {
+	builder.SetService(name, nil, func(c *Context) (Service, error) {
 		return &simpleService{
 			ctx:      c,
 			panic:    true,
 			newProto: make(chan bool, 1),
 		}, nil
 	})
-	log.ErrFatal(err)
-	defer ServiceFactory.Unregister(name)
+
+	local := NewTCPTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(2, false)
-	services := local.GetServices(servers, panicID)
+	services := local.GetServices(servers, name)
 
 	// create client
 	client := local.NewClient(name)
@@ -338,26 +250,35 @@ func TestPanicNewProto(t *testing.T) {
 		Val:              10,
 	}
 	sr := &SimpleResponse{}
-	err = client.SendProtobuf(servers[0].ServerIdentity, r, sr)
+	err := client.SendProtobuf(servers[0].ServerIdentity, r, sr)
 	require.Nil(t, err)
 	client.Close()
 	<-services[1].(*simpleService).newProto
 }
 
 func TestServiceManager_Service(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+		ds := &DummyService{}
+		return ds, nil
+	})
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	servers, _, _ := local.GenTree(2, true)
 
 	services := servers[0].serviceManager.availableServices()
 	require.NotEqual(t, 0, len(services), "no services available")
 
-	service := servers[0].serviceManager.service("testService")
+	service := servers[0].serviceManager.service(dummyServiceName)
 	require.NotNil(t, service, "Didn't find service testService")
 }
 
 func TestServiceMessages(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(ismServiceName, nil, newServiceMessages)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	servers, _, _ := local.GenTree(2, true)
 
@@ -369,7 +290,10 @@ func TestServiceMessages(t *testing.T) {
 }
 
 func TestServiceProtocolInstantiation(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyService2Name, nil, newDummyService2)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	servers, _, tree := local.GenTree(2, true)
 
@@ -390,7 +314,10 @@ func TestServiceProtocolInstantiation(t *testing.T) {
 }
 
 func TestServiceGenericConfig(t *testing.T) {
-	local := NewLocalTest(testSuite)
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetService(dummyService2Name, nil, newDummyService2)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	servers, _, tree := local.GenTree(2, true)
 

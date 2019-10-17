@@ -298,19 +298,18 @@ func (s *ServerToml) ToServerIdentity() *network.ServerIdentity {
 // the corresponding ServerToml.
 // If an error occurs, it will be printed to StdErr and nil
 // is returned.
-func NewServerToml(public *ciphersuite.CipherData, addr network.Address,
-	desc string, services map[string]ServiceConfig) *ServerToml {
+func NewServerToml(public *ciphersuite.CipherData, addr network.Address, conf *CothorityConfig) *ServerToml {
 
 	// Keep only the public key
 	publics := make(map[string]ServerServiceConfig)
-	for name, conf := range services {
+	for name, conf := range conf.Services {
 		publics[name] = ServerServiceConfig{Public: conf.Public}
 	}
 
 	return &ServerToml{
 		Address:     addr,
 		Public:      public,
-		Description: desc,
+		Description: conf.Description,
 		Services:    publics,
 	}
 }

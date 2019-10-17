@@ -179,7 +179,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					svc := ServiceFactory.Name(tni.Token().ServiceID)
+					_, svc := tni.Service()
 					log.Errorf("Panic in call to protocol <%s>.Dispatch() from service <%s> at address %s: %v",
 						tni.ProtocolName(), svc, o.server.ServerIdentity, r)
 					log.Error(log.Stack())
@@ -188,7 +188,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 
 			err := pi.Dispatch()
 			if err != nil {
-				svc := ServiceFactory.Name(tni.Token().ServiceID)
+				_, svc := tni.Service()
 				log.Errorf("%v %s.Dispatch() returned error %s", o.server.ServerIdentity, svc, err)
 			}
 		}()
@@ -553,8 +553,9 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 
 		err := pi.Dispatch()
 		if err != nil {
+			_, svn := tni.Service()
 			log.Errorf("%s.Dispatch() created in service %s returned error %s",
-				name, ServiceFactory.Name(sid), err)
+				name, svn, err)
 		}
 	}()
 	return pi, err

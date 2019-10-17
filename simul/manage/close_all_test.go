@@ -9,15 +9,16 @@ import (
 	"go.dedis.ch/onet/v4/log"
 )
 
-var testSuite = &ciphersuite.UnsecureCipherSuite{}
+var testBuilder = onet.NewDefaultBuilder()
 
 func TestMain(m *testing.M) {
+	testBuilder.SetSuite(&ciphersuite.UnsecureCipherSuite{})
 	log.MainTest(m)
 }
 
 // Tests a 2-node system
 func TestCloseAll(t *testing.T) {
-	local := onet.NewLocalTest(testSuite)
+	local := onet.NewLocalTest(testBuilder)
 	nbrNodes := 2
 	_, _, tree := local.GenTree(nbrNodes, true)
 	defer local.CloseAll()

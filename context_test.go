@@ -13,8 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
-	bbolt "go.etcd.io/bbolt"
-	"golang.org/x/xerrors"
 )
 
 type ContextData struct {
@@ -154,30 +152,25 @@ func createContext(t *testing.T, dbPath string) *Context {
 		Router: &network.Router{
 			ServerIdentity: si,
 		},
+		WebSocket: NewWebSocket(si),
 	}
 
 	name := "testService"
-	RegisterNewService(name, func(c *Context) (Service, error) {
-		return nil, nil
-	})
 
 	sm := &serviceManager{
-		server: cn,
-		dbPath: dbPath,
+		services: make(map[string]Service),
+		server:   cn,
+		dbPath:   dbPath,
 	}
-
 	db, err := openDb(sm.dbFileName())
-	require.Nil(t, err)
-
-	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucket([]byte(name))
-		if err != nil {
-			return xerrors.Errorf("creating bucket: %v", err)
-		}
-		return nil
-	})
 	require.Nil(t, err)
 	sm.db = db
 
-	return newContext(cn, nil, ServiceFactory.ServiceID(name), sm)
+	sm.register(nil, name, func(c *Context) (Service, error) {
+		return nil, nil
+	})
+
+	sm.db = db
+
+	return newContext(name, sm)
 }

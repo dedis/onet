@@ -50,8 +50,8 @@ type Simulation interface {
 // SimulationConfig has to be returned from 'Setup' and will be passed to
 // 'Run'.
 type SimulationConfig struct {
-	// Suite is the cipher suite for the simulation.
-	Suite ciphersuite.CipherSuite
+	// Builder is used to generate servers and rosters.
+	Builder Builder
 	// Represents the tree that has to be used
 	Tree *Tree
 	// The Roster used by the tree
@@ -95,7 +95,7 @@ type SimulationConfigFile struct {
 
 // LoadSimulationConfig gets all configuration from dir + SimulationFileName and instantiates the
 // corresponding host 'ca'.
-func LoadSimulationConfig(suite ciphersuite.CipherSuite, dir, ca string) ([]*SimulationConfig, error) {
+func LoadSimulationConfig(builder Builder, dir, ca string) ([]*SimulationConfig, error) {
 	// Have all servers created by NewServerTCP below put their
 	// db's into this simulation directory.
 	os.Setenv("CONODE_SERVICE_PATH", dir)
@@ -112,6 +112,7 @@ func LoadSimulationConfig(suite ciphersuite.CipherSuite, dir, ca string) ([]*Sim
 
 	scf := msg.(*SimulationConfigFile)
 	sc := &SimulationConfig{
+		Builder:     builder,
 		Roster:      scf.Roster,
 		PrivateKeys: scf.PrivateKeys,
 		TLS:         scf.TLS,
@@ -121,10 +122,6 @@ func LoadSimulationConfig(suite ciphersuite.CipherSuite, dir, ca string) ([]*Sim
 	if err != nil {
 		return nil, xerrors.Errorf("making tree: %v", err)
 	}
-
-	sc.Suite = suite
-	cr := ciphersuite.NewRegistry()
-	cr.RegisterCipherSuite(sc.Suite)
 
 	var ret []*SimulationConfig
 	if ca != "" {
@@ -142,7 +139,8 @@ func LoadSimulationConfig(suite ciphersuite.CipherSuite, dir, ca string) ([]*Sim
 					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, sid.PublicKey, privkey)
 				}
 
-				server := NewServerTCP(cr, e)
+				// TODO: tcp builder
+				server := NewServerTCP(builder.(*DefaultBuilder).cipherRegistry, e)
 				server.UnauthOk = true
 				server.Quiet = true
 				scNew := *sc
@@ -246,6 +244,11 @@ type SimulationBFTree struct {
 // 'addresses'. The network.Address(es) created are of type TLS or PlainTCP,
 // depending on the value 'TLS' in 'sc'.
 func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string, port int) {
+	if sc.Builder == nil {
+		// TODO: must have a better way to inforce to get the builder.
+		panic("Missing builder in the configuration")
+	}
+
 	start := time.Now()
 	sc.TLS = s.TLS
 	nbrAddr := len(addresses)
@@ -271,9 +274,9 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 	entities := make([]*network.ServerIdentity, hosts)
 	log.Lvl3("Doing", hosts, "hosts")
 	for c := 0; c < hosts; c++ {
-		pk, sk := sc.Suite.KeyPair()
+		ident := sc.Builder.Identity()
 		address := addresses[c%nbrAddr] + ":"
-		var add network.Address
+		var addr network.Address
 		if localhosts {
 			// If we have localhosts, we have to search for an empty port
 			port := 0
@@ -293,24 +296,23 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 			}
 			address += strconv.Itoa(port)
 			if sc.TLS {
-				add = network.NewTLSAddress(address)
+				addr = network.NewTLSAddress(address)
 			} else {
-				add = network.NewTCPAddress(address)
+				addr = network.NewTCPAddress(address)
 			}
 			log.Lvl4("Found free port", address)
 		} else {
 			address += strconv.Itoa(port + (c/nbrAddr)*2)
 			if sc.TLS {
-				add = network.NewTLSAddress(address)
+				addr = network.NewTLSAddress(address)
 			} else {
-				add = network.NewTCPAddress(address)
+				addr = network.NewTCPAddress(address)
 			}
 		}
-		entities[c] = network.NewServerIdentity(pk.Pack(), add)
-		entities[c].SetPrivate(sk.Pack())
-		ServiceFactory.generateKeyPairs(entities[c])
+		ident.Address = addr
+		entities[c] = ident
 
-		privConf := newSimulationPrivateKey(sk.Pack())
+		privConf := newSimulationPrivateKey(ident.GetPrivate())
 		sc.PrivateKeys[entities[c].Address] = privConf
 		for _, sid := range entities[c].ServiceIdentities {
 			privConf.Services = append(privConf.Services, sid.GetPrivate())

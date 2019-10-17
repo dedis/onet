@@ -107,6 +107,11 @@ func newTreeNodeInstance(o *Overlay, tok *Token, tn *TreeNode, io MessageProxy) 
 	return n
 }
 
+// Service returns the service and its name of the tree node instance.
+func (n *TreeNodeInstance) Service() (Service, string) {
+	return n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
+}
+
 // TreeNode gets the treeNode of this node. If there is no TreeNode for the
 // Token of this node, the function will return nil
 func (n *TreeNodeInstance) TreeNode() *TreeNode {
@@ -647,9 +652,9 @@ func (n *TreeNodeInstance) OnDoneCallback(fn func() bool) {
 
 // SecretKey returns the private key of the service entity
 func (n *TreeNodeInstance) SecretKey() ciphersuite.SecretKey {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
+	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 
-	data := n.Host().ServerIdentity.ServicePrivate(serviceName)
+	data := n.Host().ServerIdentity.ServicePrivate(name)
 	sk, err := n.overlay.cr.UnpackSecretKey(data)
 	if err != nil {
 		panic(err)
@@ -660,9 +665,9 @@ func (n *TreeNodeInstance) SecretKey() ciphersuite.SecretKey {
 // PublicKey returns the public key of the service, either the specific
 // or the default if not available
 func (n *TreeNodeInstance) PublicKey() ciphersuite.PublicKey {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
+	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 
-	data := n.Host().ServerIdentity.ServicePublic(serviceName)
+	data := n.Host().ServerIdentity.ServicePublic(name)
 	pk, err := n.overlay.cr.UnpackPublicKey(data)
 	if err != nil {
 		panic(err)
@@ -673,18 +678,18 @@ func (n *TreeNodeInstance) PublicKey() ciphersuite.PublicKey {
 // PublicKeys makes a list of public keys for the service
 // associated with the instance
 func (n *TreeNodeInstance) PublicKeys() ([]ciphersuite.PublicKey, error) {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
+	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 	cr := n.overlay.cr
 
-	return n.Roster().servicePublicKeys(cr, serviceName)
+	return n.Roster().servicePublicKeys(cr, name)
 }
 
 // NodePublic returns the public key associated with the node's service
 // stored in the given server identity
 func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) ciphersuite.PublicKey {
-	serviceName := ServiceFactory.Name(n.token.ServiceID)
+	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 
-	data := si.ServicePublic(serviceName)
+	data := si.ServicePublic(name)
 	pk, err := n.overlay.cr.UnpackPublicKey(data)
 	if err != nil {
 		panic(err)

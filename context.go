@@ -9,6 +9,7 @@ import (
 	"go.dedis.ch/onet/v4/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // Context represents the methods that are available to a service.
@@ -23,14 +24,15 @@ type Context struct {
 
 // defaultContext is the implementation of the Context interface. It is
 // instantiated for each Service.
-func newContext(c *Server, o *Overlay, servID ServiceID, manager *serviceManager) *Context {
+func newContext(name string, manager *serviceManager) *Context {
+	id := ServiceID(uuid.NewV5(uuid.NamespaceURL, name))
 	ctx := &Context{
-		overlay:           o,
-		server:            c,
-		serviceID:         servID,
+		overlay:           manager.server.overlay,
+		server:            manager.server,
+		serviceID:         id,
 		manager:           manager,
-		bucketName:        []byte(ServiceFactory.Name(servID)),
-		bucketVersionName: []byte(ServiceFactory.Name(servID) + "version"),
+		bucketName:        []byte(name),
+		bucketVersionName: []byte(name + "version"),
 	}
 	err := manager.db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(ctx.bucketName)

@@ -19,21 +19,16 @@ import (
 var o bytes.Buffer
 
 var testSuite = &ciphersuite.UnsecureCipherSuite{}
+var testBuilder = onet.NewDefaultBuilder()
 
 const testServiceName = "OnetConfigTestService"
 
-func registerService() {
-	onet.RegisterNewServiceWithSuite(testServiceName, testSuite, func(c *onet.Context) (onet.Service, error) {
-		return nil, nil
-	})
-}
-
-func unregisterService() {
-	onet.UnregisterService(testServiceName)
-}
-
 func TestMain(m *testing.M) {
 	out = &o
+	testBuilder.SetSuite(testSuite)
+	testBuilder.SetService(testServiceName, testSuite, func(c *onet.Context) (onet.Service, error) {
+		return nil, nil
+	})
 	log.MainTest(m)
 }
 
@@ -57,9 +52,6 @@ var serverGroup = `Description = "Default Dedis Cothority"
 `
 
 func TestReadGroupDescToml(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	if err != nil {
 		t.Fatal(err)
@@ -87,9 +79,6 @@ func TestReadGroupDescToml(t *testing.T) {
 
 // TestSaveGroup checks that the group is correctly written into the file
 func TestSaveGroup(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	require.NoError(t, err)
 
@@ -109,9 +98,6 @@ func TestSaveGroup(t *testing.T) {
 }
 
 func TestParseCothority(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	public := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	private := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	address := "tcp://1.2.3.4:1234"

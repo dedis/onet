@@ -40,7 +40,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // no public IP can be configured, localhost will be used.
 // If everything is OK, the configuration-files will be written.
 // In case of an error this method Fatals.
-func InteractiveConfig(suite ciphersuite.CipherSuite, binaryName string) {
+func InteractiveConfig(builder onet.Builder, binaryName string) {
 	log.Info("Setting up a cothority-server.")
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
 	// let's dissect the port / IP
@@ -125,16 +125,13 @@ func InteractiveConfig(suite ciphersuite.CipherSuite, binaryName string) {
 		log.Fatal("Could not validate public ip address:", publicAddress)
 	}
 
-	// Generate the key pairs for the registered services
-	services := GenerateServiceKeyPairs()
-
 	// create the keys
-	pk, sk := suite.KeyPair()
+	si := builder.Identity()
 	conf := &CothorityConfig{
-		Public:   pk.Pack(),
-		Private:  sk.Pack(),
+		Public:   si.PublicKey,
+		Private:  si.GetPrivate(),
 		Address:  publicAddress,
-		Services: services,
+		Services: extractServiceIdentities(si),
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
 	}
@@ -163,7 +160,7 @@ func InteractiveConfig(suite ciphersuite.CipherSuite, binaryName string) {
 		}
 	}
 
-	server := NewServerToml(pk.Pack(), publicAddress, conf.Description, services)
+	server := NewServerToml(si.GetPrivate(), publicAddress, conf)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
@@ -172,18 +169,12 @@ func InteractiveConfig(suite ciphersuite.CipherSuite, binaryName string) {
 
 // GenerateServiceKeyPairs generates a map of the service with their
 // key pairs. It can be used to generate server configuration.
-func GenerateServiceKeyPairs() map[string]ServiceConfig {
+func extractServiceIdentities(si *network.ServerIdentity) map[string]ServiceConfig {
 	services := make(map[string]ServiceConfig)
-	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
-		serviceSuite := onet.ServiceFactory.Suite(name)
-		if serviceSuite != nil {
-			pk, sk := serviceSuite.KeyPair()
-			si := ServiceConfig{
-				Public:  pk.Pack(),
-				Private: sk.Pack(),
-			}
-
-			services[name] = si
+	for _, srvid := range si.ServiceIdentities {
+		services[srvid.Name] = ServiceConfig{
+			Public:  srvid.PublicKey,
+			Private: srvid.GetPrivate(),
 		}
 	}
 
@@ -316,9 +307,9 @@ func tryConnect(ip, binding network.Address) error {
 	return nil
 }
 
-// RunServer starts a conode with the given config file name. It can
+// MakeServer creates a conode with the given config file name. It can
 // be used by different apps (like CoSi, for example)
-func RunServer(cr *ciphersuite.Registry, configFilename string) {
+func MakeServer(cr *ciphersuite.Registry, configFilename string) *onet.Server {
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
 		log.Fatalf("[-] Configuration file does not exist. %s", configFilename)
 	}
@@ -327,5 +318,5 @@ func RunServer(cr *ciphersuite.Registry, configFilename string) {
 	if err != nil {
 		log.Fatal("Couldn't parse config:", err)
 	}
-	server.Start()
+	return server
 }
