@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/onet/v4/ciphersuite"
+	"go.dedis.ch/onet/v4"
 	"go.dedis.ch/onet/v4/log"
 )
 
@@ -17,10 +17,10 @@ func TestInteractiveConfig(t *testing.T) {
 	setInput("127.0.0.1:2000\nConode1\n" + tmp)
 	InteractiveConfig(testBuilder, tmp+"/config.bin")
 
-	cr := ciphersuite.NewRegistry()
-	cr.RegisterCipherSuite(testSuite)
+	builder := onet.NewDefaultBuilder()
+	builder.SetSuite(testSuite)
 
-	cc, _, err := ParseCothority(cr, tmp+"/private.toml")
+	cc, _, err := ParseCothority(builder, tmp+"/private.toml")
 	require.NoError(t, err)
 	require.NotNil(t, cc.Services[testServiceName])
 	require.Equal(t, cc.Description, "Conode1")

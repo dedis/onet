@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 	"net"
 	"strconv"
@@ -16,8 +17,11 @@ type Builder interface {
 	SetSuite(suite ciphersuite.CipherSuite)
 	SetPort(port int)
 	SetDbPath(path string)
+	SetIdentity(si *network.ServerIdentity)
+	SetSSLCertificate(cert []byte, key []byte, isFile bool)
 	Identity() *network.ServerIdentity
 	Build() *Server
+	Clone() Builder
 }
 
 type serviceRecord struct {
@@ -31,14 +35,16 @@ type DefaultBuilder struct {
 	port           int
 	suite          ciphersuite.CipherSuite
 	dbPath         string
-	protocol       string
+	si             *network.ServerIdentity
+	cert           []byte
+	certKey        []byte
+	certAsFile     bool
 }
 
 func NewDefaultBuilder() *DefaultBuilder {
 	return &DefaultBuilder{
 		services:       make(map[string]serviceRecord),
 		cipherRegistry: ciphersuite.NewRegistry(),
-		protocol:       "http",
 	}
 }
 
@@ -65,15 +71,17 @@ func (b *DefaultBuilder) SetDbPath(path string) {
 	b.dbPath = path
 }
 
-func (b *DefaultBuilder) SetTLS(enabled bool) {
-	if enabled {
-		b.protocol = "https"
-	} else {
-		b.protocol = "http"
-	}
+func (b *DefaultBuilder) SetIdentity(si *network.ServerIdentity) {
+	b.si = si
 }
 
-func (b DefaultBuilder) Clone() *DefaultBuilder {
+func (b *DefaultBuilder) SetSSLCertificate(cert []byte, key []byte, isFile bool) {
+	b.cert = cert
+	b.certKey = key
+	b.certAsFile = isFile
+}
+
+func (b DefaultBuilder) Clone() Builder {
 	return &b
 }
 
@@ -82,6 +90,10 @@ func (b *DefaultBuilder) Identity() *network.ServerIdentity {
 }
 
 func (b *DefaultBuilder) Build() *Server {
+	if b.si != nil {
+		return b.buildTCP()
+	}
+
 	si := b.newIdentity()
 	addr := network.NewTCPAddress(si.Address.NetworkAddress())
 	id2 := network.NewServerIdentity(si.PublicKey, addr)
@@ -98,14 +110,14 @@ func (b *DefaultBuilder) Build() *Server {
 			panic(xerrors.Errorf("tcp host: %v", err))
 		}
 		si.Address = tcpHost.Address()
-		if b.port != 0 {
-			break
-		}
 		port, err := strconv.Atoi(si.Address.Port())
 		if err != nil {
 			panic(xerrors.Errorf("invalid port: %v", err))
 		}
 		addrWS = net.JoinHostPort(si.Address.Host(), strconv.Itoa(port+1))
+		if b.port != 0 {
+			break
+		}
 		if l, err := net.Listen("tcp", addrWS); err == nil {
 			l.Close()
 			break
@@ -113,7 +125,12 @@ func (b *DefaultBuilder) Build() *Server {
 		log.Lvl2("Found closed port:", addrWS)
 	}
 
-	si.URL = b.protocol + "://" + addrWS
+	if len(b.cert) > 0 {
+		si.URL = "https://" + addrWS
+	} else {
+		si.URL = "http://" + addrWS
+	}
+
 	si.Address = network.NewAddress(si.Address.ConnType(), "127.0.0.1:"+si.Address.Port())
 
 	router := network.NewRouter(si, tcpHost)
@@ -121,6 +138,25 @@ func (b *DefaultBuilder) Build() *Server {
 	srv := newServer(b.cipherRegistry, b.dbPath, router, si.GetPrivate())
 	for name, record := range b.services {
 		srv.serviceManager.register(record.suite, name, record.fn)
+	}
+
+	if len(b.cert) > 0 {
+		b.fillSSLCertificate(srv)
+	}
+
+	return srv
+}
+
+func (b *DefaultBuilder) buildTCP() *Server {
+	r, err := network.NewTCPRouterWithListenAddr(b.cipherRegistry, b.si, "")
+	if err != nil {
+		panic(err)
+	}
+
+	srv := newServer(b.cipherRegistry, "", r, b.si.GetPrivate())
+
+	if len(b.cert) > 0 {
+		b.fillSSLCertificate(srv)
 	}
 
 	return srv
@@ -149,25 +185,36 @@ func (b *DefaultBuilder) generateKeyPairs(si *network.ServerIdentity) {
 	si.ServiceIdentities = services
 }
 
+func (b *DefaultBuilder) fillSSLCertificate(server *Server) {
+	server.WebSocket.Lock()
+	if b.certAsFile {
+		cr, err := NewCertificateReloader(string(b.cert), string(b.certKey))
+		if err != nil {
+			log.Error("cannot configure TLS reloader", err)
+			panic(err)
+		}
+		server.WebSocket.TLSConfig = &tls.Config{
+			GetCertificate: cr.GetCertificateFunc(),
+		}
+	} else {
+		cert, err := tls.X509KeyPair(b.cert, b.certKey)
+		if err != nil {
+			panic(err)
+		}
+		server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+	}
+	server.WebSocket.Unlock()
+}
+
 type LocalBuilder struct {
 	*DefaultBuilder
 	netman *network.LocalManager
 }
 
-func NewLocalBuilder(b Builder) *LocalBuilder {
-	if defaultBuilder, ok := b.(*DefaultBuilder); ok {
-		return &LocalBuilder{
-			DefaultBuilder: defaultBuilder.Clone(),
-		}
+func NewLocalBuilder(b *DefaultBuilder) *LocalBuilder {
+	return &LocalBuilder{
+		DefaultBuilder: b.Clone().(*DefaultBuilder),
 	}
-
-	if localBuilder, ok := b.(*LocalBuilder); ok {
-		return &LocalBuilder{
-			DefaultBuilder: localBuilder.DefaultBuilder.Clone(),
-		}
-	}
-
-	panic("Couldn't instantiate the builder")
 }
 
 func (b *LocalBuilder) SetLocalManager(lm *network.LocalManager) {
@@ -202,4 +249,8 @@ func (b *LocalBuilder) Build() *Server {
 	}
 
 	return srv
+}
+
+func (b LocalBuilder) Clone() Builder {
+	return &b
 }

@@ -19,18 +19,21 @@ import (
 
 const testServiceName = "testService"
 
-var processorTestBuilder = NewDefaultBuilder()
-
-func init() {
+func makeProcessorTestBuilder() Builder {
+	processorTestBuilder := NewDefaultBuilder()
 	processorTestBuilder.SetSuite(testSuite)
 	processorTestBuilder.SetService(testServiceName, nil, newTestService)
 	processorTestBuilder.SetPort(2000)
 
+	return processorTestBuilder
+}
+
+func init() {
 	network.RegisterMessages(&testMsg{}, &testPanicMsg{})
 }
 
 func TestProcessor_AddMessage(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandler(procMsg))
@@ -59,7 +62,7 @@ func TestProcessor_AddMessage(t *testing.T) {
 }
 
 func TestProcessor_RegisterMessages(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
@@ -67,7 +70,7 @@ func TestProcessor_RegisterMessages(t *testing.T) {
 }
 
 func TestProcessor_RegisterStreamingMessage(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 
@@ -116,7 +119,7 @@ func TestProcessor_RegisterStreamingMessage(t *testing.T) {
 }
 
 func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2))
@@ -156,7 +159,7 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 }
 
 func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 
 	p := NewServiceProcessor(&Context{server: h1})
@@ -193,7 +196,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {
-	local := NewTCPTest(processorTestBuilder)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	// generate 1 host
 	h := local.GenServers(1)[0]
@@ -213,7 +216,7 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 
 // Test that the panic will be recovered and announced without crashing the server.
 func TestProcessor_PanicClientRequest(t *testing.T) {
-	local := NewTCPTest(processorTestBuilder)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	h := local.GenServers(1)[0]
 	defer local.CloseAll()
@@ -328,7 +331,7 @@ func (ts *testService) ProcessMsgPanic(msg *testPanicMsg) (network.Message, erro
 }
 
 func TestProcessor_REST_Registration(t *testing.T) {
-	h1 := processorTestBuilder.Build()
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "GET", 3, 3))
@@ -360,7 +363,7 @@ func TestProcessor_REST_Registration(t *testing.T) {
 func TestProcessor_REST_Handler(t *testing.T) {
 	log.AddUserUninterestingGoroutine("created by net/http.(*Transport).dialConn")
 
-	local := NewTCPTest(processorTestBuilder)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	// generate 1 host
 	h := local.GenServers(1)[0]

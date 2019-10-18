@@ -40,7 +40,7 @@ func TestServiceProcessRequest(t *testing.T) {
 		return ds, nil
 	})
 
-	local := NewTCPTest(builder)
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	log.Lvl1("Host created and listening")
@@ -69,7 +69,7 @@ func TestServiceRequestNewProtocol(t *testing.T) {
 		ds.c = c
 		return ds, nil
 	})
-	local := NewTCPTest(builder)
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	client := local.NewClient(dummyServiceName)
@@ -129,7 +129,7 @@ func TestServiceNewProtocol(t *testing.T) {
 		return localDs, nil
 	})
 
-	local := NewTCPTest(builder)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 	hs := local.GenServers(3)
 	server1, server2 := hs[0], hs[1]
@@ -202,7 +202,7 @@ func TestServiceBackForthProtocol(t *testing.T) {
 		}, nil
 	})
 
-	local := NewTCPTest(builder)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 
 	// create servers
@@ -234,7 +234,7 @@ func TestPanicNewProto(t *testing.T) {
 		}, nil
 	})
 
-	local := NewTCPTest(builder)
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 
 	// create servers

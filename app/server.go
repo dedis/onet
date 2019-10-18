@@ -13,7 +13,6 @@ import (
 
 	"go.dedis.ch/onet/v4"
 	"go.dedis.ch/onet/v4/cfgpath"
-	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"golang.org/x/xerrors"
@@ -309,12 +308,12 @@ func tryConnect(ip, binding network.Address) error {
 
 // MakeServer creates a conode with the given config file name. It can
 // be used by different apps (like CoSi, for example)
-func MakeServer(cr *ciphersuite.Registry, configFilename string) *onet.Server {
+func MakeServer(builder onet.Builder, configFilename string) *onet.Server {
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
 		log.Fatalf("[-] Configuration file does not exist. %s", configFilename)
 	}
 	// Let's read the config
-	_, server, err := ParseCothority(cr, configFilename)
+	_, server, err := ParseCothority(builder, configFilename)
 	if err != nil {
 		log.Fatal("Couldn't parse config:", err)
 	}

@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -52,19 +51,7 @@ type LocalTest struct {
 	Nodes []*TreeNodeInstance
 	// How carefully to check for leaking resources at the end of the test.
 	Check LeakyTestCheck
-	// are we running tcp or local layer
-	mode string
-	// TLS certificate if we want TLS for websocket
-	webSocketTLSCertificate []byte
-	// TLS certificate key if we want TLS for websocket
-	webSocketTLSCertificateKey []byte
-	// True if the unit test wants that webSocketTLSCertificate and webSocketTLSCertificateKey
-	// should be used as filenames.
-	webSocketTLSReadFiles bool
-	// the context for the local connections
-	// it enables to have multiple local test running simultaneously
-	ctx  *network.LocalManager
-	path string
+	path  string
 	// Once closed is set, do not allow further operations on it,
 	// since now the temp directory is gone.
 	closed bool
@@ -96,37 +83,10 @@ func NewLocalTest(builder Builder) *LocalTest {
 		Trees:      make(map[TreeID]*Tree),
 		Nodes:      make([]*TreeNodeInstance, 0, 1),
 		Check:      CheckAll,
-		mode:       Local,
-		ctx:        network.NewLocalManager(),
 		builder:    builder,
 		path:       dir,
 		latestPort: 2000,
 	}
-}
-
-// NewLocalTestT is like NewLocalTest but also stores the testing.T variable.
-func NewLocalTestT(builder Builder, t *testing.T) *LocalTest {
-	l := NewLocalTest(builder)
-	l.T = t
-	return l
-}
-
-// NewTCPTest returns a LocalTest but using a TCPRouter as the underlying
-// communication layer.
-func NewTCPTest(builder Builder) *LocalTest {
-	t := NewLocalTest(builder)
-	t.mode = TCP
-	return t
-}
-
-// NewTCPTestWithTLS returns a LocalTest but using a TCPRouter as the
-// underlying communication layer and containing information for TLS setup.
-func NewTCPTestWithTLS(builder Builder, wsTLSCertificate []byte, wsTLSCertificateKey []byte) *LocalTest {
-	t := NewLocalTest(builder)
-	t.mode = TCP
-	t.webSocketTLSCertificate = wsTLSCertificate
-	t.webSocketTLSCertificateKey = wsTLSCertificateKey
-	return t
 }
 
 // StartProtocol takes a name and a tree and will create a
@@ -342,7 +302,6 @@ func (l *LocalTest) CloseAll() {
 	}
 	sd.Wait()
 	l.Servers = map[network.ServerIdentityID]*Server{}
-	l.ctx.Stop()
 
 	err := os.RemoveAll(l.path)
 	if err != nil {
@@ -474,25 +433,23 @@ func (l *LocalTest) MakeSRS(nbr int, name string) ([]*Server, *Roster, Service) 
 // NewClient returns *Client for which the types depend on the mode of the
 // LocalContext.
 func (l *LocalTest) NewClient(serviceName string) *Client {
-	switch l.mode {
-	case TCP:
-		return NewClient(serviceName)
-	default:
+	if _, ok := l.builder.(*LocalBuilder); ok {
 		log.Fatal("Can't make local client")
 		return nil
 	}
+
+	return NewClient(serviceName)
 }
 
 // NewClientKeep returns *Client for which the types depend on the mode of the
 // LocalContext, the connection is not closed after sending requests.
 func (l *LocalTest) NewClientKeep(serviceName string) *Client {
-	switch l.mode {
-	case TCP:
-		return NewClientKeep(serviceName)
-	default:
+	if _, ok := l.builder.(*LocalBuilder); ok {
 		log.Fatal("Can't make local client")
 		return nil
 	}
+
+	return NewClientKeep(serviceName)
 }
 
 // genLocalHosts returns n servers created with a localRouter
@@ -500,15 +457,14 @@ func (l *LocalTest) genLocalHosts(n int) []*Server {
 	l.panicClosed()
 	servers := make([]*Server, n)
 	for i := 0; i < n; i++ {
-		port := l.latestPort
-		l.latestPort += 10
+		port := 0
+		if _, ok := l.builder.(*LocalBuilder); ok {
+			port = l.latestPort
+			l.latestPort += 10
+		}
 		servers[i] = l.NewServer(port)
 	}
 	return servers
-}
-
-func (l LocalTest) wantsTLS() bool {
-	return len(l.webSocketTLSCertificate) > 0 && len(l.webSocketTLSCertificateKey) > 0
 }
 
 // NewServer returns a new server which type is determined by the local mode:
@@ -516,73 +472,16 @@ func (l LocalTest) wantsTLS() bool {
 // port given in argument is used.
 func (l *LocalTest) NewServer(port int) *Server {
 	l.panicClosed()
-	var server *Server
-	switch l.mode {
-	case TCP:
-		server = l.newTCPServer()
-		// Set TLS certificate if any configuration available
-		if l.wantsTLS() {
-			server.WebSocket.Lock()
-			if l.webSocketTLSReadFiles {
-				cr, err := NewCertificateReloader(
-					string(l.webSocketTLSCertificate),
-					string(l.webSocketTLSCertificateKey))
-				if err != nil {
-					log.Error("cannot configure TLS reloader", err)
-					return nil
-				}
-				server.WebSocket.TLSConfig = &tls.Config{
-					GetCertificate: cr.GetCertificateFunc(),
-				}
 
-			} else {
-				cert, err := tls.X509KeyPair(l.webSocketTLSCertificate, l.webSocketTLSCertificateKey)
-				if err != nil {
-					panic(err)
-				}
-				server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
-			}
-			server.WebSocket.Unlock()
-		}
-		server.StartInBackground()
-	default:
-		server = l.NewLocalServer(port)
-	}
-	return server
-}
+	l.builder.SetPort(port)
+	l.builder.SetDbPath(l.path)
 
-// NewTCPServer returns a new TCP Server attached to this LocalTest, configured
-// for TLS if possible (if anything in LocalTest.webSocketTLSCertificate/Key).
-func (l *LocalTest) newTCPServer() *Server {
-	l.panicClosed()
-
-	builder := l.builder.(*DefaultBuilder).Clone()
-	builder.SetPort(0)
-	builder.SetDbPath(l.path)
-	builder.SetTLS(l.wantsTLS())
-	server := builder.Build()
-	l.Servers[server.ServerIdentity.ID] = server
-	l.Overlays[server.ServerIdentity.ID] = server.overlay
-	l.Services[server.ServerIdentity.ID] = server.serviceManager.services
-
-	return server
-}
-
-// NewLocalServer returns a fresh Host using local connections within the context
-// of this LocalTest
-func (l *LocalTest) NewLocalServer(port int) *Server {
-	l.panicClosed()
-	builder := NewLocalBuilder(l.builder)
-	builder.SetPort(port)
-	builder.SetDbPath(l.path)
-	builder.SetLocalManager(l.ctx)
-
-	server := builder.Build()
+	server := l.builder.Build()
 	server.StartInBackground()
+
 	l.Servers[server.ServerIdentity.ID] = server
 	l.Overlays[server.ServerIdentity.ID] = server.overlay
 	l.Services[server.ServerIdentity.ID] = server.serviceManager.services
 
 	return server
-
 }

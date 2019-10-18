@@ -101,7 +101,6 @@ func TestParseCothority(t *testing.T) {
 	public := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	private := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	address := "tcp://1.2.3.4:1234"
-	listenAddr := "127.0.0.1:0"
 	description := "This is a description."
 	scPublic := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	scPrivate := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
@@ -110,15 +109,14 @@ func TestParseCothority(t *testing.T) {
         Public = "%s"
         Private = "%s"
         Address = "%s"
-        ListenAddress = "%s"
-		    Description = "%s"
+		Description = "%s"
 		[services]
 			[services.%s]
 			public = "%s"
 			private = "%s"
 			[services.abc]
 			public = "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"`,
-		public, private, address, listenAddr,
+		public, private, address,
 		description, testServiceName, scPublic, scPrivate)
 
 	privateToml, err := ioutil.TempFile("", "temp_private.toml")
@@ -127,10 +125,10 @@ func TestParseCothority(t *testing.T) {
 	privateToml.WriteString(privateInfo)
 	privateToml.Close()
 
-	cr := ciphersuite.NewRegistry()
-	cr.RegisterCipherSuite(testSuite)
+	builder := onet.NewDefaultBuilder()
+	builder.SetSuite(testSuite)
 
-	cothConfig, srv, err := ParseCothority(cr, privateToml.Name())
+	cothConfig, srv, err := ParseCothority(builder, privateToml.Name())
 	require.Nil(t, err)
 
 	// Check basic information
@@ -141,7 +139,6 @@ func TestParseCothority(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, private, string(privateStr))
 	require.Equal(t, address, cothConfig.Address.String())
-	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
 	require.Equal(t, 2, len(srv.ServerIdentity.ServiceIdentities))
 	publicStr, err = cothConfig.Services[testServiceName].Public.MarshalText()
@@ -158,7 +155,6 @@ func TestParseCothorityWithTLSWebSocket(t *testing.T) {
 	public := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	private := "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 	address := "tcp://1.2.3.4:1234"
-	listenAddr := "127.0.0.1:0"
 	description := "This is a description."
 
 	// Certificate and key examples taken from
@@ -218,31 +214,28 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = """string://%s"""
             WebSocketTLSCertificateKey = """string://%s"""`,
-			public, private, address, listenAddr,
+			public, private, address,
 			description, wsTLSCert, wsTLSCertKey),
 		fmt.Sprintf(`
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = "file://%s"
             WebSocketTLSCertificateKey = "file://%s"`,
-			public, private, address, listenAddr,
+			public, private, address,
 			description, certFile.Name(), keyFile.Name()),
 		fmt.Sprintf(`
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = "%s"
             WebSocketTLSCertificateKey = "%s"`,
-			public, private, address, listenAddr,
+			public, private, address,
 			description, certFile.Name(), keyFile.Name()),
 	}
 
@@ -253,10 +246,10 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 		privateToml.WriteString(privateInfo)
 		privateToml.Close()
 
-		cr := ciphersuite.NewRegistry()
-		cr.RegisterCipherSuite(testSuite)
+		builder := onet.NewDefaultBuilder()
+		builder.SetSuite(testSuite)
 
-		cothConfig, srv, err := ParseCothority(cr, privateToml.Name())
+		cothConfig, srv, err := ParseCothority(builder, privateToml.Name())
 		require.Nil(t, err)
 
 		// Check basic information
@@ -267,7 +260,6 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 		require.NoError(t, err)
 		require.Equal(t, private, string(privateStr))
 		require.Equal(t, address, cothConfig.Address.String())
-		require.Equal(t, listenAddr, cothConfig.ListenAddress)
 		require.Equal(t, description, cothConfig.Description)
 
 		// Check content of certificate and key

@@ -84,22 +84,6 @@ func newServer(cr *ciphersuite.Registry, dbPath string, r *network.Router, pkey 
 	return srv
 }
 
-// NewServerTCP returns a new Server out of a private-key and its related
-// public key within the ServerIdentity. The server will use a default
-// TcpRouter as Router.
-func NewServerTCP(cr *ciphersuite.Registry, e *network.ServerIdentity) *Server {
-	return NewServerTCPWithListenAddr(cr, e, "")
-}
-
-// NewServerTCPWithListenAddr returns a new Server out of a private-key and
-// its related public key within the ServerIdentity. The server will use a
-// TcpRouter listening on the given address as Router.
-func NewServerTCPWithListenAddr(cr *ciphersuite.Registry, e *network.ServerIdentity, listenAddr string) *Server {
-	r, err := network.NewTCPRouterWithListenAddr(cr, e, listenAddr)
-	log.ErrFatal(err)
-	return newServer(cr, "", r, e.GetPrivate())
-}
-
 var gover version.Version
 var goverOnce sync.Once
 var goverOk = false

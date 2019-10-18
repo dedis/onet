@@ -56,7 +56,7 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 }
 
 func TestTreeNodeRxTx(t *testing.T) {
-	local := NewTCPTest(treenodeTestBuilder)
+	local := NewLocalTest(treenodeTestBuilder)
 	testTreeNodeRxTx(t, local)
 	local.CloseAll()
 

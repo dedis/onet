@@ -26,7 +26,7 @@ func TestStatusHost(t *testing.T) {
 		return nil, nil
 	})
 
-	l := NewTCPTest(builder)
+	l := NewLocalTest(builder)
 	defer l.CloseAll()
 
 	c := l.NewServer(2050)

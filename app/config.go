@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -100,7 +99,7 @@ func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) 
 // ParseCothority parses the config file into a CothorityConfig.
 // It returns the CothorityConfig, the Host so we can already use it, and an error if
 // the file is inaccessible or has wrong values in it.
-func ParseCothority(cr *ciphersuite.Registry, file string) (*CothorityConfig, *onet.Server, error) {
+func ParseCothority(builder onet.Builder, file string) (*CothorityConfig, *onet.Server, error) {
 	hc, err := LoadCothority(file)
 	if err != nil {
 		return nil, nil, xerrors.Errorf("reading config: %v", err)
@@ -112,7 +111,10 @@ func ParseCothority(cr *ciphersuite.Registry, file string) (*CothorityConfig, *o
 	}
 
 	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
-	server := onet.NewServerTCPWithListenAddr(cr, si, hc.ListenAddress)
+	if hc.ListenAddress != "" {
+		panic("Deprecated")
+	}
+	builder.SetIdentity(si)
 
 	// Set Websocket TLS if possible
 	if hc.WebSocketTLSCertificate != "" && hc.WebSocketTLSCertificateKey != "" {
@@ -121,40 +123,24 @@ func ParseCothority(cr *ciphersuite.Registry, file string) (*CothorityConfig, *o
 			// Use the reloader only when both are files as it doesn't
 			// make sense for string embedded certificates.
 
-			cr, err := onet.NewCertificateReloader(
-				hc.WebSocketTLSCertificate.blobPart(),
-				hc.WebSocketTLSCertificateKey.blobPart(),
-			)
-			if err != nil {
-				return nil, nil, xerrors.Errorf("certificate: %v", err)
-			}
-
-			server.WebSocket.Lock()
-			server.WebSocket.TLSConfig = &tls.Config{
-				GetCertificate: cr.GetCertificateFunc(),
-			}
-			server.WebSocket.Unlock()
+			cert := []byte(hc.WebSocketTLSCertificate.blobPart())
+			key := []byte(hc.WebSocketTLSCertificateKey.blobPart())
+			builder.SetSSLCertificate(cert, key, true)
 		} else {
-			tlsCertificate, err := hc.WebSocketTLSCertificate.Content()
+			cert, err := hc.WebSocketTLSCertificate.Content()
 			if err != nil {
 				return nil, nil, xerrors.Errorf("getting WebSocketTLSCertificate content: %v", err)
 			}
-			tlsCertificateKey, err := hc.WebSocketTLSCertificateKey.Content()
+			key, err := hc.WebSocketTLSCertificateKey.Content()
 			if err != nil {
 				return nil, nil, xerrors.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
 			}
-			cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
-			if err != nil {
-				return nil, nil, xerrors.Errorf("loading X509KeyPair: %v", err)
-			}
 
-			server.WebSocket.Lock()
-			server.WebSocket.TLSConfig = &tls.Config{
-				Certificates: []tls.Certificate{cert},
-			}
-			server.WebSocket.Unlock()
+			builder.SetSSLCertificate(cert, key, false)
 		}
 	}
+
+	server := builder.Build()
 	return hc, server, nil
 }
 

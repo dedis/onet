@@ -139,8 +139,8 @@ func LoadSimulationConfig(builder Builder, dir, ca string) ([]*SimulationConfig,
 					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, sid.PublicKey, privkey)
 				}
 
-				// TODO: tcp builder
-				server := NewServerTCP(builder.(*DefaultBuilder).cipherRegistry, e)
+				builder.SetIdentity(e)
+				server := builder.Build()
 				server.UnauthOk = true
 				server.Quiet = true
 				scNew := *sc
@@ -274,6 +274,7 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 	entities := make([]*network.ServerIdentity, hosts)
 	log.Lvl3("Doing", hosts, "hosts")
 	for c := 0; c < hosts; c++ {
+		sc.Builder.SetPort(port)
 		ident := sc.Builder.Identity()
 		address := addresses[c%nbrAddr] + ":"
 		var addr network.Address
