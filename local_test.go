@@ -90,6 +90,19 @@ func TestNewTCPTest(t *testing.T) {
 	log.ErrFatal(err)
 }
 
+func TestNewTLSTest(t *testing.T) {
+	builder := localTestBuilder.Clone()
+	builder.(*DefaultBuilder).UseTLS()
+
+	l := NewLocalTest(builder)
+	_, ro, _ := l.GenTree(3, true)
+	defer l.CloseAll()
+
+	c1 := NewClient(clientServiceName)
+	err := c1.SendProtobuf(ro.List[0], &SimpleMessage{}, nil)
+	require.NoError(t, err)
+}
+
 func TestLocalTCPGenConnectableRoster(t *testing.T) {
 	l := NewLocalTest(localTestBuilder)
 	defer l.CloseAll()

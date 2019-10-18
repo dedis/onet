@@ -12,6 +12,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// Builder provides the utility functions to create servers.
 type Builder interface {
 	SetService(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc)
 	SetSuite(suite ciphersuite.CipherSuite)
@@ -29,9 +30,12 @@ type serviceRecord struct {
 	suite ciphersuite.CipherSuite
 }
 
+// DefaultBuilder creates a server running over TCP.
 type DefaultBuilder struct {
 	services       map[string]serviceRecord
 	cipherRegistry *ciphersuite.Registry
+	tls            bool
+	host           string
 	port           int
 	suite          ciphersuite.CipherSuite
 	dbPath         string
@@ -41,13 +45,23 @@ type DefaultBuilder struct {
 	certAsFile     bool
 }
 
+// NewDefaultBuilder returns a default builder that will make a server
+// running over TCP.
 func NewDefaultBuilder() *DefaultBuilder {
 	return &DefaultBuilder{
+		host:           "127.0.0.1",
+		port:           0,
 		services:       make(map[string]serviceRecord),
 		cipherRegistry: ciphersuite.NewRegistry(),
 	}
 }
 
+// UseTLS enables the usage of TLS.
+func (b *DefaultBuilder) UseTLS() {
+	b.tls = true
+}
+
+// SetService assigns a service to a name.
 func (b *DefaultBuilder) SetService(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) {
 	b.services[name] = serviceRecord{
 		fn:    fn,
@@ -58,83 +72,109 @@ func (b *DefaultBuilder) SetService(name string, suite ciphersuite.CipherSuite, 
 	}
 }
 
+// SetSuite sets the default cipher suite of the server.
 func (b *DefaultBuilder) SetSuite(suite ciphersuite.CipherSuite) {
 	b.suite = suite
 	b.cipherRegistry.RegisterCipherSuite(suite)
 }
 
+// SetPort sets the port of the server. When 0, it will look for a open one.
 func (b *DefaultBuilder) SetPort(port int) {
 	b.port = port
 }
 
+// SetDbPath sets the path of the database file.
 func (b *DefaultBuilder) SetDbPath(path string) {
 	b.dbPath = path
 }
 
+// SetIdentity sets the server identity to use and thus overriding settings
+// like the port number.
 func (b *DefaultBuilder) SetIdentity(si *network.ServerIdentity) {
 	b.si = si
 }
 
+// SetSSLCertificate sets the certificate and its key.
 func (b *DefaultBuilder) SetSSLCertificate(cert []byte, key []byte, isFile bool) {
 	b.cert = cert
 	b.certKey = key
 	b.certAsFile = isFile
 }
 
+// Clone makes a clone of the builder.
 func (b DefaultBuilder) Clone() Builder {
 	return &b
 }
 
+// Identity returns the server identity of the builder.
 func (b *DefaultBuilder) Identity() *network.ServerIdentity {
-	return b.newIdentity()
+	str := net.JoinHostPort(b.host, strconv.Itoa(b.port))
+
+	var addr network.Address
+	if b.tls {
+		addr = network.NewTLSAddress(str)
+	} else {
+		addr = network.NewTCPAddress(str)
+	}
+	return b.newIdentity(addr)
 }
 
+// Build returns the server.
 func (b *DefaultBuilder) Build() *Server {
 	if b.si != nil {
 		return b.buildTCP()
 	}
 
-	si := b.newIdentity()
-	addr := network.NewTCPAddress(si.Address.NetworkAddress())
-	id2 := network.NewServerIdentity(si.PublicKey, addr)
+	si := b.Identity()
+	port := b.port
 
-	var tcpHost *network.TCPHost
-	var addrWS string
+	tcpHost, err := network.NewTCPHost(b.cipherRegistry, si)
+	if err != nil {
+		panic(xerrors.Errorf("tcp host: %v", err))
+	}
+
 	// For the websocket we need a port at the address one higher than the
 	// TCPHost. Let TCPHost chose a port, then check if the port+1 is also
 	// available. Else redo the search.
-	for {
-		var err error
-		tcpHost, err = network.NewTCPHost(b.cipherRegistry, id2)
-		if err != nil {
-			panic(xerrors.Errorf("tcp host: %v", err))
-		}
-		si.Address = tcpHost.Address()
-		port, err := strconv.Atoi(si.Address.Port())
+	for port == 0 {
+		// Now checks if the websocket port is opened.
+		port, err = strconv.Atoi(tcpHost.Address().Port())
 		if err != nil {
 			panic(xerrors.Errorf("invalid port: %v", err))
 		}
-		addrWS = net.JoinHostPort(si.Address.Host(), strconv.Itoa(port+1))
-		if b.port != 0 {
-			break
-		}
+
+		addrWS := net.JoinHostPort(si.Address.Host(), strconv.Itoa(port+1))
 		if l, err := net.Listen("tcp", addrWS); err == nil {
 			l.Close()
-			break
+		} else {
+			println(err.Error(), port)
+			// Try again..
+			port = 0
+			tcpHost.Stop()
+			tcpHost, err = network.NewTCPHost(b.cipherRegistry, si)
+			if err != nil {
+				panic(xerrors.Errorf("tcp host: %v", err))
+			}
 		}
-		log.Lvl2("Found closed port:", addrWS)
 	}
 
 	if len(b.cert) > 0 {
-		si.URL = "https://" + addrWS
+		si.URL = "https://"
 	} else {
-		si.URL = "http://" + addrWS
+		si.URL = "http://"
 	}
 
-	si.Address = network.NewAddress(si.Address.ConnType(), "127.0.0.1:"+si.Address.Port())
+	si.URL += net.JoinHostPort(b.host, strconv.Itoa(port+1))
+	straddr := net.JoinHostPort(b.host, strconv.Itoa(port))
+	if b.tls {
+		si.Address = network.NewTLSAddress(straddr)
+	} else {
+		si.Address = network.NewTCPAddress(straddr)
+	}
 
 	router := network.NewRouter(si, tcpHost)
 	router.UnauthOk = true
+
 	srv := newServer(b.cipherRegistry, b.dbPath, router, si.GetPrivate())
 	for name, record := range b.services {
 		srv.serviceManager.register(record.suite, name, record.fn)
@@ -162,10 +202,9 @@ func (b *DefaultBuilder) buildTCP() *Server {
 	return srv
 }
 
-func (b *DefaultBuilder) newIdentity() *network.ServerIdentity {
-	address := network.NewLocalAddress("127.0.0.1:" + strconv.Itoa(b.port))
+func (b *DefaultBuilder) newIdentity(addr network.Address) *network.ServerIdentity {
 	pk, sk := b.suite.KeyPair()
-	id := network.NewServerIdentity(pk.Pack(), address)
+	id := network.NewServerIdentity(pk.Pack(), addr)
 	id.SetPrivate(sk.Pack())
 	b.generateKeyPairs(id)
 
@@ -206,19 +245,28 @@ func (b *DefaultBuilder) fillSSLCertificate(server *Server) {
 	server.WebSocket.Unlock()
 }
 
+// LocalBuilder is builder to make a server running with a local manager
+// instead of using the network.
 type LocalBuilder struct {
 	*DefaultBuilder
 	netman *network.LocalManager
 }
 
+// NewLocalBuilder returns a local builder.
 func NewLocalBuilder(b *DefaultBuilder) *LocalBuilder {
 	return &LocalBuilder{
 		DefaultBuilder: b.Clone().(*DefaultBuilder),
 	}
 }
 
+// SetLocalManager sets the local manager to use for the server.
 func (b *LocalBuilder) SetLocalManager(lm *network.LocalManager) {
 	b.netman = lm
+}
+
+func (b *LocalBuilder) Identity() *network.ServerIdentity {
+	addr := network.NewLocalAddress("127.0.0.1:" + strconv.Itoa(b.port))
+	return b.newIdentity(addr)
 }
 
 // Build returns a new server using a LocalRouter (channels) to communicate.
@@ -232,7 +280,7 @@ func (b *LocalBuilder) Build() *Server {
 		b.dbPath = dir
 	}
 
-	si := b.newIdentity()
+	si := b.Identity()
 	var r *network.Router
 	if b.netman != nil {
 		r, err = network.NewLocalRouterWithManager(b.netman, si)
@@ -251,6 +299,7 @@ func (b *LocalBuilder) Build() *Server {
 	return srv
 }
 
+// Clone returns a clone of the builder.
 func (b LocalBuilder) Clone() Builder {
 	return &b
 }

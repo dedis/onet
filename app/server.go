@@ -39,7 +39,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // no public IP can be configured, localhost will be used.
 // If everything is OK, the configuration-files will be written.
 // In case of an error this method Fatals.
-func InteractiveConfig(builder onet.Builder, binaryName string) {
+func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 	log.Info("Setting up a cothority-server.")
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
 	// let's dissect the port / IP
