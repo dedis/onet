@@ -3,7 +3,6 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -418,89 +417,6 @@ func TestTCPConnWithListener(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		t.Fatal("Could not stop listener")
 
-	}
-}
-
-// will create a TCPListener with a specific address to listen on and
-// open a golang net.TCPConn to it
-func TestTCPListenerWithListenAddr(t *testing.T) {
-	// Testing different wrong configurations.
-	testVectorWrong := []struct {
-		addr   Address
-		listen string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:0"), ":0"},
-	}
-	for _, tv := range testVectorWrong {
-		_, err := NewTCPListenerWithListenAddr(tv.addr, tv.listen)
-		require.NotNil(t, err, fmt.Sprintf(`Should fail: invalid combination of 
-			'addr' (%s) and 'listenAddr' (%s)`, tv.addr, tv.listen))
-	}
-
-	// Testing different working configurations.
-	testVector := []struct {
-		addr         Address
-		listen       string
-		expectedHost string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1", "127.0.0.1"},
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1:0", "127.0.0.1"},
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "", "::"},
-	}
-	for _, tv := range testVector {
-		ln, err := NewTCPListenerWithListenAddr(tv.addr, tv.listen)
-		require.Nil(t, err, "Error setup listener")
-		host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
-		require.Nil(t, err, "Error splitting address of listener")
-		require.Equal(t, tv.expectedHost, host)
-
-		ready := make(chan bool)
-		stop := make(chan bool)
-		connReceived := make(chan bool)
-
-		connFn := func(c Conn) {
-			connReceived <- true
-			c.Close()
-		}
-		go func() {
-			ready <- true
-			err := ln.Listen(connFn)
-			require.Nil(t, err, "Listener stop incorrectly")
-			stop <- true
-		}()
-
-		<-ready
-		_, err = net.Dial("tcp", ln.Address().NetworkAddress())
-		require.Nil(t, err, "Could not open connection")
-		<-connReceived
-		require.Nil(t, ln.Stop(), "Error stopping listener")
-		select {
-		case <-stop:
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("Could not stop listener")
-		}
-
-		require.Nil(t, ln.listen(nil))
-	}
-
-	// Testing different working configurations using static ports (but not
-	// listening because we don't want to risk any error).
-	testVectorStaticPort := []struct {
-		addr            Address
-		listen          string
-		expectedAddress string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1", "4.3.2.1:1234"},
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1:4321", "4.3.2.1:4321"},
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "", ":1234"},
-	}
-	for _, tv := range testVectorStaticPort {
-		// using directly 'getListenAddress' which is used by
-		// 'NewTCPListenerWithListenAddr' to figure out the address to listen
-		// to given the server address and listen address from 'private.toml'
-		listenAddr, err := getListenAddress(tv.addr, tv.listen)
-		require.Nil(t, err, "Error getting the listen address")
-		require.Equal(t, tv.expectedAddress, listenAddr)
 	}
 }
 

@@ -232,19 +232,7 @@ func cloneTLSClientConfig(cfg *tls.Config) *tls.Config {
 
 // NewTLSListener makes a new TCPListener that is configured for TLS.
 func NewTLSListener(cr *ciphersuite.Registry, si *ServerIdentity) (*TCPListener, error) {
-	l, err := NewTLSListenerWithListenAddr(cr, si, "")
-	if err != nil {
-		return nil, xerrors.Errorf("tls listener: %v", err)
-	}
-	return l, nil
-}
-
-// NewTLSListenerWithListenAddr makes a new TCPListener that is configured
-// for TLS and listening on the given address.
-// TODO: Why can't we just use NewTCPListener like usual, but detect
-// the ConnType from the ServerIdentity?
-func NewTLSListenerWithListenAddr(cr *ciphersuite.Registry, si *ServerIdentity, listenAddr string) (*TCPListener, error) {
-	tcp, err := NewTCPListenerWithListenAddr(si.Address, listenAddr)
+	tcp, err := NewTCPListener(si.Address)
 	if err != nil {
 		return nil, xerrors.Errorf("tls listener: %v", err)
 	}

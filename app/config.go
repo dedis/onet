@@ -31,7 +31,6 @@ type CothorityConfig struct {
 	Private                    *ciphersuite.CipherData
 	Services                   map[string]ServiceConfig
 	Address                    network.Address
-	ListenAddress              string
 	Description                string
 	URL                        string
 	WebSocketTLSCertificate    CertificateURL
@@ -110,10 +109,6 @@ func ParseCothority(builder onet.Builder, file string) (*CothorityConfig, *onet.
 		return nil, nil, xerrors.Errorf("parse server identity: %v", err)
 	}
 
-	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
-	if hc.ListenAddress != "" {
-		panic("Deprecated")
-	}
 	builder.SetIdentity(si)
 
 	// Set Websocket TLS if possible

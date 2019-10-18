@@ -39,17 +39,7 @@ func NewTCPAddress(addr string) Address {
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
 func NewTCPRouter(cr *ciphersuite.Registry, sid *ServerIdentity) (*Router, error) {
-	r, err := NewTCPRouterWithListenAddr(cr, sid, "")
-	if err != nil {
-		return nil, xerrors.Errorf("tcp router: %v", err)
-	}
-	return r, nil
-}
-
-// NewTCPRouterWithListenAddr returns a new Router using TCPHost with the
-// given listen address as the underlying Host.
-func NewTCPRouterWithListenAddr(cr *ciphersuite.Registry, sid *ServerIdentity, listenAddr string) (*Router, error) {
-	h, err := NewTCPHostWithListenAddr(cr, sid, listenAddr)
+	h, err := NewTCPHost(cr, sid)
 	if err != nil {
 		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
@@ -320,21 +310,6 @@ type TCPListener struct {
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
 func NewTCPListener(addr Address) (*TCPListener, error) {
-	l, err := NewTCPListenerWithListenAddr(addr, "")
-	if err != nil {
-		return nil, xerrors.Errorf("tcp listener: %v", err)
-	}
-	return l, nil
-}
-
-// NewTCPListenerWithListenAddr returns a TCPListener. This function binds to the
-// given 'listenAddr'. If it is empty, the function binds globally using
-// the port of 'addr'.
-// It returns the listener and an error if one occurred during
-// the binding.
-// A subsequent call to Address() gives the actual listening
-// address which is different if you gave it a ":0"-address.
-func NewTCPListenerWithListenAddr(addr Address, listenAddr string) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
 		return nil, xerrors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
@@ -343,7 +318,7 @@ func NewTCPListenerWithListenAddr(addr Address, listenAddr string) (*TCPListener
 		quit:         make(chan bool),
 		quitListener: make(chan bool),
 	}
-	listenOn, err := getListenAddress(addr, listenAddr)
+	listenOn, err := getListenAddress(addr)
 	if err != nil {
 		return nil, xerrors.Errorf("listener: %v", err)
 	}
@@ -453,41 +428,8 @@ func (t *TCPListener) Listening() bool {
 	return t.listening
 }
 
-// getListenAddress returns the address the listener should listen
-// on given the server's address (addr) and the address it was told to listen
-// on (listenAddr), which could be empty.
-// Rules:
-// 1. If there is no listenAddr, bind globally with addr.
-// 2. If there is only an IP in listenAddr, take the port from addr.
-// 3. If there is an IP:Port in listenAddr, take only listenAddr.
-// Otherwise return an error.
-func getListenAddress(addr Address, listenAddr string) (string, error) {
-	// If no `listenAddr`, bind globally.
-	if listenAddr == "" {
-		return GlobalBind(addr.NetworkAddress())
-	}
-	_, port, err := net.SplitHostPort(addr.NetworkAddress())
-	if err != nil {
-		return "", xerrors.Errorf("invalid address: %v", err)
-	}
-
-	// If 'listenAddr' only contains the host, combine it with the port
-	// of 'addr'.
-	splitted := strings.Split(listenAddr, ":")
-	if len(splitted) == 1 && port != "" {
-		return splitted[0] + ":" + port, nil
-	}
-
-	// If host and port in `listenAddr`, choose this one.
-	hostListen, portListen, err := net.SplitHostPort(listenAddr)
-	if err != nil {
-		return "", xerrors.Errorf("invalid address: %v", err)
-	}
-	if hostListen != "" && portListen != "" {
-		return listenAddr, nil
-	}
-
-	return "", xerrors.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s)", addr.NetworkAddress(), listenAddr)
+func getListenAddress(addr Address) (string, error) {
+	return GlobalBind(addr.NetworkAddress())
 }
 
 // TCPHost implements the Host interface using TCP connections.
@@ -499,25 +441,15 @@ type TCPHost struct {
 
 // NewTCPHost returns a new Host using TCP connection based type.
 func NewTCPHost(cr *ciphersuite.Registry, sid *ServerIdentity) (*TCPHost, error) {
-	host, err := NewTCPHostWithListenAddr(cr, sid, "")
-	if err != nil {
-		return nil, xerrors.Errorf("tcp host: %v", err)
-	}
-	return host, nil
-}
-
-// NewTCPHostWithListenAddr returns a new Host using TCP connection based type
-// listening on the given address.
-func NewTCPHostWithListenAddr(cr *ciphersuite.Registry, sid *ServerIdentity, listenAddr string) (*TCPHost, error) {
 	h := &TCPHost{
 		sid: sid,
 		cr:  cr,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListenerWithListenAddr(cr, sid, listenAddr)
+		h.TCPListener, err = NewTLSListener(cr, sid)
 	} else {
-		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, listenAddr)
+		h.TCPListener, err = NewTCPListener(sid.Address)
 	}
 	if err != nil {
 		return nil, xerrors.Errorf("tcp host: %v", err)

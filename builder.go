@@ -14,15 +14,39 @@ import (
 
 // Builder provides the utility functions to create servers.
 type Builder interface {
+	// SetService registers the service constructor by its name. If a cipher
+	// suite is provided, a key pair will be generated with it. Otherwise the
+	// service will have the default pair assigned.
 	SetService(string, ciphersuite.CipherSuite, NewServiceFunc)
+
+	// SetSuite must be called at least once as it defines the default suite
+	// to use by the server.
 	SetSuite(ciphersuite.CipherSuite)
+
+	// SetHost changes the host that the server will listen to.
 	SetHost(string)
+
+	// SetPort changes the port that the server will listen to.
 	SetPort(int)
+
+	// SetDbPath changes the path of the database file.
 	SetDbPath(string)
+
+	// SetIdentity sets the server identity that will be used to generate
+	// the host and port the serer will listen to. If this method is called,
+	// host and port will be ignored.
 	SetIdentity(*network.ServerIdentity)
+
+	// SetSSLCertificate sets the websocket SSL certificate.
 	SetSSLCertificate([]byte, []byte, bool)
+
+	// Identity returns the server identity of the builder.
 	Identity() *network.ServerIdentity
+
+	// Build returns the server.
 	Build() *Server
+
+	// Clone returns a clone of the builder.
 	Clone() Builder
 }
 
@@ -79,12 +103,13 @@ func (b *DefaultBuilder) SetSuite(suite ciphersuite.CipherSuite) {
 	b.cipherRegistry.RegisterCipherSuite(suite)
 }
 
-// SetHost sets the host of the server.
+// SetHost sets the host of the server. Default to 127.0.0.1.
 func (b *DefaultBuilder) SetHost(host string) {
 	b.host = host
 }
 
 // SetPort sets the port of the server. When 0, it will look for a open one.
+// Default to 0.
 func (b *DefaultBuilder) SetPort(port int) {
 	b.port = port
 }
@@ -95,7 +120,7 @@ func (b *DefaultBuilder) SetDbPath(path string) {
 }
 
 // SetIdentity sets the server identity to use and thus overriding settings
-// like the port number.
+// like the port number and the host.
 func (b *DefaultBuilder) SetIdentity(si *network.ServerIdentity) {
 	b.si = si
 }
@@ -192,7 +217,7 @@ func (b *DefaultBuilder) Build() *Server {
 }
 
 func (b *DefaultBuilder) buildTCP() *Server {
-	r, err := network.NewTCPRouterWithListenAddr(b.cipherRegistry, b.si, "")
+	r, err := network.NewTCPRouter(b.cipherRegistry, b.si)
 	if err != nil {
 		panic(err)
 	}
