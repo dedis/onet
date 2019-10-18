@@ -14,12 +14,13 @@ import (
 
 // Builder provides the utility functions to create servers.
 type Builder interface {
-	SetService(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc)
-	SetSuite(suite ciphersuite.CipherSuite)
-	SetPort(port int)
-	SetDbPath(path string)
-	SetIdentity(si *network.ServerIdentity)
-	SetSSLCertificate(cert []byte, key []byte, isFile bool)
+	SetService(string, ciphersuite.CipherSuite, NewServiceFunc)
+	SetSuite(ciphersuite.CipherSuite)
+	SetHost(string)
+	SetPort(int)
+	SetDbPath(string)
+	SetIdentity(*network.ServerIdentity)
+	SetSSLCertificate([]byte, []byte, bool)
 	Identity() *network.ServerIdentity
 	Build() *Server
 	Clone() Builder
@@ -78,6 +79,11 @@ func (b *DefaultBuilder) SetSuite(suite ciphersuite.CipherSuite) {
 	b.cipherRegistry.RegisterCipherSuite(suite)
 }
 
+// SetHost sets the host of the server.
+func (b *DefaultBuilder) SetHost(host string) {
+	b.host = host
+}
+
 // SetPort sets the port of the server. When 0, it will look for a open one.
 func (b *DefaultBuilder) SetPort(port int) {
 	b.port = port
@@ -133,11 +139,10 @@ func (b *DefaultBuilder) Build() *Server {
 		panic(xerrors.Errorf("tcp host: %v", err))
 	}
 
-	// For the websocket we need a port at the address one higher than the
-	// TCPHost. Let TCPHost chose a port, then check if the port+1 is also
-	// available. Else redo the search.
 	for port == 0 {
-		// Now checks if the websocket port is opened.
+		// For the websocket we need a port at the address one higher than the
+		// TCPHost. Let TCPHost chose a port, then check if the port+1 is also
+		// available. Else redo the search.
 		port, err = strconv.Atoi(tcpHost.Address().Port())
 		if err != nil {
 			panic(xerrors.Errorf("invalid port: %v", err))
@@ -147,7 +152,6 @@ func (b *DefaultBuilder) Build() *Server {
 		if l, err := net.Listen("tcp", addrWS); err == nil {
 			l.Close()
 		} else {
-			println(err.Error(), port)
 			// Try again..
 			port = 0
 			tcpHost.Stop()
@@ -254,9 +258,17 @@ type LocalBuilder struct {
 
 // NewLocalBuilder returns a local builder.
 func NewLocalBuilder(b *DefaultBuilder) *LocalBuilder {
-	return &LocalBuilder{
+	lb := &LocalBuilder{
 		DefaultBuilder: b.Clone().(*DefaultBuilder),
 	}
+
+	if lb.port == 0 {
+		// LocalManager does not generate ports like for TCP so it needs
+		// to be above 0.
+		lb.port = 2000
+	}
+
+	return lb
 }
 
 // SetLocalManager sets the local manager to use for the server.
@@ -264,6 +276,16 @@ func (b *LocalBuilder) SetLocalManager(lm *network.LocalManager) {
 	b.netman = lm
 }
 
+// SetPort sets the port for the server.
+func (b *LocalBuilder) SetPort(port int) {
+	if port == 0 {
+		panic("local server must have a defined port")
+	}
+
+	b.port = port
+}
+
+// Identity returns the server identity of the builder.
 func (b *LocalBuilder) Identity() *network.ServerIdentity {
 	addr := network.NewLocalAddress("127.0.0.1:" + strconv.Itoa(b.port))
 	return b.newIdentity(addr)

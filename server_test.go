@@ -13,7 +13,6 @@ var serverTestBuilder = NewLocalBuilder(NewDefaultBuilder())
 
 func init() {
 	serverTestBuilder.SetSuite(testSuite)
-	serverTestBuilder.SetPort(0)
 }
 
 func TestServer_ProtocolRegisterName(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -76,6 +77,12 @@ func NewLocalTest(builder Builder) *LocalTest {
 		log.Fatal("could not create temp directory: ", err)
 	}
 
+	si := builder.Identity()
+	port, err := strconv.Atoi(si.Address.Port())
+	if err != nil {
+		log.Fatal("could not parse the base port: ", err)
+	}
+
 	return &LocalTest{
 		Servers:    make(map[network.ServerIdentityID]*Server),
 		Overlays:   make(map[network.ServerIdentityID]*Overlay),
@@ -83,9 +90,9 @@ func NewLocalTest(builder Builder) *LocalTest {
 		Trees:      make(map[TreeID]*Tree),
 		Nodes:      make([]*TreeNodeInstance, 0, 1),
 		Check:      CheckAll,
-		builder:    builder,
+		builder:    builder.Clone(),
 		path:       dir,
-		latestPort: 2000,
+		latestPort: port,
 	}
 }
 
@@ -457,12 +464,12 @@ func (l *LocalTest) genLocalHosts(n int) []*Server {
 	l.panicClosed()
 	servers := make([]*Server, n)
 	for i := 0; i < n; i++ {
-		port := 0
-		if _, ok := l.builder.(*LocalBuilder); ok {
-			port = l.latestPort
+		servers[i] = l.NewServer(l.latestPort)
+		if l.latestPort > 0 {
+			// When the port is defined, latestPort needs to be
+			// increased to not conflict for future servers.
 			l.latestPort += 10
 		}
-		servers[i] = l.NewServer(port)
 	}
 	return servers
 }

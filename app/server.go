@@ -41,37 +41,32 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // In case of an error this method Fatals.
 func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 	log.Info("Setting up a cothority-server.")
+
+	builder.UseTLS()
+
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
-	// let's dissect the port / IP
-	var hostStr string
-	var ipProvided = true
-	var portStr string
-	var serverBinding network.Address
+
 	if !strings.Contains(str, ":") {
 		str = ":" + str
 	}
 	host, port, err := net.SplitHostPort(str)
 	log.ErrFatal(err, "Couldn't interpret", str)
 
-	if str == "" {
-		portStr = strconv.Itoa(DefaultPort)
-		hostStr = "0.0.0.0"
-		ipProvided = false
-	} else if host == "" {
-		// one element provided
-		// ip
-		ipProvided = false
-		hostStr = "0.0.0.0"
-		portStr = port
+	if port != "" {
+		iport, err := strconv.Atoi(port)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		builder.SetPort(iport)
 	} else {
-		hostStr = host
-		portStr = port
+		builder.SetPort(DefaultPort)
 	}
 
-	serverBinding = network.NewAddress(network.TLS, net.JoinHostPort(hostStr, portStr))
-	if !serverBinding.Valid() {
-		log.Error("Unable to validate address given", serverBinding)
-		return
+	if host != "" {
+		builder.SetHost(host)
+	} else {
+		builder.SetHost("0.0.0.0")
 	}
 
 	log.Info()
@@ -79,57 +74,41 @@ func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 	log.Info("and clients to contact you. This address will be put in a group definition")
 	log.Info("file that you can share and combine with others to form a Cothority roster.")
 
-	var publicAddress network.Address
-	var failedPublic bool
 	// if IP was not provided then let's get the public IP address
-	if !ipProvided {
+	if host == "" {
+		// TODO: https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
+		// TODO: this depends on an online service.
 		resp, err := http.Get(portscan)
 		// cant get the public ip then ask the user for a reachable one
 		if err != nil {
 			log.Error("Could not get your public IP address")
-			failedPublic = true
 		} else {
 			buff, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err != nil {
 				log.Error("Could not parse your public IP address", err)
-				failedPublic = true
 			} else {
-				publicAddress = network.NewAddress(network.TLS, strings.TrimSpace(string(buff))+":"+portStr)
+				host = strings.TrimSpace(string(buff))
+				builder.SetHost(host)
 			}
 		}
-	} else {
-		publicAddress = serverBinding
-	}
-
-	// Let's directly ask the user for a reachable address
-	if failedPublic {
-		publicAddress = askReachableAddress(portStr)
-	} else {
-		if publicAddress.Public() {
-			// trying to connect to ipfound:portgiven
-			tryIP := publicAddress
-			log.Info("Check if the address", tryIP, "is reachable from the Internet by binding to", serverBinding, ".")
-			if err := tryConnect(tryIP, serverBinding); err != nil {
-				log.Error(err)
-				publicAddress = askReachableAddress(portStr)
-			} else {
-				publicAddress = tryIP
-				log.Info("Address", publicAddress, "is publicly available from the Internet.")
-			}
-		}
-	}
-
-	if !publicAddress.Valid() {
-		log.Fatal("Could not validate public ip address:", publicAddress)
 	}
 
 	// create the keys
 	si := builder.Identity()
+
+	if si.Address.Public() {
+		// TODO: is it really necessary ?
+		if err := tryConnect(si.Address); err != nil {
+			log.Error(err)
+			return
+		}
+	}
+
 	conf := &CothorityConfig{
 		Public:   si.PublicKey,
 		Private:  si.GetPrivate(),
-		Address:  publicAddress,
+		Address:  si.Address,
 		Services: extractServiceIdentities(si),
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
@@ -159,7 +138,7 @@ func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 		}
 	}
 
-	server := NewServerToml(si.GetPrivate(), publicAddress, conf)
+	server := NewServerToml(si.GetPrivate(), si.Address, conf)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
@@ -207,41 +186,17 @@ func saveFiles(conf *CothorityConfig, fileConf string, group *GroupToml, fileGro
 	log.Info(group.String())
 }
 
-// askReachableAddress uses stdin to get the contactable IP-address of the server
-// and adding port if necessary.
-// In case of an error, it will Fatal.
-func askReachableAddress(port string) network.Address {
-	ipStr := Input(DefaultAddress, "IP-address where your server can be reached")
-
-	splitted := strings.Split(ipStr, ":")
-	if len(splitted) == 2 && splitted[1] != port {
-		// if the client gave a port number, it must be the same
-		log.Fatal("The port you gave is not the same as the one your server will be listening. Abort.")
-	} else if len(splitted) == 2 && net.ParseIP(splitted[0]) == nil {
-		// of if the IP address is wrong
-		log.Fatal("Invalid IP:port address given:", ipStr)
-	} else if len(splitted) == 1 {
-		// check if the ip is valid
-		if net.ParseIP(ipStr) == nil {
-			log.Fatal("Invalid IP address given:", ipStr)
-		}
-		// add the port
-		ipStr = ipStr + ":" + port
-	}
-	return network.NewAddress(network.TLS, ipStr)
-}
-
 // tryConnect binds to the given IP address and ask an internet service to
 // connect to it. binding is the address where we must listen (needed because
 // the reachable address might not be the same as the binding address => NAT, ip
 // rules etc).
 // In case anything goes wrong, an error is returned.
-func tryConnect(ip, binding network.Address) error {
+func tryConnect(ip network.Address) error {
 	stopCh := make(chan bool, 1)
 	listening := make(chan bool)
 	// let's bind
 	go func() {
-		ln, err := net.Listen("tcp", binding.NetworkAddress())
+		ln, err := net.Listen("tcp", ip.NetworkAddress())
 		if err != nil {
 			log.Error("Trouble with binding to the address:", err)
 			return
@@ -259,7 +214,7 @@ func tryConnect(ip, binding network.Address) error {
 	select {
 	case <-listening:
 	case <-time.After(2 * time.Second):
-		return xerrors.New("timeout while listening on " + binding.NetworkAddress())
+		return xerrors.New("timeout while listening on " + ip.NetworkAddress())
 	}
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
 	log.ErrFatal(err, "Could not connect itself to public address.\n"+

@@ -24,7 +24,7 @@ func TestInteractiveConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cc.Services[testServiceName])
 	require.Equal(t, cc.Description, "Conode1")
-	require.Equal(t, cc.Address.String(), "tls://127.0.0.1:2000")
+	require.Equal(t, "tls://127.0.0.1:2000", cc.Address.String())
 
 	gFile, err := os.Open(tmp + "/public.toml")
 	require.NoError(t, err)
