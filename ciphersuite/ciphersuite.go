@@ -5,12 +5,16 @@
 package ciphersuite
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"reflect"
+
+	"golang.org/x/xerrors"
 )
+
+var sizeLength = 32 / 8
 
 // Name is the type that can differentiate multiple ciphers.
 type Name = string
@@ -28,12 +32,13 @@ type CipherData struct {
 }
 
 func (d *CipherData) String() string {
-	return hex.EncodeToString(d.Data)
+	buf := append([]byte(d.Name), d.Data...)
+	return hex.EncodeToString(buf)
 }
 
 // Equal verifies if both self and other are deeply equal.
 func (d *CipherData) Equal(other *CipherData) bool {
-	return reflect.DeepEqual(d, other)
+	return d.Name == other.Name && bytes.Equal(d.Data, other.Data)
 }
 
 // WriteTo implements the io.WriteTo interface so that the cipher
@@ -54,7 +59,7 @@ func (d *CipherData) WriteTo(w io.Writer) (n int64, err error) {
 // MarshalText implements the encoding interface TextMarshaler.
 func (d *CipherData) MarshalText() ([]byte, error) {
 	name := []byte(d.Name)
-	size := make([]byte, 4)
+	size := make([]byte, sizeLength)
 	binary.LittleEndian.PutUint32(size, uint32(len(name)))
 
 	data := append(append(size, name...), d.Data...)
@@ -67,11 +72,22 @@ func (d *CipherData) MarshalText() ([]byte, error) {
 // UnmarshalText implements the encoding interface TextUnmarshaler.
 func (d *CipherData) UnmarshalText(text []byte) error {
 	buf := make([]byte, hex.DecodedLen(len(text)))
-	hex.Decode(buf, text)
+	_, err := hex.Decode(buf, text)
+	if err != nil {
+		return xerrors.Errorf("decoding hex: %v", err)
+	}
 
-	size := binary.LittleEndian.Uint32(buf[:4])
-	d.Name = string(buf[4 : 4+size])
-	d.Data = buf[4+size:]
+	if len(buf) < sizeLength {
+		return xerrors.Errorf("data is too small")
+	}
+
+	size := int(binary.LittleEndian.Uint32(buf[:sizeLength]))
+	if len(buf) < sizeLength+size {
+		return xerrors.Errorf("data is too small")
+	}
+
+	d.Name = string(buf[sizeLength : sizeLength+size])
+	d.Data = buf[sizeLength+size:]
 	return nil
 }
 

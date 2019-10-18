@@ -1,6 +1,12 @@
 package ciphersuite
 
-import "crypto/rand"
+import (
+	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+
+	"golang.org/x/xerrors"
+)
 
 const nonceLength = 16
 
@@ -37,7 +43,7 @@ func (pk *UnsecurePublicKey) Unpack(p *CipherData) error {
 }
 
 func (pk *UnsecurePublicKey) String() string {
-	return string(pk.data)
+	return hex.EncodeToString(pk.data)
 }
 
 // UnsecureSecretKey is the secret key implementation of the unsecure
@@ -69,7 +75,7 @@ func (sk *UnsecureSecretKey) Unpack(p *CipherData) error {
 }
 
 func (sk *UnsecureSecretKey) String() string {
-	return string(sk.data)
+	return hex.EncodeToString(sk.data)
 }
 
 // UnsecureSignature is the signature implementation of the unsecure
@@ -78,10 +84,8 @@ type UnsecureSignature struct {
 	data []byte
 }
 
-func newUnsecureSignature() *UnsecureSignature {
-	data := make([]byte, nonceLength)
-	rand.Read(data)
-	return &UnsecureSignature{data: data}
+func newUnsecureSignature(msg []byte) *UnsecureSignature {
+	return &UnsecureSignature{data: msg}
 }
 
 // Name returns the name of the unsecure cipher suite.
@@ -101,7 +105,7 @@ func (s *UnsecureSignature) Unpack(p *CipherData) error {
 }
 
 func (s *UnsecureSignature) String() string {
-	return string(s.data)
+	return hex.EncodeToString(s.data)
 }
 
 // UnsecureCipherSuite provides a cipher suite that can be used for testing
@@ -128,7 +132,7 @@ func (c *UnsecureCipherSuite) SecretKey() SecretKey {
 // Signature generates an implementation of a signature for the
 // unsecure cipher suite.
 func (c *UnsecureCipherSuite) Signature() Signature {
-	return newUnsecureSignature()
+	return newUnsecureSignature([]byte{})
 }
 
 // KeyPair generates a valid pair of public and secret key for the
@@ -140,12 +144,21 @@ func (c *UnsecureCipherSuite) KeyPair() (PublicKey, SecretKey) {
 // Sign takes a secret key and a message and returns the signature of
 // the message that can be verified by the associated public key.
 func (c *UnsecureCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
-	return newUnsecureSignature(), nil
+	return newUnsecureSignature(msg), nil
 }
 
 // Verify takes a public key, a signature and a message and returns nil
 // if the signature matches the message. It returns the reasonas an error
 // otherwise.
 func (c *UnsecureCipherSuite) Verify(pk PublicKey, sig Signature, msg []byte) error {
+	usig, ok := sig.(*UnsecureSignature)
+	if !ok {
+		return xerrors.New("wrong type of signature")
+	}
+
+	if !bytes.Equal(usig.data, msg) {
+		return xerrors.New("mismatch data and msg")
+	}
+
 	return nil
 }
