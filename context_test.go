@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 )
@@ -166,7 +167,7 @@ func createContext(t *testing.T, dbPath string) *Context {
 	require.Nil(t, err)
 	sm.db = db
 
-	sm.register(nil, name, func(c *Context) (Service, error) {
+	sm.register(nil, name, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
 

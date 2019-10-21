@@ -27,8 +27,7 @@ func (s *anotherSignature) Name() Name {
 // Test the basic usage of the registry.
 func TestCipherRegistry_BasicUsage(t *testing.T) {
 	r := NewRegistry()
-	err := r.RegisterCipherSuite(&UnsecureCipherSuite{})
-	require.NoError(t, err)
+	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
 	pk, sk := r.KeyPair(UnsecureCipherSuiteName)
 
@@ -49,11 +48,10 @@ func TestCipherRegistry_SuiteNotFound(t *testing.T) {
 	}()
 
 	r := NewRegistry()
-	err := r.RegisterCipherSuite(&anotherCipherSuite{})
-	require.NoError(t, err)
+	r.RegisterCipherSuite(&anotherCipherSuite{})
 
 	sk := newUnsecureSecretKey()
-	_, err = r.Sign(sk, []byte{})
+	_, err := r.Sign(sk, []byte{})
 	require.Error(t, err)
 
 	pk := newUnsecurePublicKey()
@@ -65,12 +63,11 @@ func TestCipherRegistry_SuiteNotFound(t *testing.T) {
 
 func TestCipherRegistry_InvalidType(t *testing.T) {
 	r := NewRegistry()
-	err := r.RegisterCipherSuite(&UnsecureCipherSuite{})
-	require.NoError(t, err)
+	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
 	pk := newUnsecurePublicKey()
 	sig := &anotherSignature{}
-	err = r.Verify(pk, sig, []byte{})
+	err := r.Verify(pk, sig, []byte{})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mismatch")
 }
@@ -78,14 +75,11 @@ func TestCipherRegistry_InvalidType(t *testing.T) {
 func TestCipherRegistry_Registration(t *testing.T) {
 	r := NewRegistry()
 
-	err := r.RegisterCipherSuite(&UnsecureCipherSuite{})
-	require.NoError(t, err)
+	suite := &UnsecureCipherSuite{}
 
-	err = r.RegisterCipherSuite(&UnsecureCipherSuite{})
-	require.Error(t, err)
-
-	err = r.RegisterCipherSuite(&anotherCipherSuite{})
-	require.NoError(t, err)
+	r.RegisterCipherSuite(suite)
+	require.Equal(t, suite, r.RegisterCipherSuite(&UnsecureCipherSuite{}))
+	require.NotEqual(t, suite, r.RegisterCipherSuite(&anotherCipherSuite{}))
 
 	require.Equal(t, 2, len(r.ciphers))
 }
@@ -100,8 +94,7 @@ func TestCipherRegistry_Unpack(t *testing.T) {
 	_, err = r.UnpackSignature(&CipherData{Name: ""})
 	require.Error(t, err)
 
-	err = r.RegisterCipherSuite(&UnsecureCipherSuite{})
-	require.NoError(t, err)
+	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
 	pk, err := r.UnpackPublicKey(newUnsecurePublicKey().Pack())
 	require.NoError(t, err)

@@ -88,12 +88,14 @@ func (b *DefaultBuilder) UseTLS() {
 
 // SetService assigns a service to a name.
 func (b *DefaultBuilder) SetService(name string, suite ciphersuite.CipherSuite, fn NewServiceFunc) {
+	// Register or get the reference.
+	if suite != nil {
+		suite = b.cipherRegistry.RegisterCipherSuite(suite)
+	}
+
 	b.services[name] = serviceRecord{
 		fn:    fn,
 		suite: suite,
-	}
-	if suite != nil {
-		b.cipherRegistry.RegisterCipherSuite(suite)
 	}
 }
 
@@ -245,7 +247,17 @@ func (b *DefaultBuilder) buildTCP() *Server {
 
 func (b *DefaultBuilder) registerServices(srv *Server) {
 	for name, record := range b.services {
-		err := srv.serviceManager.register(record.suite, name, record.fn)
+		suite := record.suite
+		if suite == nil {
+			// If the service doesn't have a suite registered, we use the
+			// default one.
+			suite = b.suite
+		} else if !srv.ServerIdentity.HasServiceKeyPair(name) {
+			panic("Service " + name + " requires a key pair. " +
+				"Use the interactive setup to generate a new file that will include this service.")
+		}
+
+		err := srv.serviceManager.register(suite, name, record.fn)
 		if err != nil {
 			log.Error(err)
 			panic("Couldn't register service")

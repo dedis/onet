@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/stretchr/testify/assert"
+	"go.dedis.ch/onet/v4/ciphersuite"
 )
 
 func TestSRStruct(t *testing.T) {
@@ -22,7 +23,7 @@ func TestSRStruct(t *testing.T) {
 func TestStatusHost(t *testing.T) {
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService("abc", nil, func(c *Context) (Service, error) {
+	builder.SetService("abc", nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
 

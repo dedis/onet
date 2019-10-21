@@ -17,15 +17,16 @@ func NewRegistry() *Registry {
 
 // RegisterCipherSuite stores the cipher if it does not exist yet and return an
 // error otherwise.
-func (cr *Registry) RegisterCipherSuite(suite CipherSuite) error {
+func (cr *Registry) RegisterCipherSuite(suite CipherSuite) CipherSuite {
 	name := suite.Name()
-	if _, ok := cr.ciphers[name]; ok {
-		return xerrors.New("already existing cipher")
+	if suite := cr.ciphers[name]; suite != nil {
+		// Cipher suite already registered so we return it so it can be reused.
+		return suite
 	}
 
 	cr.ciphers[name] = suite
 
-	return nil
+	return suite
 }
 
 func (cr *Registry) get(name Name) (CipherSuite, error) {

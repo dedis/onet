@@ -26,7 +26,7 @@ const testServiceName = "OnetConfigTestService"
 func TestMain(m *testing.M) {
 	out = &o
 	testBuilder.SetSuite(testSuite)
-	testBuilder.SetService(testServiceName, testSuite, func(c *onet.Context) (onet.Service, error) {
+	testBuilder.SetService(testServiceName, testSuite, func(c *onet.Context, suite ciphersuite.CipherSuite) (onet.Service, error) {
 		return nil, nil
 	})
 	log.MainTest(m)

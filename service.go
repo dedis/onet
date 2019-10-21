@@ -57,7 +57,7 @@ type Service interface {
 
 // NewServiceFunc is the type of a function that is used to instantiate a given Service
 // A service is initialized with a Server (to send messages to someone).
-type NewServiceFunc func(c *Context) (Service, error)
+type NewServiceFunc func(c *Context, suite ciphersuite.CipherSuite) (Service, error)
 
 // ServiceID is a type to represent a uuid for a Service
 type ServiceID uuid.UUID
@@ -134,18 +134,15 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 }
 
 func (s *serviceManager) register(suite ciphersuite.CipherSuite, name string, fn NewServiceFunc) error {
-	if suite != nil && !s.server.ServerIdentity.HasServiceKeyPair(name) {
-		return xerrors.Errorf("Service `%s` requires a key pair. "+
-			"Use the interactive setup to generate a new file that will include this service.", name)
-	}
-
 	ctx := newContext(name, s)
-	srvc, err := fn(ctx)
+	srvc, err := fn(ctx, suite)
 	if err != nil {
 		return xerrors.Errorf("creating service: %v", err)
 	}
 
+	s.servicesMutex.Lock()
 	s.services[name] = srvc
+	s.servicesMutex.Unlock()
 	s.server.WebSocket.registerService(name, srvc)
 
 	return nil

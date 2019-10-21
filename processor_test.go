@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/protobuf"
@@ -294,7 +295,7 @@ type testService struct {
 	Msg interface{}
 }
 
-func newTestService(c *Context) (Service, error) {
+func newTestService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	ts := &testService{
 		ServiceProcessor: NewServiceProcessor(c),
 	}

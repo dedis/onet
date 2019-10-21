@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/protobuf"
@@ -32,7 +33,7 @@ func TestServiceProcessRequest(t *testing.T) {
 	link := make(chan bool, 1)
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService{
 			link: link,
 			c:    c,
@@ -65,7 +66,7 @@ func TestServiceRequestNewProtocol(t *testing.T) {
 
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds.c = c
 		return ds, nil
 	})
@@ -109,7 +110,7 @@ func TestServiceNewProtocol(t *testing.T) {
 	countMutex := sync.Mutex{}
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		countMutex.Lock()
 		defer countMutex.Unlock()
 		log.Lvl2("Creating service", count)
@@ -164,7 +165,7 @@ func TestServiceProcessor(t *testing.T) {
 	var count int
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		var s *DummyService
 		if count == 0 {
 			s = ds1
@@ -195,7 +196,7 @@ func TestServiceProcessor(t *testing.T) {
 func TestServiceBackForthProtocol(t *testing.T) {
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx:      c,
 			newProto: make(chan bool, 10),
@@ -226,7 +227,7 @@ func TestPanicNewProto(t *testing.T) {
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
 	name := "panicSvc"
-	builder.SetService(name, nil, func(c *Context) (Service, error) {
+	builder.SetService(name, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx:      c,
 			panic:    true,
@@ -259,7 +260,7 @@ func TestPanicNewProto(t *testing.T) {
 func TestServiceManager_Service(t *testing.T) {
 	builder := NewDefaultBuilder()
 	builder.SetSuite(testSuite)
-	builder.SetService(dummyServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService{}
 		return ds, nil
 	})
@@ -618,7 +619,7 @@ func (i *ServiceMessages) SimpleResponse(env *network.Envelope) error {
 	return nil
 }
 
-func newServiceMessages(c *Context) (Service, error) {
+func newServiceMessages(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &ServiceMessages{
 		ServiceProcessor: NewServiceProcessor(c),
 		GotResponse:      make(chan bool),
@@ -632,7 +633,7 @@ type dummyService2 struct {
 	link chan bool
 }
 
-func newDummyService2(c *Context) (Service, error) {
+func newDummyService2(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	return &dummyService2{Context: c}, nil
 }
 

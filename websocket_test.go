@@ -22,6 +22,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	"go.dedis.ch/protobuf"
@@ -264,7 +265,7 @@ func TestGetWebHost(t *testing.T) {
 
 func TestClient_Send(t *testing.T) {
 	builder := wsTestBuilder.Clone()
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
@@ -299,7 +300,7 @@ func TestClientTLS_Send(t *testing.T) {
 
 	builder := wsTestBuilder.Clone()
 	builder.SetSSLCertificate(cert, key, false)
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
@@ -349,7 +350,7 @@ func TestClientTLS_certfile_Send(t *testing.T) {
 
 	builder := wsTestBuilder.Clone()
 	builder.SetSSLCertificate([]byte(f1.Name()), []byte(f2.Name()), true)
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
@@ -381,7 +382,7 @@ func TestClient_Parallel(t *testing.T) {
 	nbrNodes := 4
 	nbrParallel := 20
 	builder := wsTestBuilder.Clone()
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
@@ -424,7 +425,7 @@ func TestClientTLS_Parallel(t *testing.T) {
 	nbrParallel := 20
 	builder := wsTestBuilder.Clone()
 	builder.SetSSLCertificate(cert, key, false)
-	builder.SetService(backForthServiceName, nil, func(c *Context) (Service, error) {
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
@@ -464,7 +465,7 @@ func TestNewClientKeep(t *testing.T) {
 
 func TestMultiplePath(t *testing.T) {
 	builder := wsTestBuilder.Clone()
-	builder.SetService(dummyService3Name, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyService3Name, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
@@ -493,7 +494,7 @@ func TestMultiplePathTLS(t *testing.T) {
 
 	builder := wsTestBuilder.Clone()
 	builder.SetSSLCertificate(cert, key, false)
-	builder.SetService(dummyService3Name, nil, func(c *Context) (Service, error) {
+	builder.SetService(dummyService3Name, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
@@ -917,7 +918,7 @@ func (i *ServiceWebSocket) ErrorRequest(msg *ErrorRequest) (network.Message, err
 	return &SimpleResponse{}, nil
 }
 
-func newServiceWebSocket(c *Context) (Service, error) {
+func newServiceWebSocket(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &ServiceWebSocket{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
@@ -948,7 +949,7 @@ type StreamingService struct {
 	gotStopChan chan bool
 }
 
-func newStreamingService(c *Context) (Service, error) {
+func newStreamingService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &StreamingService{
 		ServiceProcessor: NewServiceProcessor(c),
 		stopAt:           -1,

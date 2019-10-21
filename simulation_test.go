@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"golang.org/x/xerrors"
 )
@@ -17,10 +18,10 @@ var simTestBuilder = NewDefaultBuilder()
 
 func init() {
 	simTestBuilder.SetSuite(testSuite)
-	simTestBuilder.SetService("simulationTestService", testSuite, func(c *Context) (Service, error) {
+	simTestBuilder.SetService("simulationTestService", testSuite, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
-	simTestBuilder.SetService("simulationTestService2", testSuite, func(c *Context) (Service, error) {
+	simTestBuilder.SetService("simulationTestService2", testSuite, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
 }

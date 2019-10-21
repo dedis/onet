@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 )
 
 func TestDefaultBuilder_SimpleUsageTCP(t *testing.T) {
@@ -88,4 +89,43 @@ func TestDefaultBuilder_UseServerIdentity(t *testing.T) {
 	srv.Close()
 
 	require.Equal(t, "tls://127.0.0.1:2000", srv.ServerIdentity.Address.String())
+}
+
+type fakeCipherSuite struct {
+	*ciphersuite.UnsecureCipherSuite
+}
+
+func (c *fakeCipherSuite) Name() ciphersuite.Name {
+	return "TEST_FAKE_CIPHER_SUITE"
+}
+
+func TestDefaultBuilder_RegisterServices(t *testing.T) {
+	anotherSuite := &ciphersuite.UnsecureCipherSuite{}
+
+	b := NewDefaultBuilder()
+	b.SetSuite(testSuite)
+	b.SetService("fakeService1", nil, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
+		println(s, testSuite)
+		if s != testSuite {
+			t.Error("should be the same suite pointer")
+		}
+		return nil, nil
+	})
+	b.SetService("fakeService2", anotherSuite, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
+		if s != testSuite {
+			t.Error("should be the same suite pointer")
+		}
+		return nil, nil
+	})
+	b.SetService("fakeService3", &fakeCipherSuite{}, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
+		if s == testSuite {
+			t.Error("should be a different suite pointer")
+		}
+		return nil, nil
+	})
+
+	srv := b.Build()
+	srv.Close()
+
+	require.Equal(t, 3, len(srv.serviceManager.services))
 }

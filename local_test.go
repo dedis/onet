@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 )
@@ -184,7 +185,7 @@ func (c *clientService) TestClose() {
 	c.closed <- true
 }
 
-func newClientService(c *Context) (Service, error) {
+func newClientService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
 		cl:               NewClient(clientServiceName),
