@@ -462,6 +462,22 @@ func (ro *Roster) servicePublicKeys(cr *ciphersuite.Registry, name string) ([]ci
 	return res, nil
 }
 
+// PublicKeys returns the list of public keys for the service or the default ones if
+// the service doesn't have a registered suite. Use the empty string to get the
+// default list.
+func (ro *Roster) PublicKeys(suite ciphersuite.CipherSuite, name string) ([]ciphersuite.PublicKey, error) {
+	res := make([]ciphersuite.PublicKey, len(ro.List))
+	for i, si := range ro.List {
+		pk := suite.PublicKey()
+		err := pk.Unpack(si.ServicePublic(name))
+		if err != nil {
+			return nil, xerrors.Errorf("unpacking: %v", err)
+		}
+		res[i] = pk
+	}
+	return res, nil
+}
+
 // GenerateBigNaryTree creates a tree where each node has N children.
 // It will make a tree with exactly 'nodes' elements, regardless of the
 // size of the Roster. If 'nodes' is bigger than the number of elements

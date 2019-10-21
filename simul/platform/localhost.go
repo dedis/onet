@@ -241,7 +241,7 @@ func (d *Localhost) Wait() error {
 			if err := d.Cleanup(); err != nil {
 				log.Errorf("Couldn't cleanup running instances: %+v", err)
 			}
-			err = xerrors.Errorf("localhost error: %v", err)
+			err = xerrors.Errorf("localhost error: %v", e)
 		}
 	case <-time.After(wait):
 		log.Lvl1("Quitting after waiting", wait)

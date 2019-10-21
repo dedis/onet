@@ -99,7 +99,7 @@ func Simulate(builder onet.Builder, serverAddress, simul, monitorAddress string)
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
 			log.ErrFatal(err)
 			// not reached because of ErrFatal, but return it anyway.
-			return xerrors.Errorf("sending: %v", err)
+			return nil
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
 			wgSimulInit.Done()
@@ -195,7 +195,7 @@ func Simulate(builder onet.Builder, serverAddress, simul, monitorAddress string)
 
 	// Give a chance to the simulation to stop the servers and clean up but returns the simulation error anyway.
 	if simError != nil {
-		return xerrors.New("error from simulation run: " + simError.Error())
+		return xerrors.Errorf("error from simulation run: %v", simError)
 	}
 	return nil
 }

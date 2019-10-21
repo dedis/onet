@@ -675,6 +675,17 @@ func (n *TreeNodeInstance) PublicKey() ciphersuite.PublicKey {
 	return pk
 }
 
+// PublicKeyIndex returns the index of the tree node in the roster or
+// -1 if it is not found.
+func (n *TreeNodeInstance) PublicKeyIndex() int {
+	for i, si := range n.Roster().List {
+		if si.Equal(n.ServerIdentity()) {
+			return i
+		}
+	}
+	return -1
+}
+
 // PublicKeys makes a list of public keys for the service
 // associated with the instance
 func (n *TreeNodeInstance) PublicKeys() ([]ciphersuite.PublicKey, error) {

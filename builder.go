@@ -105,12 +105,17 @@ func (b *DefaultBuilder) SetSuite(suite ciphersuite.CipherSuite) {
 
 // SetHost sets the host of the server. Default to 127.0.0.1.
 func (b *DefaultBuilder) SetHost(host string) {
+	// TODO: host regex
 	b.host = host
 }
 
 // SetPort sets the port of the server. When 0, it will look for a open one.
 // Default to 0.
 func (b *DefaultBuilder) SetPort(port int) {
+	if port < 0 || port > 65535 {
+		panic("port must be in range [0; 65535]")
+	}
+
 	b.port = port
 }
 
@@ -152,6 +157,8 @@ func (b *DefaultBuilder) Identity() *network.ServerIdentity {
 
 // Build returns the server.
 func (b *DefaultBuilder) Build() *Server {
+	b.verifyInput()
+
 	if b.si != nil {
 		return b.buildTCP()
 	}
@@ -205,15 +212,19 @@ func (b *DefaultBuilder) Build() *Server {
 	router.UnauthOk = true
 
 	srv := newServer(b.cipherRegistry, b.dbPath, router, si.GetPrivate())
-	for name, record := range b.services {
-		srv.serviceManager.register(record.suite, name, record.fn)
-	}
+	b.registerServices(srv)
 
 	if len(b.cert) > 0 {
 		b.fillSSLCertificate(srv)
 	}
 
 	return srv
+}
+
+func (b *DefaultBuilder) verifyInput() {
+	if b.suite == nil {
+		panic("A default suite must be set")
+	}
 }
 
 func (b *DefaultBuilder) buildTCP() *Server {
@@ -223,12 +234,23 @@ func (b *DefaultBuilder) buildTCP() *Server {
 	}
 
 	srv := newServer(b.cipherRegistry, "", r, b.si.GetPrivate())
+	b.registerServices(srv)
 
 	if len(b.cert) > 0 {
 		b.fillSSLCertificate(srv)
 	}
 
 	return srv
+}
+
+func (b *DefaultBuilder) registerServices(srv *Server) {
+	for name, record := range b.services {
+		err := srv.serviceManager.register(record.suite, name, record.fn)
+		if err != nil {
+			log.Error(err)
+			panic("Couldn't register service")
+		}
+	}
 }
 
 func (b *DefaultBuilder) newIdentity(addr network.Address) *network.ServerIdentity {
@@ -318,16 +340,20 @@ func (b *LocalBuilder) Identity() *network.ServerIdentity {
 
 // Build returns a new server using a LocalRouter (channels) to communicate.
 func (b *LocalBuilder) Build() *Server {
-	dir, err := ioutil.TempDir("", "example")
-	if err != nil {
-		log.Fatal(err)
-	}
+	b.verifyInput()
 
 	if b.dbPath == "" {
+		dir, err := ioutil.TempDir("", "example")
+		if err != nil {
+			log.Error(err)
+			panic("Couldn't create the temporary folder for the database.")
+		}
+
 		b.dbPath = dir
 	}
 
 	si := b.Identity()
+	var err error
 	var r *network.Router
 	if b.netman != nil {
 		r, err = network.NewLocalRouterWithManager(b.netman, si)
@@ -338,10 +364,8 @@ func (b *LocalBuilder) Build() *Server {
 		panic(err)
 	}
 
-	srv := newServer(b.cipherRegistry, dir, r, si.GetPrivate())
-	for name, record := range b.services {
-		srv.serviceManager.register(record.suite, name, record.fn)
-	}
+	srv := newServer(b.cipherRegistry, b.dbPath, r, si.GetPrivate())
+	b.registerServices(srv)
 
 	return srv
 }

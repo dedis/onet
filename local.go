@@ -293,6 +293,12 @@ func (l *LocalTest) CloseAll() {
 	for _, srv := range l.Servers {
 		sd.Add(1)
 		go func(server *Server) {
+			if server.Closed() {
+				// Server has already been closed previously so we skip.
+				sd.Done()
+				return
+			}
+
 			log.Lvl3("Closing server", server.ServerIdentity.Address)
 			err := server.Close()
 			if err != nil {
