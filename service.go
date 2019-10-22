@@ -87,7 +87,8 @@ type GenericConfig struct {
 }
 
 // serviceManager is the place where all instantiated services are stored
-// It gives access to: all the currently running services
+// It gives access to: all the currently running services.
+// TODO: update the database filename to remove deprecation.
 type serviceManager struct {
 	// the actual services
 	services map[string]Service
@@ -104,7 +105,8 @@ type serviceManager struct {
 	network.Dispatcher
 }
 
-// newServiceManager will create a serviceStore out of all the registered Service
+// newServiceManager makes an empty service manager. It provides the functions to register
+// services to the server provided in parameter.
 func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serviceManager {
 	services := make(map[string]Service)
 	s := &serviceManager{
@@ -133,6 +135,8 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 	return s
 }
 
+// register will add the service to list of a registered services for this server. It will use the
+// constructor function to make a service from a context and a cipher suite.
 func (s *serviceManager) register(suite ciphersuite.CipherSuite, name string, fn NewServiceFunc) error {
 	ctx := newContext(name, s)
 	srvc, err := fn(ctx, suite)

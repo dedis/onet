@@ -42,6 +42,7 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 	log.Info("Setting up a cothority-server.")
 
+	// Force the use of TLS for production servers.
 	builder.UseTLS()
 
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")

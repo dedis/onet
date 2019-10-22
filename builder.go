@@ -101,8 +101,7 @@ func (b *DefaultBuilder) SetService(name string, suite ciphersuite.CipherSuite, 
 
 // SetSuite sets the default cipher suite of the server.
 func (b *DefaultBuilder) SetSuite(suite ciphersuite.CipherSuite) {
-	b.suite = suite
-	b.cipherRegistry.RegisterCipherSuite(suite)
+	b.suite = b.cipherRegistry.RegisterCipherSuite(suite)
 }
 
 // SetHost sets the host of the server. Default to 127.0.0.1.
@@ -122,6 +121,8 @@ func (b *DefaultBuilder) SetPort(port int) {
 }
 
 // SetDbPath sets the path of the database file.
+// TODO: some pieces of code are still outside of the builder, it should be cleaned
+// and move there.
 func (b *DefaultBuilder) SetDbPath(path string) {
 	b.dbPath = path
 }
@@ -140,21 +141,27 @@ func (b *DefaultBuilder) SetSSLCertificate(cert []byte, key []byte, isFile bool)
 }
 
 // Clone makes a clone of the builder.
-func (b DefaultBuilder) Clone() Builder {
-	return &b
+func (b *DefaultBuilder) Clone() Builder {
+	c := *b
+	c.services = make(map[string]serviceRecord)
+	for k, v := range b.services {
+		c.services[k] = v
+	}
+
+	return &c
 }
 
 // Identity returns the server identity of the builder.
 func (b *DefaultBuilder) Identity() *network.ServerIdentity {
+	b.verifyInput()
+
 	str := net.JoinHostPort(b.host, strconv.Itoa(b.port))
 
-	var addr network.Address
 	if b.tls {
-		addr = network.NewTLSAddress(str)
-	} else {
-		addr = network.NewTCPAddress(str)
+		return b.newIdentity(network.NewTLSAddress(str))
 	}
-	return b.newIdentity(addr)
+
+	return b.newIdentity(network.NewTCPAddress(str))
 }
 
 // Build returns the server.
@@ -162,6 +169,8 @@ func (b *DefaultBuilder) Build() *Server {
 	b.verifyInput()
 
 	if b.si != nil {
+		// The server identity is directly provided so we use to get the
+		// listening address and key pairs.
 		return b.buildTCP()
 	}
 
@@ -384,5 +393,8 @@ func (b *LocalBuilder) Build() *Server {
 
 // Clone returns a clone of the builder.
 func (b LocalBuilder) Clone() Builder {
-	return &b
+	return &LocalBuilder{
+		DefaultBuilder: b.DefaultBuilder.Clone().(*DefaultBuilder),
+		netman:         b.netman,
+	}
 }

@@ -68,6 +68,70 @@ should be no API breaking changes.
 Also have a look at https://github.com/dedis/onet/blob/master/CHANGELOG.md for
 any incompatible changes.
 
+## Server builder
+
+A server can be created by using the builder interface that provides the
+different functions to set the parameters and also defines the default
+values.
+
+Two builders are available: `DefaultBuilder` and `LocalBuilder`. The first will
+spawn a server over TCP/TLS and the second will use a local network manager to
+send the messages over channels.
+
+```go
+builder := NewDefaultBuilder()
+
+builder.SetSuite(cipherSuite) // mandatory step
+
+builder.SetService(service1, cipherSuite, newService1) // uses its own key pair
+builder.SetService(service2, nil, newService2) // uses the master key pair
+// ....
+
+builder.SetPort(2000)
+
+srv := builder.Build()
+srv.Start()
+```
+
+## Cipher Suite
+
+Onet uses a cipher suite interface to perform the cryptographic operation it
+needs to operate. At least one master cipher suite must be provided when creating
+a server. It will generate the master key pair that is the one used by default
+to sign messages.
+
+Each service can have a different cipher suite associated with it. The advantage
+is that it will generate a different key pair for this service so it won't share
+the master key pair. That means the cipher suite can be of the same type as the
+master one if you only want to generate a different key pair for the service.
+
+Onet only defines the primitives that it needs to operate but you are free when
+creating a service to extend the base interface and force the registration of the
+service with this extended cipher suite:
+
+```go
+type ExtendedCipherSuite interface {
+	ciphersuite.CipherSuite
+
+	MyNewFunction()
+}
+
+type myService struct{}
+
+func newMyService(c Context, suite ciphersuite.CipherSuite) (Service, error) {
+	mySuite := suite.(*ExtendedCipherSuite)
+
+	// Create the service...
+
+	return service, nil
+}
+
+func RegisterMyService(builder Builder, suite ExtendedCipherSuite) {
+	builder.SetService(MyServiceName, suite, newMyService)
+}
+
+```
+
 ## License
 
 All repositories for the cothority-project

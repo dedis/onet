@@ -74,6 +74,8 @@ func (d *CipherData) MarshalText() ([]byte, error) {
 	size := make([]byte, sizeLength)
 	binary.LittleEndian.PutUint32(size, uint32(len(name)))
 
+	// Buffer starts with the size of the cipher suite name, then the name
+	// and finally the data.
 	data := append(append(size, name...), d.Data...)
 
 	buf := make([]byte, hex.EncodedLen(len(data)))
@@ -107,8 +109,13 @@ func (d *CipherData) UnmarshalText(text []byte) error {
 // Packable provides the primitives necessary to make network
 // messages out of interfaces.
 type Packable interface {
+	// Pack must create a cipher data container that will allow an unpacking
+	// operation to recreate the same element. This operation should not fail.
 	Pack() *CipherData
 
+	// Unpack takes a cipher data container and recreate the corresponding
+	// element. If the type does not match or an decoding error occurs, it
+	// should return the error.
 	Unpack(data *CipherData) error
 }
 
@@ -150,7 +157,7 @@ type CipherSuite interface {
 	// Signature must return an implementation of a signature.
 	Signature() Signature
 
-	// KeyPair must return a secret key and its associated public key.
+	// KeyPair must return a random secret key and its associated public key.
 	KeyPair() (PublicKey, SecretKey)
 
 	// Sign must produce a signature that can be validated by the

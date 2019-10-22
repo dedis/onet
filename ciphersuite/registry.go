@@ -43,12 +43,16 @@ func (cr *Registry) get(name Name) (CipherSuite, error) {
 func (cr *Registry) UnpackPublicKey(p *CipherData) (PublicKey, error) {
 	c, err := cr.get(p.Name)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
 	pk := c.PublicKey()
 	err = pk.Unpack(p)
-	return pk, err
+	if err != nil {
+		return nil, xerrors.Errorf("unpacking: %v", err)
+	}
+
+	return pk, nil
 }
 
 // UnpackSecretKey takes generic cipher data and tries to convert it
@@ -57,12 +61,16 @@ func (cr *Registry) UnpackPublicKey(p *CipherData) (PublicKey, error) {
 func (cr *Registry) UnpackSecretKey(p *CipherData) (SecretKey, error) {
 	c, err := cr.get(p.Name)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
 	sk := c.SecretKey()
 	err = sk.Unpack(p)
-	return sk, err
+	if err != nil {
+		return nil, xerrors.Errorf("unpacking: %v", err)
+	}
+
+	return sk, nil
 }
 
 // UnpackSignature takes generic cipher data and tries to convert it
@@ -71,12 +79,16 @@ func (cr *Registry) UnpackSecretKey(p *CipherData) (SecretKey, error) {
 func (cr *Registry) UnpackSignature(p *CipherData) (Signature, error) {
 	c, err := cr.get(p.Name)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
 	sig := c.Signature()
 	err = sig.Unpack(p)
-	return sig, err
+	if err != nil {
+		return nil, xerrors.Errorf("unpacking: %v", err)
+	}
+
+	return sig, nil
 }
 
 // KeyPair returns a random secret key and its associated public key. It will
@@ -95,10 +107,15 @@ func (cr *Registry) KeyPair(name Name) (PublicKey, SecretKey) {
 func (cr *Registry) Sign(sk SecretKey, msg []byte) (Signature, error) {
 	c, err := cr.get(sk.Name())
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
-	return c.Sign(sk, msg)
+	sig, err := c.Sign(sk, msg)
+	if err != nil {
+		return nil, xerrors.Errorf("signing: %v", err)
+	}
+
+	return sig, nil
 }
 
 // Verify takes a public key, a signature and a message and performs a verification
@@ -111,8 +128,13 @@ func (cr *Registry) Verify(pk PublicKey, sig Signature, msg []byte) error {
 
 	c, err := cr.get(pk.Name())
 	if err != nil {
-		return err
+		return xerrors.Errorf("cipher suite: %v", err)
 	}
 
-	return c.Verify(pk, sig, msg)
+	err = c.Verify(pk, sig, msg)
+	if err != nil {
+		return xerrors.Errorf("verifying signature: %v", err)
+	}
+
+	return nil
 }

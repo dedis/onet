@@ -34,7 +34,6 @@ func ReadTomlConfig(conf interface{}, filename string, dirOpt ...string) error {
 		return xerrors.Errorf("reading file: %v", err)
 	}
 
-	println(string(buf))
 	_, err = toml.Decode(string(buf), conf)
 	if err != nil {
 		return xerrors.Errorf("toml parse: %v", err)

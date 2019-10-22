@@ -411,15 +411,18 @@ func (ro *Roster) GetID() RosterID {
 	for _, id := range ro.List {
 		_, err := id.PublicKey.WriteTo(h)
 		if err != nil {
-			panic(xerrors.Errorf("marshaling: %v", err))
+			// An error at that point would mean something worst is
+			// happening, so we keep the function simple and panic.
+			panic(xerrors.Errorf("hashing: %v", err))
 		}
 
-		// order is important for the hash
+		// Order is important for the hash.
 		sort.Sort(network.ServiceIdentities(id.ServiceIdentities))
 		for _, srvid := range id.ServiceIdentities {
 			_, err = srvid.PublicKey.WriteTo(h)
 			if err != nil {
-				panic(xerrors.Errorf("marshaling: %v", err))
+				// Same as the previous panic.
+				panic(xerrors.Errorf("hashing: %v", err))
 			}
 		}
 	}
@@ -447,9 +450,9 @@ func (ro *Roster) Get(idx int) *network.ServerIdentity {
 	return ro.List[idx]
 }
 
-// ServicePublicKeys returns the list of public keys for a specific service. If it
+// servicePublicKeys returns the list of public keys for a specific service. If it
 // is registered with a different key pair, it will return the associated one
-// and the default key in the contrary
+// and the default key in the contrary.
 func (ro *Roster) servicePublicKeys(cr *ciphersuite.Registry, name string) ([]ciphersuite.PublicKey, error) {
 	res := make([]ciphersuite.PublicKey, len(ro.List))
 	for i, si := range ro.List {
