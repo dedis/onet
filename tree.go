@@ -450,31 +450,40 @@ func (ro *Roster) Get(idx int) *network.ServerIdentity {
 	return ro.List[idx]
 }
 
-// servicePublicKeys returns the list of public keys for a specific service. If it
-// is registered with a different key pair, it will return the associated one
-// and the default key in the contrary.
-func (ro *Roster) servicePublicKeys(cr *ciphersuite.Registry, name string) ([]ciphersuite.PublicKey, error) {
-	res := make([]ciphersuite.PublicKey, len(ro.List))
-	for i, si := range ro.List {
-		pk, err := cr.UnpackPublicKey(si.ServicePublic(name))
-		if err != nil {
-			return nil, xerrors.Errorf("unpacking: %v", err)
-		}
-		res[i] = pk
+// FnPublicKeyMapper is a function that converts the server identity into a list
+// of public keys.
+type FnPublicKeyMapper func(*network.ServerIdentity) (ciphersuite.PublicKey, error)
+
+// NewRegistryMapper returns a mapper that will convert the public key data of a service
+// to the correct implementation using the registry to look up the cipher suite.
+func NewRegistryMapper(registry *ciphersuite.Registry, name string) FnPublicKeyMapper {
+	return func(si *network.ServerIdentity) (ciphersuite.PublicKey, error) {
+		return registry.UnpackPublicKey(si.ServicePublic(name))
 	}
-	return res, nil
 }
 
-// PublicKeys returns the list of public keys for the service or the default ones if
-// the service doesn't have a registered suite. Use the empty string to get the
-// default list.
-func (ro *Roster) PublicKeys(suite ciphersuite.CipherSuite, name string) ([]ciphersuite.PublicKey, error) {
+// NewCipherSuiteMapper returns a mapper that will convert the public key data of a service
+// to the correct implementation using the cipher suite.
+func NewCipherSuiteMapper(suite ciphersuite.CipherSuite, name string) FnPublicKeyMapper {
+	return func(si *network.ServerIdentity) (ciphersuite.PublicKey, error) {
+		data := si.ServicePublic(name)
+		pk := suite.PublicKey()
+		return pk, pk.Unpack(data)
+	}
+}
+
+// PublicKeys uses the given mapper to convert the server identities into public
+// keys. If any error happens, it will interrupt and return it.
+// Use NewRegistryMapper to get the list of public keys of a service using a
+// cipher suite registry.
+// Use NewCipherSuiteMapper to get the list of public keys of a service using
+// a single cipher suite.
+func (ro *Roster) PublicKeys(fn FnPublicKeyMapper) ([]ciphersuite.PublicKey, error) {
 	res := make([]ciphersuite.PublicKey, len(ro.List))
 	for i, si := range ro.List {
-		pk := suite.PublicKey()
-		err := pk.Unpack(si.ServicePublic(name))
+		pk, err := fn(si)
 		if err != nil {
-			return nil, xerrors.Errorf("unpacking: %v", err)
+			return nil, xerrors.Errorf("public key mapper: %v", err)
 		}
 		res[i] = pk
 	}

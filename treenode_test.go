@@ -31,9 +31,7 @@ func TestTreeNodeInstance_KeyPairs(t *testing.T) {
 	require.True(t, tni.SecretKey().Pack().Equal(tni.Host().secretKey.Pack()))
 	require.True(t, tni.PublicKey().Pack().Equal(tni.Host().ServerIdentity.PublicKey))
 	require.True(t, tni.PublicKey().Pack().Equal(tni.NodePublic(tni.Host().ServerIdentity).Pack()))
-	keys, err := tni.PublicKeys()
-	require.NoError(t, err)
-	require.Equal(t, 5, len(keys))
+	require.Equal(t, 5, len(tni.PublicKeys()))
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {

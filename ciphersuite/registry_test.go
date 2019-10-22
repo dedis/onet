@@ -40,6 +40,16 @@ func TestCipherRegistry_BasicUsage(t *testing.T) {
 	err = r.Verify(pk, sig, []byte{1, 2, 3})
 }
 
+func TestCipherRegistry_FailingSignature(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterCipherSuite(&UnsecureCipherSuite{})
+
+	_, sk := r.KeyPair(UnsecureCipherSuiteName)
+
+	_, err := r.Sign(sk, []byte{})
+	require.Error(t, err)
+}
+
 func TestCipherRegistry_SuiteNotFound(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -96,6 +106,21 @@ func TestCipherRegistry_Unpack(t *testing.T) {
 
 	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
+	data := newUnsecurePublicKey().Pack()
+	data.Data = []byte{}
+	_, err = r.UnpackPublicKey(data)
+	require.Error(t, err)
+
+	data = newUnsecureSecretKey().Pack()
+	data.Data = []byte{}
+	_, err = r.UnpackSecretKey(data)
+	require.Error(t, err)
+
+	data = newUnsecureSignature([]byte{}).Pack()
+	data.Data = []byte{}
+	_, err = r.UnpackSignature(data)
+	require.Error(t, err)
+
 	pk, err := r.UnpackPublicKey(newUnsecurePublicKey().Pack())
 	require.NoError(t, err)
 	require.NotNil(t, pk)
@@ -104,7 +129,7 @@ func TestCipherRegistry_Unpack(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, sk)
 
-	sig, err := r.UnpackSignature(newUnsecureSignature([]byte{}).Pack())
+	sig, err := r.UnpackSignature(newUnsecureSignature([]byte{1, 2, 3}).Pack())
 	require.NoError(t, err)
 	require.NotNil(t, sig)
 }

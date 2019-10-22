@@ -657,7 +657,9 @@ func (n *TreeNodeInstance) SecretKey() ciphersuite.SecretKey {
 	data := n.Host().ServerIdentity.ServicePrivate(name)
 	sk, err := n.overlay.cr.UnpackSecretKey(data)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		panic("Couldn't unpack the secret key of the server. Please check the " +
+			"configuration of the server")
 	}
 	return sk
 }
@@ -670,7 +672,9 @@ func (n *TreeNodeInstance) PublicKey() ciphersuite.PublicKey {
 	data := n.Host().ServerIdentity.ServicePublic(name)
 	pk, err := n.overlay.cr.UnpackPublicKey(data)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		panic("Couldn't unpack the public key of the server. Please check the " +
+			"configuration of the server.")
 	}
 	return pk
 }
@@ -688,11 +692,17 @@ func (n *TreeNodeInstance) PublicKeyIndex() int {
 
 // PublicKeys makes a list of public keys for the service
 // associated with the instance
-func (n *TreeNodeInstance) PublicKeys() ([]ciphersuite.PublicKey, error) {
+func (n *TreeNodeInstance) PublicKeys() []ciphersuite.PublicKey {
 	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
-	cr := n.overlay.cr
 
-	return n.Roster().servicePublicKeys(cr, name)
+	pubkeys, err := n.Roster().PublicKeys(NewRegistryMapper(n.overlay.cr, name))
+	if err != nil {
+		log.Error(err)
+		panic("Couldn't read the public keys for a service. Please check the " +
+			"configuration of the server")
+	}
+
+	return pubkeys
 }
 
 // NodePublic returns the public key associated with the node's service
@@ -703,7 +713,9 @@ func (n *TreeNodeInstance) NodePublic(si *network.ServerIdentity) ciphersuite.Pu
 	data := si.ServicePublic(name)
 	pk, err := n.overlay.cr.UnpackPublicKey(data)
 	if err != nil {
-		panic(err)
+		log.Error(err)
+		panic("Couldn't unpack the public key of the distant node. Please check " +
+			"the of the server.")
 	}
 	return pk
 }

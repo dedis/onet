@@ -38,6 +38,10 @@ func (pk *UnsecurePublicKey) Pack() *CipherData {
 
 // Unpack tries to convert the cipher data back to a public key.
 func (pk *UnsecurePublicKey) Unpack(p *CipherData) error {
+	if len(p.Data) == 0 {
+		return xerrors.New("empty data")
+	}
+
 	pk.data = p.Data
 	return nil
 }
@@ -70,6 +74,10 @@ func (sk *UnsecureSecretKey) Pack() *CipherData {
 
 // Unpack tries to convert the cipher data back to a secret key.
 func (sk *UnsecureSecretKey) Unpack(p *CipherData) error {
+	if len(p.Data) == 0 {
+		return xerrors.New("empty data")
+	}
+
 	sk.data = p.Data
 	return nil
 }
@@ -100,6 +108,10 @@ func (s *UnsecureSignature) Pack() *CipherData {
 
 // Unpack tries to convert a cipher data back to a signature.
 func (s *UnsecureSignature) Unpack(p *CipherData) error {
+	if len(p.Data) == 0 {
+		return xerrors.New("empty data")
+	}
+
 	s.data = p.Data
 	return nil
 }
@@ -144,6 +156,10 @@ func (c *UnsecureCipherSuite) KeyPair() (PublicKey, SecretKey) {
 // Sign takes a secret key and a message and returns the signature of
 // the message that can be verified by the associated public key.
 func (c *UnsecureCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
+	if len(msg) == 0 {
+		return nil, xerrors.New("empty message")
+	}
+
 	return newUnsecureSignature(msg), nil
 }
 

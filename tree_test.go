@@ -513,7 +513,7 @@ func TestRoster_GenerateNaryTreeWithRoot(t *testing.T) {
 
 func TestRoster_Publics(t *testing.T) {
 	_, roster := genLocalTree(5, 2000)
-	spk, err := roster.servicePublicKeys(testRegistry, "")
+	spk, err := roster.PublicKeys(NewCipherSuiteMapper(testSuite, ""))
 	require.NoError(t, err)
 
 	for i, si := range roster.List {
