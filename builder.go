@@ -57,6 +57,7 @@ type serviceRecord struct {
 
 // DefaultBuilder creates a server running over TCP.
 type DefaultBuilder struct {
+	order          []string
 	services       map[string]serviceRecord
 	cipherRegistry *ciphersuite.Registry
 	tls            bool
@@ -76,6 +77,7 @@ func NewDefaultBuilder() *DefaultBuilder {
 	return &DefaultBuilder{
 		host:           "127.0.0.1",
 		port:           0,
+		order:          []string{},
 		services:       make(map[string]serviceRecord),
 		cipherRegistry: ciphersuite.NewRegistry(),
 	}
@@ -91,6 +93,12 @@ func (b *DefaultBuilder) SetService(name string, suite ciphersuite.CipherSuite, 
 	// Register or get the reference.
 	if suite != nil {
 		suite = b.cipherRegistry.RegisterCipherSuite(suite)
+	}
+
+	if _, ok := b.services[name]; !ok {
+		// Some services must be registered in order so we keep
+		// an ordered list.
+		b.order = append(b.order, name)
 	}
 
 	b.services[name] = serviceRecord{
@@ -255,7 +263,8 @@ func (b *DefaultBuilder) buildTCP() *Server {
 }
 
 func (b *DefaultBuilder) registerServices(srv *Server) {
-	for name, record := range b.services {
+	for _, name := range b.order {
+		record := b.services[name]
 		suite := record.suite
 		if suite == nil {
 			// If the service doesn't have a suite registered, we use the
@@ -276,8 +285,8 @@ func (b *DefaultBuilder) registerServices(srv *Server) {
 
 func (b *DefaultBuilder) newIdentity(addr network.Address) *network.ServerIdentity {
 	pk, sk := b.suite.KeyPair()
-	id := network.NewServerIdentity(pk.Pack(), addr)
-	id.SetPrivate(sk.Pack())
+	id := network.NewServerIdentity(pk.Raw(), addr)
+	id.SetPrivate(sk.Raw())
 	b.generateKeyPairs(id)
 
 	return id
@@ -288,7 +297,7 @@ func (b *DefaultBuilder) generateKeyPairs(si *network.ServerIdentity) {
 	for name, record := range b.services {
 		if record.suite != nil {
 			pk, sk := record.suite.KeyPair()
-			sid := network.NewServiceIdentity(name, pk.Pack(), sk.Pack())
+			sid := network.NewServiceIdentity(name, pk.Raw(), sk.Raw())
 
 			services = append(services, sid)
 		}

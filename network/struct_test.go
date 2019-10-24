@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 )
 
@@ -14,8 +13,8 @@ func TestServerIdentity(t *testing.T) {
 	pk1, _ := unsecureSuite.KeyPair()
 	pk2, _ := unsecureSuite.KeyPair()
 
-	si1 := NewServerIdentity(pk1.Pack(), NewLocalAddress("1"))
-	si2 := NewServerIdentity(pk2.Pack(), NewLocalAddress("2"))
+	si1 := NewServerIdentity(pk1.Raw(), NewLocalAddress("1"))
+	si2 := NewServerIdentity(pk2.Raw(), NewLocalAddress("2"))
 
 	if si1.Equal(si2) || !si1.Equal(si1) {
 		t.Error("Stg's wrong with ServerIdentity")
@@ -34,7 +33,7 @@ func TestServerIdentity(t *testing.T) {
 	if si11.Address != si1.Address || !si11.PublicKey.Equal(si1.PublicKey) {
 		t.Error("Stg wrong with toml -> Si")
 	}
-	t1.PublicKey = &ciphersuite.CipherData{}
+	t1.PublicKey.Data = []byte{}
 	si12 := t1.ServerIdentity()
 	if si12.PublicKey != nil && si12.PublicKey.Equal(si1.PublicKey) {
 		t.Error("stg wrong with wrong toml -> wrong si")
@@ -70,17 +69,17 @@ func TestGlobalBind(t *testing.T) {
 // correctly and that we can access the keys
 func TestServiceIdentity(t *testing.T) {
 	pk, sk := unsecureSuite.KeyPair()
-	si := NewServerIdentity(pk.Pack(), NewLocalAddress("1"))
-	si.SetPrivate(sk.Pack())
+	si := NewServerIdentity(pk.Raw(), NewLocalAddress("1"))
+	si.SetPrivate(sk.Raw())
 
 	spk, sks := unsecureSuite.KeyPair()
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spk.Pack(), sks.Pack()))
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spk.Pack(), nil))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spk.Raw(), sks.Raw()))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spk.Raw(), nil))
 
-	require.Equal(t, spk.Pack(), si.ServicePublic("a"))
-	require.Equal(t, sks.Pack(), si.ServicePrivate("a"))
-	require.Equal(t, pk.Pack(), si.ServicePublic("c"))
-	require.Equal(t, sk.Pack(), si.ServicePrivate("c"))
+	require.Equal(t, spk.Raw(), si.ServicePublic("a"))
+	require.Equal(t, sks.Raw(), si.ServicePrivate("a"))
+	require.Equal(t, pk.Raw(), si.ServicePublic("c"))
+	require.Equal(t, sk.Raw(), si.ServicePrivate("c"))
 	require.True(t, si.HasServiceKeyPair("a"))
 	require.False(t, si.HasServiceKeyPair("b"))
 	require.False(t, si.HasServiceKeyPair("c"))

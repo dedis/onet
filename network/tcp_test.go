@@ -565,15 +565,15 @@ func NewTestTCPHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTCPAddress("127.0.0.1:" + strconv.Itoa(port))
 	pk, sk := unsecureSuite.KeyPair()
 
-	e := NewServerIdentity(pk.Pack(), addr)
-	e.SetPrivate(sk.Pack())
+	e := NewServerIdentity(pk.Raw(), addr)
+	e.SetPrivate(sk.Raw())
 	return NewTCPHost(cr, e)
 }
 
 // Returns a ServerIdentity out of the address
 func NewTestServerIdentity(address Address) (*ServerIdentity, error) {
 	pk, _ := unsecureSuite.KeyPair()
-	e := NewServerIdentity(pk.Pack(), address)
+	e := NewServerIdentity(pk.Raw(), address)
 	return e, nil
 }
 

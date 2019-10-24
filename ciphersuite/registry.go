@@ -40,14 +40,13 @@ func (cr *Registry) get(name Name) (CipherSuite, error) {
 // UnpackPublicKey takes generic cipher data and tries to convert it
 // into a public key of the associated implementation. The cipher suite
 // must be registered beforehand.
-func (cr *Registry) UnpackPublicKey(p *CipherData) (PublicKey, error) {
-	c, err := cr.get(p.Name)
+func (cr *Registry) UnpackPublicKey(raw *RawPublicKey) (PublicKey, error) {
+	c, err := cr.get(raw.Name())
 	if err != nil {
 		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
-	pk := c.PublicKey()
-	err = pk.Unpack(p)
+	pk, err := c.PublicKey(raw)
 	if err != nil {
 		return nil, xerrors.Errorf("unpacking: %v", err)
 	}
@@ -58,14 +57,13 @@ func (cr *Registry) UnpackPublicKey(p *CipherData) (PublicKey, error) {
 // UnpackSecretKey takes generic cipher data and tries to convert it
 // into a secret key of the associated implementation. The cipher suite
 // must be registered beforehand.
-func (cr *Registry) UnpackSecretKey(p *CipherData) (SecretKey, error) {
-	c, err := cr.get(p.Name)
+func (cr *Registry) UnpackSecretKey(raw *RawSecretKey) (SecretKey, error) {
+	c, err := cr.get(raw.Name())
 	if err != nil {
 		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
-	sk := c.SecretKey()
-	err = sk.Unpack(p)
+	sk, err := c.SecretKey(raw)
 	if err != nil {
 		return nil, xerrors.Errorf("unpacking: %v", err)
 	}
@@ -76,19 +74,29 @@ func (cr *Registry) UnpackSecretKey(p *CipherData) (SecretKey, error) {
 // UnpackSignature takes generic cipher data and tries to convert it
 // into a signature of the associated implementation. The cipher suite
 // must be registered beforehand.
-func (cr *Registry) UnpackSignature(p *CipherData) (Signature, error) {
-	c, err := cr.get(p.Name)
+func (cr *Registry) UnpackSignature(raw *RawSignature) (Signature, error) {
+	c, err := cr.get(raw.Name())
 	if err != nil {
 		return nil, xerrors.Errorf("cipher suite: %v", err)
 	}
 
-	sig := c.Signature()
-	err = sig.Unpack(p)
+	sig, err := c.Signature(raw)
 	if err != nil {
 		return nil, xerrors.Errorf("unpacking: %v", err)
 	}
 
 	return sig, nil
+}
+
+// WithContext executes the fn by passing the cipher suite that is assigned
+// to the nameable parameter.
+func (cr *Registry) WithContext(n Nameable, fn func(CipherSuite) error) error {
+	suite, err := cr.get(n.Name())
+	if err != nil {
+		return err
+	}
+
+	return fn(suite)
 }
 
 // KeyPair returns a random secret key and its associated public key. It will

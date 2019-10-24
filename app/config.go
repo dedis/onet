@@ -27,8 +27,8 @@ import (
 // - WebSocketTLSCertificate: TLS certificate for the WebSocket
 // - WebSocketTLSCertificateKey: TLS certificate key for the WebSocket
 type CothorityConfig struct {
-	Public                     *ciphersuite.CipherData
-	Private                    *ciphersuite.CipherData
+	Public                     *ciphersuite.RawPublicKey
+	Private                    *ciphersuite.RawSecretKey
 	Services                   map[string]ServiceConfig
 	Address                    network.Address
 	Description                string
@@ -40,8 +40,8 @@ type CothorityConfig struct {
 // ServiceConfig is the configuration of a specific service to override
 // default parameters as the key pair
 type ServiceConfig struct {
-	Public  *ciphersuite.CipherData
-	Private *ciphersuite.CipherData
+	Public  *ciphersuite.RawPublicKey
+	Private *ciphersuite.RawSecretKey
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -157,7 +157,7 @@ func NewGroupToml(servers ...*ServerToml) *GroupToml {
 // the cothority.
 type ServerToml struct {
 	Address     network.Address
-	Public      *ciphersuite.CipherData
+	Public      *ciphersuite.RawPublicKey
 	Description string
 	Services    map[string]ServerServiceConfig
 	URL         string `toml:"URL,omitempty"`
@@ -166,7 +166,7 @@ type ServerToml struct {
 // ServerServiceConfig is a public configuration for a server (i.e. private key
 // is missing)
 type ServerServiceConfig struct {
-	Public *ciphersuite.CipherData
+	Public *ciphersuite.RawPublicKey
 }
 
 // Group holds the Roster and the server-description.
@@ -186,12 +186,12 @@ func (g *Group) Toml() (*GroupToml, error) {
 	for i, si := range g.Roster.List {
 		services := make(map[string]ServerServiceConfig)
 		for _, sid := range si.ServiceIdentities {
-			services[sid.Name] = ServerServiceConfig{Public: sid.PublicKey}
+			services[sid.Name] = ServerServiceConfig{Public: sid.PublicKey.Clone()}
 		}
 
 		servers[i] = &ServerToml{
 			Address:     si.Address,
-			Public:      si.PublicKey,
+			Public:      si.PublicKey.Clone(),
 			Description: si.Description,
 			Services:    services,
 			URL:         si.URL,
@@ -279,7 +279,7 @@ func (s *ServerToml) ToServerIdentity() *network.ServerIdentity {
 // the corresponding ServerToml.
 // If an error occurs, it will be printed to StdErr and nil
 // is returned.
-func NewServerToml(public *ciphersuite.CipherData, addr network.Address, conf *CothorityConfig) *ServerToml {
+func NewServerToml(public *ciphersuite.RawPublicKey, addr network.Address, conf *CothorityConfig) *ServerToml {
 
 	// Keep only the public key
 	publics := make(map[string]ServerServiceConfig)

@@ -31,19 +31,21 @@ func (pk *UnsecurePublicKey) Name() Name {
 	return UnsecureCipherSuiteName
 }
 
-// Pack returns the cipher data of the public key.
-func (pk *UnsecurePublicKey) Pack() *CipherData {
-	return &CipherData{Data: pk.data, Name: pk.Name()}
-}
-
-// Unpack tries to convert the cipher data back to a public key.
-func (pk *UnsecurePublicKey) Unpack(p *CipherData) error {
-	if len(p.Data) == 0 {
-		return xerrors.New("empty data")
+// Equal returns true when the two public keys are deeply equal.
+func (pk *UnsecurePublicKey) Equal(other PublicKey) bool {
+	otherPk, ok := other.(*UnsecurePublicKey)
+	if !ok {
+		return false
 	}
 
-	pk.data = p.Data
-	return nil
+	return bytes.Equal(pk.data, otherPk.data)
+}
+
+// Raw returns the cipher data of the public key.
+func (pk *UnsecurePublicKey) Raw() *RawPublicKey {
+	return &RawPublicKey{
+		CipherData: &CipherData{Data: pk.data, CipherName: pk.Name()},
+	}
 }
 
 func (pk *UnsecurePublicKey) String() string {
@@ -67,19 +69,11 @@ func (sk *UnsecureSecretKey) Name() Name {
 	return UnsecureCipherSuiteName
 }
 
-// Pack returns the cipher data for the secret key.
-func (sk *UnsecureSecretKey) Pack() *CipherData {
-	return &CipherData{Data: sk.data, Name: sk.Name()}
-}
-
-// Unpack tries to convert the cipher data back to a secret key.
-func (sk *UnsecureSecretKey) Unpack(p *CipherData) error {
-	if len(p.Data) == 0 {
-		return xerrors.New("empty data")
+// Raw returns the cipher data for the secret key.
+func (sk *UnsecureSecretKey) Raw() *RawSecretKey {
+	return &RawSecretKey{
+		CipherData: &CipherData{Data: sk.data, CipherName: sk.Name()},
 	}
-
-	sk.data = p.Data
-	return nil
 }
 
 func (sk *UnsecureSecretKey) String() string {
@@ -101,19 +95,11 @@ func (s *UnsecureSignature) Name() Name {
 	return UnsecureCipherSuiteName
 }
 
-// Pack returns the cipher data of a signature.
-func (s *UnsecureSignature) Pack() *CipherData {
-	return &CipherData{Data: s.data, Name: s.Name()}
-}
-
-// Unpack tries to convert a cipher data back to a signature.
-func (s *UnsecureSignature) Unpack(p *CipherData) error {
-	if len(p.Data) == 0 {
-		return xerrors.New("empty data")
+// Raw returns the cipher data of a signature.
+func (s *UnsecureSignature) Raw() *RawSignature {
+	return &RawSignature{
+		&CipherData{Data: s.data, CipherName: s.Name()},
 	}
-
-	s.data = p.Data
-	return nil
 }
 
 func (s *UnsecureSignature) String() string {
@@ -131,20 +117,36 @@ func (c *UnsecureCipherSuite) Name() Name {
 
 // PublicKey generates an implementation of a public key for the
 // unsecure cipher suite.
-func (c *UnsecureCipherSuite) PublicKey() PublicKey {
-	return &UnsecurePublicKey{}
+func (c *UnsecureCipherSuite) PublicKey(raw *RawPublicKey) (PublicKey, error) {
+	if len(raw.Data) == 0 {
+		return nil, xerrors.New("empty data")
+	}
+
+	return &UnsecurePublicKey{
+		data: raw.Data,
+	}, nil
 }
 
 // SecretKey generates an implementation of a secret key for the
 // unsecure cipher suite.
-func (c *UnsecureCipherSuite) SecretKey() SecretKey {
-	return &UnsecureSecretKey{}
+func (c *UnsecureCipherSuite) SecretKey(raw *RawSecretKey) (SecretKey, error) {
+	if len(raw.Data) == 0 {
+		return nil, xerrors.New("empty data")
+	}
+
+	return &UnsecureSecretKey{
+		data: raw.Data,
+	}, nil
 }
 
 // Signature generates an implementation of a signature for the
 // unsecure cipher suite.
-func (c *UnsecureCipherSuite) Signature() Signature {
-	return newUnsecureSignature([]byte{})
+func (c *UnsecureCipherSuite) Signature(raw *RawSignature) (Signature, error) {
+	if len(raw.Data) == 0 {
+		return nil, xerrors.New("empty data")
+	}
+
+	return newUnsecureSignature(raw.Data), nil
 }
 
 // KeyPair generates a valid pair of public and secret key for the
@@ -167,14 +169,30 @@ func (c *UnsecureCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) 
 // if the signature matches the message. It returns the reasonas an error
 // otherwise.
 func (c *UnsecureCipherSuite) Verify(pk PublicKey, sig Signature, msg []byte) error {
-	usig, ok := sig.(*UnsecureSignature)
-	if !ok {
-		return xerrors.New("wrong type of signature")
+	signature, err := c.unpackSignature(sig)
+	if err != nil {
+		return xerrors.Errorf("unpacking signature: %v", err)
 	}
 
-	if !bytes.Equal(usig.data, msg) {
+	if !bytes.Equal(signature.data, msg) {
 		return xerrors.New("mismatch data and msg")
 	}
 
 	return nil
+}
+
+func (c *UnsecureCipherSuite) unpackSignature(signature Signature) (*UnsecureSignature, error) {
+	if data, ok := signature.(*RawSignature); ok {
+		sig, err := c.Signature(data)
+		if err != nil {
+			return nil, err
+		}
+		return sig.(*UnsecureSignature), nil
+	}
+
+	if sig, ok := signature.(*UnsecureSignature); ok {
+		return sig, nil
+	}
+
+	return nil, xerrors.New("incompatible signature type")
 }

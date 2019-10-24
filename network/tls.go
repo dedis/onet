@@ -154,7 +154,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	serial := new(big.Int)
 	serial.SetBytes(r)
 
-	sigbuf, err := protobuf.Encode(sig.Pack())
+	sigbuf, err := protobuf.Encode(sig.Raw())
 	if err != nil {
 		return nil, xerrors.Errorf("encoding signature: %v", err)
 	}
@@ -335,18 +335,12 @@ func makeVerifier(cr *ciphersuite.Registry, them *ServerIdentity) (verifier, []b
 		}
 
 		// Check that our extension exists.
-		var sig ciphersuite.Signature
+		sig := &ciphersuite.RawSignature{}
 		for _, x := range cert.Extensions {
 			if oidDedisSig.Equal(x.Id) {
-				var sigdata ciphersuite.CipherData
-				err := protobuf.Decode(x.Value, &sigdata)
+				err := protobuf.Decode(x.Value, sig)
 				if err != nil {
 					return xerrors.Errorf("decoding signature: %v", err)
-				}
-
-				sig, err = cr.UnpackSignature(&sigdata)
-				if err != nil {
-					return xerrors.Errorf("unpacking signature: %v", err)
 				}
 				break
 			}
@@ -382,12 +376,13 @@ func makeVerifier(cr *ciphersuite.Registry, them *ServerIdentity) (verifier, []b
 	}, nonce
 }
 
-func pubFromCN(cn string) (*ciphersuite.CipherData, error) {
+func pubFromCN(cn string) (*ciphersuite.RawPublicKey, error) {
 	if len(cn) < 1 {
 		return nil, xerrors.New("commonName is missing a type byte")
 	}
 	tp := cn[0]
 
+	var data ciphersuite.RawPublicKey
 	switch tp {
 	case 'Z':
 		// New style encoding: unhex and then unmarshal.
@@ -396,7 +391,6 @@ func pubFromCN(cn string) (*ciphersuite.CipherData, error) {
 			return nil, xerrors.Errorf("decoding key: %v", err)
 		}
 
-		var data ciphersuite.CipherData
 		err = protobuf.Decode(buf, &data)
 		if err != nil {
 			return nil, xerrors.Errorf("unmarshaling: %v", err)
@@ -405,7 +399,6 @@ func pubFromCN(cn string) (*ciphersuite.CipherData, error) {
 
 	default:
 		// Old style encoding: simply StringHexToPoint
-		var data ciphersuite.CipherData
 		err := protobuf.Decode([]byte(cn), &data)
 		if err != nil {
 			return nil, xerrors.Errorf("unmarshaling: %v", err)
@@ -414,7 +407,7 @@ func pubFromCN(cn string) (*ciphersuite.CipherData, error) {
 	}
 }
 
-func pubToCN(pub *ciphersuite.CipherData) (string, error) {
+func pubToCN(pub *ciphersuite.RawPublicKey) (string, error) {
 	buf, err := protobuf.Encode(pub)
 	return "Z" + hex.EncodeToString(buf), err
 }

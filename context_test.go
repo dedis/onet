@@ -147,7 +147,7 @@ func TestContext_Path(t *testing.T) {
 // createContext creates the minimum number of things required for the test
 func createContext(t *testing.T, dbPath string) *Context {
 	pk, _ := testSuite.KeyPair()
-	si := network.NewServerIdentity(pk.Pack(),
+	si := network.NewServerIdentity(pk.Raw(),
 		network.NewAddress(network.Local, "localhost:0"))
 	cn := &Server{
 		Router: &network.Router{

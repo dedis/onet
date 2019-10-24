@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"sync"
 
+	"go.dedis.ch/onet/v4/ciphersuite"
 	"go.dedis.ch/onet/v4/log"
 	"go.dedis.ch/onet/v4/network"
 	bbolt "go.etcd.io/bbolt"
@@ -51,6 +52,11 @@ func newContext(name string, manager *serviceManager) *Context {
 	return ctx
 }
 
+// CipherSuiteRegistry returns the cipher suite registry for this context.
+func (c *Context) CipherSuiteRegistry() *ciphersuite.Registry {
+	return c.server.overlay.cr
+}
+
 // NewTreeNodeInstance creates a TreeNodeInstance that is bound to a
 // service instead of the Overlay.
 func (c *Context) NewTreeNodeInstance(t *Tree, tn *TreeNode, protoName string) *TreeNodeInstance {
@@ -70,6 +76,20 @@ func (c *Context) SendRaw(si *network.ServerIdentity, msg interface{}) error {
 // ServerIdentity returns this server's identity.
 func (c *Context) ServerIdentity() *network.ServerIdentity {
 	return c.server.ServerIdentity
+}
+
+// PublicKey returns the public key of the service.
+func (c *Context) PublicKey() *ciphersuite.RawPublicKey {
+	_, name := c.server.serviceManager.serviceByID(c.serviceID)
+
+	return c.server.ServerIdentity.ServicePublic(name)
+}
+
+// SecretKey returns the secret key of the service.
+func (c *Context) SecretKey() *ciphersuite.RawSecretKey {
+	_, name := c.server.serviceManager.serviceByID(c.serviceID)
+
+	return c.server.ServerIdentity.ServicePrivate(name)
 }
 
 // ServiceID returns the service-id.

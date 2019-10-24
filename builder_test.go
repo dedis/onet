@@ -109,19 +109,22 @@ func TestDefaultBuilder_RegisterServices(t *testing.T) {
 		if s != testSuite {
 			t.Error("should be the same suite pointer")
 		}
-		return nil, nil
+		return newDummyService2(c, s)
 	})
 	b.SetService("fakeService2", anotherSuite, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
+		require.NotNil(t, c.Service("fakeService1"))
 		if s != testSuite {
 			t.Error("should be the same suite pointer")
 		}
-		return nil, nil
+		return newDummyService2(c, s)
 	})
 	b.SetService("fakeService3", &fakeCipherSuite{}, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
+		require.NotNil(t, c.Service("fakeService1"))
+		require.NotNil(t, c.Service("fakeService2"))
 		if s == testSuite {
 			t.Error("should be a different suite pointer")
 		}
-		return nil, nil
+		return newDummyService2(c, s)
 	})
 
 	srv := b.Build()

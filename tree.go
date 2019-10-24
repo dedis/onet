@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math/rand"
 	"sort"
 
@@ -382,6 +383,12 @@ func (roID RosterID) IsNil() bool {
 	return roID.Equal(RosterID(uuid.Nil))
 }
 
+// WriteTo takes a writer and writes the bytes of the roster ID.
+func (roID RosterID) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(uuid.UUID(roID).Bytes())
+	return int64(n), err
+}
+
 // RosterTypeID of Roster message as registered in network
 var RosterTypeID = network.RegisterMessage(Roster{})
 
@@ -450,44 +457,18 @@ func (ro *Roster) Get(idx int) *network.ServerIdentity {
 	return ro.List[idx]
 }
 
-// FnPublicKeyMapper is a function that converts the server identity into a list
-// of public keys.
-type FnPublicKeyMapper func(*network.ServerIdentity) (ciphersuite.PublicKey, error)
-
-// NewRegistryMapper returns a mapper that will convert the public key data of a service
-// to the correct implementation using the registry to look up the cipher suite.
-func NewRegistryMapper(registry *ciphersuite.Registry, name string) FnPublicKeyMapper {
-	return func(si *network.ServerIdentity) (ciphersuite.PublicKey, error) {
-		return registry.UnpackPublicKey(si.ServicePublic(name))
-	}
-}
-
-// NewCipherSuiteMapper returns a mapper that will convert the public key data of a service
-// to the correct implementation using the cipher suite.
-func NewCipherSuiteMapper(suite ciphersuite.CipherSuite, name string) FnPublicKeyMapper {
-	return func(si *network.ServerIdentity) (ciphersuite.PublicKey, error) {
-		data := si.ServicePublic(name)
-		pk := suite.PublicKey()
-		return pk, pk.Unpack(data)
-	}
-}
-
 // PublicKeys uses the given mapper to convert the server identities into public
 // keys. If any error happens, it will interrupt and return it.
 // Use NewRegistryMapper to get the list of public keys of a service using a
 // cipher suite registry.
 // Use NewCipherSuiteMapper to get the list of public keys of a service using
 // a single cipher suite.
-func (ro *Roster) PublicKeys(fn FnPublicKeyMapper) ([]ciphersuite.PublicKey, error) {
+func (ro *Roster) PublicKeys(name string) []ciphersuite.PublicKey {
 	res := make([]ciphersuite.PublicKey, len(ro.List))
 	for i, si := range ro.List {
-		pk, err := fn(si)
-		if err != nil {
-			return nil, xerrors.Errorf("public key mapper: %v", err)
-		}
-		res[i] = pk
+		res[i] = si.ServicePublic(name)
 	}
-	return res, nil
+	return res
 }
 
 // GenerateBigNaryTree creates a tree where each node has N children.

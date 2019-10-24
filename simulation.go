@@ -71,15 +71,15 @@ type SimulationConfig struct {
 // SimulationPrivateKey contains the default private key and the service
 // private keys for the ones registered with a suite.
 type SimulationPrivateKey struct {
-	Private  *ciphersuite.CipherData
-	Services []*ciphersuite.CipherData
+	Private  *ciphersuite.RawSecretKey
+	Services []*ciphersuite.RawSecretKey
 }
 
 // newSimulationPrivateKey instantiates and makes the map
-func newSimulationPrivateKey(priv *ciphersuite.CipherData) *SimulationPrivateKey {
+func newSimulationPrivateKey(priv *ciphersuite.RawSecretKey) *SimulationPrivateKey {
 	return &SimulationPrivateKey{
 		Private:  priv,
-		Services: make([]*ciphersuite.CipherData, 0),
+		Services: make([]*ciphersuite.RawSecretKey, 0),
 	}
 }
 

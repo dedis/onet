@@ -46,9 +46,9 @@ var serverGroup = `Description = "Default Dedis Cothority"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
+  Public = "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
   Description = "Ismail's server"
   URL = "https://ismail.example.com/conode"
-  Public = "150000004349504845525f53554954455f554e5345435552452c82b7c526b8092c2c56f993a5c734f8"
 `
 
 func TestReadGroupDescToml(t *testing.T) {

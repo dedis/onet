@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/xerrors"
 )
 
 var anotherCipherSuiteName = "another_cipher_suite"
@@ -34,10 +35,33 @@ func TestCipherRegistry_BasicUsage(t *testing.T) {
 	sig, err := r.Sign(sk, []byte{1, 2, 3})
 	require.NoError(t, err)
 
-	err = r.Verify(pk, sig, []byte{})
+	err = r.Verify(pk.Raw(), sig, []byte{})
 	require.Error(t, err)
 
 	err = r.Verify(pk, sig, []byte{1, 2, 3})
+}
+
+func TestCipherRegistry_WithContext(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterCipherSuite(&UnsecureCipherSuite{})
+
+	pk, _ := r.KeyPair(UnsecureCipherSuiteName)
+
+	err := r.WithContext(pk, func(suite CipherSuite) error {
+		return nil
+	})
+	require.NoError(t, err)
+
+	errExample := xerrors.New("oops")
+	err = r.WithContext(pk, func(suite CipherSuite) error {
+		return errExample
+	})
+	require.True(t, xerrors.Is(err, errExample))
+
+	err = r.WithContext(&anotherCipherSuite{}, func(suite CipherSuite) error {
+		return nil
+	})
+	require.Error(t, err)
 }
 
 func TestCipherRegistry_FailingSignature(t *testing.T) {
@@ -97,39 +121,39 @@ func TestCipherRegistry_Registration(t *testing.T) {
 func TestCipherRegistry_Unpack(t *testing.T) {
 	r := NewRegistry()
 
-	_, err := r.UnpackPublicKey(&CipherData{Name: ""})
+	pk := newUnsecurePublicKey().Raw()
+	_, err := r.UnpackPublicKey(pk)
 	require.Error(t, err)
-	_, err = r.UnpackSecretKey(&CipherData{Name: ""})
+	sk := newUnsecureSecretKey().Raw()
+	_, err = r.UnpackSecretKey(sk)
 	require.Error(t, err)
-	_, err = r.UnpackSignature(&CipherData{Name: ""})
+	sig := newUnsecureSignature([]byte{}).Raw()
+	_, err = r.UnpackSignature(sig)
 	require.Error(t, err)
 
 	r.RegisterCipherSuite(&UnsecureCipherSuite{})
 
-	data := newUnsecurePublicKey().Pack()
-	data.Data = []byte{}
-	_, err = r.UnpackPublicKey(data)
+	pk.Data = []byte{}
+	_, err = r.UnpackPublicKey(pk)
 	require.Error(t, err)
 
-	data = newUnsecureSecretKey().Pack()
-	data.Data = []byte{}
-	_, err = r.UnpackSecretKey(data)
+	sk.Data = []byte{}
+	_, err = r.UnpackSecretKey(sk)
 	require.Error(t, err)
 
-	data = newUnsecureSignature([]byte{}).Pack()
-	data.Data = []byte{}
-	_, err = r.UnpackSignature(data)
+	sig.Data = []byte{}
+	_, err = r.UnpackSignature(sig)
 	require.Error(t, err)
 
-	pk, err := r.UnpackPublicKey(newUnsecurePublicKey().Pack())
+	pk2, err := r.UnpackPublicKey(newUnsecurePublicKey().Raw())
 	require.NoError(t, err)
-	require.NotNil(t, pk)
+	require.NotNil(t, pk2)
 
-	sk, err := r.UnpackSecretKey(newUnsecureSecretKey().Pack())
+	sk2, err := r.UnpackSecretKey(newUnsecureSecretKey().Raw())
 	require.NoError(t, err)
-	require.NotNil(t, sk)
+	require.NotNil(t, sk2)
 
-	sig, err := r.UnpackSignature(newUnsecureSignature([]byte{1, 2, 3}).Pack())
+	sig2, err := r.UnpackSignature(newUnsecureSignature([]byte{1, 2, 3}).Raw())
 	require.NoError(t, err)
-	require.NotNil(t, sig)
+	require.NotNil(t, sig2)
 }

@@ -139,7 +139,7 @@ func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 		}
 	}
 
-	server := NewServerToml(si.GetPrivate(), si.Address, conf)
+	server := NewServerToml(si.PublicKey, si.Address, conf)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)

@@ -547,7 +547,7 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorf("Panic in %s.Dispatch(): %v", name, r)
+				log.Errorf("Panic in %s.Dispatch(): %+v", name, r)
 			}
 		}()
 

@@ -10,25 +10,35 @@ import (
 
 func TestCipherData_String(t *testing.T) {
 	data := &CipherData{
-		Name: "A",
-		Data: []byte{255},
+		CipherName: "A",
+		Data:       []byte{255},
 	}
 
 	require.Equal(t, "41ff", data.String())
 }
 
 func TestCipherData_Equal(t *testing.T) {
-	a := &CipherData{Name: "abc", Data: []byte{1, 2, 3}}
-	b := &CipherData{Name: "abc", Data: []byte{1, 2, 3}}
+	a := &CipherData{CipherName: "abc", Data: []byte{1, 2, 3}}
+	b := &CipherData{CipherName: "abc", Data: []byte{1, 2, 3}}
 
 	require.True(t, a.Equal(b))
 	require.True(t, b.Equal(a))
 
-	b.Name = "oops"
+	b.CipherName = "oops"
 	require.False(t, a.Equal(b))
 
-	b.Name = a.Name
+	b.CipherName = a.CipherName
 	b.Data = []byte{}
+	require.False(t, a.Equal(b))
+}
+
+func TestCipherData_Clone(t *testing.T) {
+	a := &CipherData{CipherName: "abc", Data: []byte{1, 2, 3}}
+	b := a.Clone()
+
+	require.True(t, a.Equal(b))
+
+	b.Data[0] = 4
 	require.False(t, a.Equal(b))
 }
 
@@ -40,15 +50,15 @@ func (w *badWriter) Write(b []byte) (int, error) {
 
 func TestCipherData_WriteTo(t *testing.T) {
 	data := &CipherData{
-		Name: "abc",
-		Data: []byte{1, 2, 3},
+		CipherName: "abc",
+		Data:       []byte{1, 2, 3},
 	}
 
 	buf := new(bytes.Buffer)
 	n, err := data.WriteTo(buf)
 
 	require.NoError(t, err)
-	require.Equal(t, len(data.Name)+len(data.Data), int(n))
+	require.Equal(t, len(data.CipherName)+len(data.Data), int(n))
 	require.Equal(t, []byte{0x61, 0x62, 0x63, 0x1, 0x2, 0x3}, buf.Bytes())
 
 	n, err = data.WriteTo(new(badWriter))
@@ -57,8 +67,8 @@ func TestCipherData_WriteTo(t *testing.T) {
 
 func TestCipherData_MarshalText(t *testing.T) {
 	data := &CipherData{
-		Name: "abc",
-		Data: []byte{1, 2, 3},
+		CipherName: "abc",
+		Data:       []byte{1, 2, 3},
 	}
 
 	buf, err := data.MarshalText()
@@ -71,7 +81,7 @@ func TestCipherData_MarshalText(t *testing.T) {
 }
 
 func TestCipherData_UnmarshalText(t *testing.T) {
-	data := &CipherData{Name: "abc", Data: []byte{1, 2, 3}}
+	data := &CipherData{CipherName: "abc", Data: []byte{1, 2, 3}}
 	err := data.UnmarshalText([]byte{255})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "decoding hex:")
@@ -86,4 +96,67 @@ func TestCipherData_UnmarshalText(t *testing.T) {
 	err = data.UnmarshalText(buf[:sizeLength*2+2])
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "data is too small")
+}
+
+func TestRawPublicKey_Equal(t *testing.T) {
+	raw1 := NewRawPublicKey("abc", []byte{1})
+	raw2 := NewRawPublicKey("abc", []byte{2})
+
+	require.False(t, raw1.Equal(raw2))
+	require.True(t, raw1.Equal(raw1))
+	require.True(t, raw1.Raw().Equal(raw1))
+	require.True(t, raw2.Clone().Equal(raw2))
+}
+
+func TestRawPublicKey_TextMarshaling(t *testing.T) {
+	raw := NewRawPublicKey("abc", []byte{1})
+
+	buf, err := raw.MarshalText()
+	require.NoError(t, err)
+
+	decoded := NewRawPublicKey("", []byte{})
+	require.NoError(t, decoded.UnmarshalText(buf))
+	require.True(t, raw.Equal(decoded))
+}
+
+func TestRawSecretKey_Clone(t *testing.T) {
+	raw := NewRawSecretKey("abc", []byte{1})
+	raw2 := raw.Clone()
+
+	require.Equal(t, raw, raw2)
+
+	raw2.Data[0] = 5
+	require.NotEqual(t, raw, raw2)
+}
+
+func TestRawSecretKey_TextMarshaling(t *testing.T) {
+	raw := NewRawSecretKey("abc", []byte{1})
+
+	buf, err := raw.Raw().MarshalText()
+	require.NoError(t, err)
+
+	decoded := NewRawSecretKey("", []byte{})
+	require.NoError(t, decoded.UnmarshalText(buf))
+	require.Equal(t, raw, decoded)
+}
+
+func TestRawSignature_Clone(t *testing.T) {
+	raw := NewRawSignature("abc", []byte{1})
+	raw2 := raw.Clone()
+
+	require.Equal(t, raw, raw2)
+
+	raw2.Data[0] = 5
+	require.NotEqual(t, raw, raw2)
+}
+
+func TestRawSignature_TextMarshaling(t *testing.T) {
+	raw := NewRawSignature("abc", []byte{1})
+
+	buf, err := raw.Raw().MarshalText()
+	require.NoError(t, err)
+
+	decoded := NewRawSignature("", []byte{})
+	require.NoError(t, decoded.UnmarshalText(buf))
+	require.Equal(t, raw, decoded)
 }

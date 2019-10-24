@@ -513,11 +513,10 @@ func TestRoster_GenerateNaryTreeWithRoot(t *testing.T) {
 
 func TestRoster_Publics(t *testing.T) {
 	_, roster := genLocalTree(5, 2000)
-	spk, err := roster.PublicKeys(NewCipherSuiteMapper(testSuite, ""))
-	require.NoError(t, err)
+	spk := roster.PublicKeys("")
 
 	for i, si := range roster.List {
-		require.True(t, spk[i].Pack().Equal(si.PublicKey))
+		require.True(t, spk[i].Raw().Equal(si.PublicKey))
 	}
 }
 
@@ -633,7 +632,7 @@ func genRoster(suite ciphersuite.CipherSuite, names []network.Address) *Roster {
 	var ids []*network.ServerIdentity
 	for _, n := range names {
 		pk, _ := suite.KeyPair()
-		srvid := network.NewServerIdentity(pk.Pack(), n)
+		srvid := network.NewServerIdentity(pk.Raw(), n)
 		srvid.ServiceIdentities = []network.ServiceIdentity{
 			genServiceIdentity("ServiceTest", testSuite),
 			genServiceIdentity("AnotherServiceTest", testSuite),
@@ -647,7 +646,7 @@ func genRoster(suite ciphersuite.CipherSuite, names []network.Address) *Roster {
 func genServiceIdentity(name string, suite ciphersuite.CipherSuite) network.ServiceIdentity {
 	pk, sk := suite.KeyPair()
 
-	return network.NewServiceIdentity(name, pk.Pack(), sk.Pack())
+	return network.NewServiceIdentity(name, pk.Raw(), sk.Raw())
 }
 
 func genLocalTree(count, port int) (*Tree, *Roster) {

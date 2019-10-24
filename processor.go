@@ -410,7 +410,7 @@ type StreamingTunnel struct {
 func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interface{}, ch chan bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = xerrors.Errorf("panic with %v", r)
+			err = xerrors.Errorf("panic with: %v", r)
 		}
 	}()
 

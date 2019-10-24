@@ -56,7 +56,7 @@ func dbPathFromEnv() string {
 // If dbPath is "", the server will write its database to the default
 // location. If dbPath is != "", it is considered a temp dir, and the
 // DB is deleted on close.
-func newServer(cr *ciphersuite.Registry, dbPath string, r *network.Router, pkey *ciphersuite.CipherData) *Server {
+func newServer(cr *ciphersuite.Registry, dbPath string, r *network.Router, pkey *ciphersuite.RawSecretKey) *Server {
 	delDb := false
 	if dbPath == "" {
 		dbPath = dbPathFromEnv()

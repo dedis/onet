@@ -67,7 +67,7 @@ type Envelope struct {
 // It's based on a public key, and there can be one or more addresses to contact it.
 type ServerIdentity struct {
 	// This is the public key of that ServerIdentity
-	PublicKey *ciphersuite.CipherData
+	PublicKey *ciphersuite.RawPublicKey
 	// This is the configuration for the services
 	ServiceIdentities []ServiceIdentity
 	// The ServerIdentityID corresponding to that public key
@@ -78,7 +78,7 @@ type ServerIdentity struct {
 	Description string
 	// This is the private key, may be nil. It is not exported so that it will never
 	// be marshalled.
-	secretKey *ciphersuite.CipherData
+	secretKey *ciphersuite.RawSecretKey
 	// The URL where the WebSocket interface can be found. (If not set, then default is http, on port+1.)
 	// optional
 	URL string `protobuf:"opt"`
@@ -91,17 +91,17 @@ type ServerIdentityID uuid.UUID
 // private keys
 type ServiceIdentity struct {
 	Name      string
-	PublicKey *ciphersuite.CipherData
-	secretKey *ciphersuite.CipherData
+	PublicKey *ciphersuite.RawPublicKey
+	secretKey *ciphersuite.RawSecretKey
 }
 
 // GetPrivate returns the private key of the service identity if available
-func (sid *ServiceIdentity) GetPrivate() *ciphersuite.CipherData {
+func (sid *ServiceIdentity) GetPrivate() *ciphersuite.RawSecretKey {
 	return sid.secretKey
 }
 
 // NewServiceIdentity creates a new identity
-func NewServiceIdentity(name string, public *ciphersuite.CipherData, private *ciphersuite.CipherData) ServiceIdentity {
+func NewServiceIdentity(name string, public *ciphersuite.RawPublicKey, private *ciphersuite.RawSecretKey) ServiceIdentity {
 	return ServiceIdentity{
 		Name:      name,
 		PublicKey: public,
@@ -148,14 +148,14 @@ var ServerIdentityType = RegisterMessage(ServerIdentity{})
 
 // ServerIdentityToml is the struct that can be marshalled into a toml file
 type ServerIdentityToml struct {
-	PublicKey *ciphersuite.CipherData
+	PublicKey *ciphersuite.RawPublicKey
 	Address   Address
 }
 
 // NewServerIdentity creates a new ServerIdentity based on a public key and with a slice
 // of IP-addresses where to find that entity. The Id is based on a
 // version5-UUID which can include a URL that is based on it's public key.
-func NewServerIdentity(public *ciphersuite.CipherData, address Address) *ServerIdentity {
+func NewServerIdentity(public *ciphersuite.RawPublicKey, address Address) *ServerIdentity {
 	si := &ServerIdentity{
 		PublicKey: public,
 		Address:   address,
@@ -178,18 +178,18 @@ func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
 //
 // Before calling NewTCPRouter for a TLS server, you must set the private
 // key with SetPrivate.
-func (si *ServerIdentity) SetPrivate(p *ciphersuite.CipherData) {
+func (si *ServerIdentity) SetPrivate(p *ciphersuite.RawSecretKey) {
 	si.secretKey = p
 }
 
 // GetPrivate returns the private key set with SetPrivate.
-func (si *ServerIdentity) GetPrivate() *ciphersuite.CipherData {
+func (si *ServerIdentity) GetPrivate() *ciphersuite.RawSecretKey {
 	return si.secretKey
 }
 
 // ServicePublic returns the public key of the service or the default
 // one if the service has not been registered with a suite
-func (si *ServerIdentity) ServicePublic(name string) *ciphersuite.CipherData {
+func (si *ServerIdentity) ServicePublic(name string) *ciphersuite.RawPublicKey {
 	if name == "" {
 		return si.PublicKey
 	}
@@ -205,7 +205,7 @@ func (si *ServerIdentity) ServicePublic(name string) *ciphersuite.CipherData {
 
 // ServicePrivate returns the private key of the service or the default
 // one if the service has not been registered with a suite
-func (si *ServerIdentity) ServicePrivate(name string) *ciphersuite.CipherData {
+func (si *ServerIdentity) ServicePrivate(name string) *ciphersuite.RawSecretKey {
 	for _, srvid := range si.ServiceIdentities {
 		if srvid.Name == name {
 			return srvid.secretKey
@@ -242,14 +242,14 @@ func (si *ServerIdentity) HasServicePublic(name string) bool {
 func (si *ServerIdentity) Toml() *ServerIdentityToml {
 	return &ServerIdentityToml{
 		Address:   si.Address,
-		PublicKey: si.PublicKey,
+		PublicKey: si.PublicKey.Clone(),
 	}
 }
 
 // ServerIdentity converts an ServerIdentityToml structure back to an ServerIdentity
 func (si *ServerIdentityToml) ServerIdentity() *ServerIdentity {
 	return &ServerIdentity{
-		PublicKey: si.PublicKey,
+		PublicKey: si.PublicKey.Clone(),
 		Address:   si.Address,
 	}
 }

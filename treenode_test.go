@@ -28,9 +28,9 @@ func TestTreeNodeInstance_KeyPairs(t *testing.T) {
 	tni, err := local.NewTreeNodeInstance(tree.Root, spawnName)
 
 	require.NoError(t, err)
-	require.True(t, tni.SecretKey().Pack().Equal(tni.Host().secretKey.Pack()))
-	require.True(t, tni.PublicKey().Pack().Equal(tni.Host().ServerIdentity.PublicKey))
-	require.True(t, tni.PublicKey().Pack().Equal(tni.NodePublic(tni.Host().ServerIdentity).Pack()))
+	require.True(t, tni.SecretKey().Raw().Equal(tni.Host().secretKey.Raw().CipherData))
+	require.True(t, tni.PublicKey().Raw().Equal(tni.Host().ServerIdentity.PublicKey))
+	require.True(t, tni.PublicKey().Raw().Equal(tni.NodePublic(tni.Host().ServerIdentity).Raw()))
 	require.Equal(t, 5, len(tni.PublicKeys()))
 }
 

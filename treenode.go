@@ -112,6 +112,11 @@ func (n *TreeNodeInstance) Service() (Service, string) {
 	return n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 }
 
+// CipherSuiteRegistry returns the cipher suite registry of the server.
+func (n *TreeNodeInstance) CipherSuiteRegistry() *ciphersuite.Registry {
+	return n.overlay.cr
+}
+
 // TreeNode gets the treeNode of this node. If there is no TreeNode for the
 // Token of this node, the function will return nil
 func (n *TreeNodeInstance) TreeNode() *TreeNode {
@@ -695,14 +700,7 @@ func (n *TreeNodeInstance) PublicKeyIndex() int {
 func (n *TreeNodeInstance) PublicKeys() []ciphersuite.PublicKey {
 	_, name := n.overlay.server.serviceManager.serviceByID(n.token.ServiceID)
 
-	pubkeys, err := n.Roster().PublicKeys(NewRegistryMapper(n.overlay.cr, name))
-	if err != nil {
-		log.Error(err)
-		panic("Couldn't read the public keys for a service. Please check the " +
-			"configuration of the server")
-	}
-
-	return pubkeys
+	return n.Roster().PublicKeys(name)
 }
 
 // NodePublic returns the public key associated with the node's service

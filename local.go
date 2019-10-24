@@ -139,7 +139,7 @@ func (l *LocalTest) GenServers(n int) []*Server {
 	l.panicClosed()
 	servers := l.genLocalHosts(n)
 	for _, server := range servers {
-		server.ServerIdentity.SetPrivate(server.secretKey.Pack())
+		server.ServerIdentity.SetPrivate(server.secretKey.Raw())
 		l.Servers[server.ServerIdentity.ID] = server
 		l.Overlays[server.ServerIdentity.ID] = server.overlay
 		l.Services[server.ServerIdentity.ID] = server.serviceManager.services

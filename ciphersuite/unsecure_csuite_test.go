@@ -10,7 +10,8 @@ func TestUnsecurePublicKey(t *testing.T) {
 	pk := newUnsecurePublicKey()
 
 	require.Equal(t, UnsecureCipherSuiteName, pk.Name())
-	require.NotNil(t, pk.Pack())
+	require.True(t, pk.Equal(pk))
+	require.NotNil(t, pk.Raw())
 
 	pk.data = []byte{1}
 	require.Equal(t, "01", pk.String())
@@ -20,7 +21,7 @@ func TestUnsecurePrivateKey(t *testing.T) {
 	sk := newUnsecureSecretKey()
 
 	require.Equal(t, UnsecureCipherSuiteName, sk.Name())
-	require.NotNil(t, sk.Pack())
+	require.NotNil(t, sk.Raw())
 
 	sk.data = []byte{2}
 	require.Equal(t, "02", sk.String())
@@ -30,17 +31,20 @@ func TestUnsecureSignature(t *testing.T) {
 	sig := newUnsecureSignature([]byte{3})
 
 	require.Equal(t, UnsecureCipherSuiteName, sig.Name())
-	require.NotNil(t, sig.Pack())
+	require.NotNil(t, sig.Raw())
 	require.Equal(t, "03", sig.String())
+
+	suite := &UnsecureCipherSuite{}
+	_, err := suite.unpackSignature(sig)
+	require.NoError(t, err)
+	_, err = suite.unpackSignature(sig.Raw())
+	require.NoError(t, err)
 }
 
 func TestUnsecureCipherSuite(t *testing.T) {
 	suite := &UnsecureCipherSuite{}
 
 	require.Equal(t, UnsecureCipherSuiteName, suite.Name())
-	require.NotNil(t, suite.PublicKey())
-	require.NotNil(t, suite.SecretKey())
-	require.NotNil(t, suite.Signature())
 
 	pk, sk := suite.KeyPair()
 	require.NotNil(t, pk)
