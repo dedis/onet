@@ -4,12 +4,18 @@ Simulation
 
 # Simulation
 
-The simulation can be used to run the protocol or service in
-different settings:
+The onet library allows for multiple levels of simulations:
 
-- localhost - for up to 100 nodes
-- [Mininet](platform/MININET.md) - for up to 3000 nodes
-- [Deterlab](platform/DETERLAB.md) - for up to 50'000 nodes
+- localhost:
+  - up to 100 nodes
+- mininet:
+  - up to 300 nodes on a 48-core machine, multiplied by the number of machines
+  available
+  - define max. bandwidth and delay for your network
+- deterlab:
+  - up to 1000 nodes on a strong machine, multiplied by the number of machines
+  available
+
 
 Refer to the simulation-examples in simul/manage/simulation and
 https://github.com/dedis/cothority_template

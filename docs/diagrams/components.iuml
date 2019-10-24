@@ -1,0 +1,24 @@
+@startuml
+
+[Protocol]
+[TreeNodeInstance]
+[ServiceManager] as sm1
+[Overlay]
+[ServiceManager] as sm2
+[Conode]
+[Router]
+
+Protocol  <--> TreeNodeInstance : Message passing
+Protocol <-- sm1 : Create
+
+TreeNodeInstance <--> Overlay : Message embedded
+sm1 <--> sm2 : Message embedded
+sm1 --> Overlay : Start Protocol
+
+Overlay <--> Conode : Message passing
+sm2 <--> Conode : Message passing
+
+Conode <--> Router
+
+
+@enduml
