@@ -24,7 +24,9 @@ Onet allows you to set up the following three elements:
 
 - *protocols*: a short-lived set of messages being passed back and forth between
 one or more conodes
+
 - *services*: define an API usable by client programs and instantiate protocols
+
 - *apps*: communicate with the service-API of one or more conodes
 
 We also provide a set of methods to set up and run *simulations*.
@@ -37,27 +39,27 @@ We also provide a set of methods to set up and run *simulations*.
 
 - [The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
 - [General information](#general-information)
-  - [Directories](#directories)
-  - [Version](#version)
-  - [License](#license)
-  - [Contribution](#contribution)
-  - [Contact](#contact)
-  - [Reporting security problems](#reporting-security-problems)
+    - [Directories](#directories)
+    - [Version](#version)
+    - [License](#license)
+    - [Contribution](#contribution)
+    - [Contact](#contact)
+    - [Reporting security problems](#reporting-security-problems)
 - [Components](#components)
-  - [Router](#router)
-  - [Conode](#conode)
-  - [Roster](#roster)
-  - [Protocol](#protocol)
-  - [Service](#service)
-  - [ServiceManager](#servicemanager)
-  - [Tree](#tree)
-  - [Overlay](#overlay)
-  - [TreeNodeInstance](#treenodeinstance)
-  - [App](#app)
+    - [Router](#router)
+    - [Conode](#conode)
+    - [Roster](#roster)
+    - [Protocol](#protocol)
+    - [Service](#service)
+    - [ServiceManager](#servicemanager)
+    - [Tree](#tree)
+    - [Overlay](#overlay)
+    - [TreeNodeInstance](#treenodeinstance)
+    - [App](#app)
 - [Database Backup and Recovery](#database-backup-and-recovery)
-  - [Backup](#backup)
-  - [Recovery](#recovery)
-  - [Interacting with the database](#interacting-with-the-database)
+    - [Backup](#backup)
+    - [Recovery](#recovery)
+    - [Interacting with the database](#interacting-with-the-database)
 - [Simulation](#simulation)
 
 <!-- END doctoc.sh generated TOC please keep comment here to allow auto update -->
@@ -67,12 +69,16 @@ We also provide a set of methods to set up and run *simulations*.
 
 ## Directories
 
-- [app](app) - useful libraries if you want to create a CLI app
-for the cothority
+- [app](app) - useful libraries if you want to create a CLI app for the
+  cothority
+
 - [cfgpath](cfgpath) - single package to get the configuration-path
+
 - [log](log) - everybody needs its own log-library - this one has log-levels,
-- colors, time, ...
+  colors, time, ...
+
 - [network](network) - different type of connections: channels, tcp, tls
+
 - [simul](simul) - allowing to run your protocols and services on different
   platforms with up to 50'000 nodes
 
@@ -113,8 +119,6 @@ If you notice a possible security problem, please report it
 to dedis-security@epfl.ch.
 
 
-
-
 # Components
 
 In Onet, you define *Services* that use *Protocols* which can send and receive
@@ -140,9 +144,9 @@ the rabbit hole to explain the most important ones!
 The Router handles all incoming and outgoing messages from and to the network. A
 Router can use different underlying types of connection: 
 
-- *TCP* which uses regular TCP connections, 
-- *Local* which uses channels and is mainly for testing purposes, and 
-- *TLS* which is still in progress.
+-   *TCP* which uses regular TCP connections, 
+-   *Local* which uses channels and is mainly for testing purposes, and 
+-   *TLS* which is still in progress.
 
 ## Conode
 
@@ -211,8 +215,6 @@ is mostly written in go, but in the cothority-repository you can also find
 libraries to interact in javascript and java.
 
 
-
-
 # Database Backup and Recovery
 
 Users of Onet have the option to make use of its built-in database.
@@ -271,8 +273,6 @@ All the [bbolt functions](https://godoc.org/github.com/etcd-io/bbolt) can be
 used with the database handler. However, the user should avoid creating new
 buckets using the bbolt functions and only use `GetAdditionalBucket` to avoid
 bucket name conflicts.
-
-
 
 
 # Simulation

@@ -25,7 +25,7 @@ INVALID_CHARS="'[]/?!:\`.,()*\";{}+=<>~$|#@&–—"
 # For Mac user, we need to use 'gsed'
 SED=sed
 
-appname=`basename $0`
+appname=$(basename "$0")
 start_toc='<!-- START '$appname' generated TOC please keep comment here to allow auto update -->'
 info_toc='<!-- DO NOT EDIT THIS SECTION, INSTEAD RE-RUN '$appname' TO UPDATE -->'
 end_toc='<!-- END '$appname' generated TOC please keep comment here to allow auto update -->'
@@ -46,7 +46,7 @@ check() {
             warn="WARNING: Detecting you are on mac but didn't find the 'gsed' "
             warn+="utility. Default 'sed' version of mac is not likely to work " 
             warn+="here. You can install 'gsed' with 'brew install gnu-sed'."
-            echo $warn
+            echo "$warn"
         fi
     fi
 }
@@ -84,7 +84,7 @@ toc() {
     local output
 
     while IFS='' read -r line || [[ -n "$line" ]]; do
-        level="$(echo "$line" | $SED -E 's/^(#+).*/\1/; s/#/  /g; s/^  //')"
+        level="$(echo "$line" | $SED -E 's/^(#+).*/\1/; s/#/    /g; s/^    //')"
         title="$(echo "$line" | $SED -E 's/^#+ //')"
         anchor="$(echo "$title" | tr '[:upper:] ' '[:lower:]-' | tr -d "$INVALID_CHARS")"
 
@@ -93,13 +93,13 @@ toc() {
         temp_output=$output"$level- [$title](#$anchor)\n"
         counter=1
         while true; do
-            nlines="$(echo -e $temp_output | wc -l)"
-            duplines="$(echo -e $temp_output | sort | uniq | wc -l)"
-            if [ $nlines = $duplines ]; then
+            nlines=$(echo -e "$temp_output" | wc -l)
+            duplines=$(echo -e "$temp_output" | sort | uniq | wc -l)
+            if [ "$nlines" = "$duplines" ]; then
                 break
             fi
             temp_output=$output"$level- [$title](#$anchor-$counter)\n"
-            counter=$(($counter+1))
+            counter=$((counter+1))
         done
 
         output="$temp_output"
@@ -109,7 +109,7 @@ toc() {
         if ($0 ~ code && in_code == 0) { in_code=1 }
         else if ($0 ~ code && in_code == 1) { in_code=0 }
         if ($0 ~ /^#{1,10}/ && in_code == 0) { print }
-    }' $1 | tr -d '\r')"
+    }' "$1" | tr -d '\r')"
 
     echo "$output"
 }
@@ -152,10 +152,10 @@ insert() {
             if (start_c == 1 && end_c == 0) {
                 status=13
             }
-            print status }' $1)
+            print status }' "$1")
     
     # If the status S is >=10, that means something went bad and we must abort.
-    if [ $S -ge 10 ]; then 
+    if [ "$S" -ge 10 ]; then 
         echo "got an error while checking the opening/closing tags:"
 
         case $S in
@@ -175,14 +175,14 @@ insert() {
         exit 1
     fi
 
-    if [ $S -eq 0 ]; then
+    if [ "$S" -eq 0 ]; then
         # ":a" creates label 'a'
         # "N" append the next line to the pattern space
         # "$!" if not the last line
         # "ba" branch (goto) label a
         # In short, this loops throught the entire file until the last line and
         # then performs the substitution.
-        $SED -i ":a;N;\$!ba;s/$start_toc.*$end_toc/$toc_block/g" $1
+        $SED -i ":a;N;\$!ba;s/$start_toc.*$end_toc/$toc_block/g" "$1"
         echo -e "\n  Updated content of $appname block in $1 succesfully\n"
     else
         $SED -i 1i"$toc_block" "$1"
@@ -190,8 +190,8 @@ insert() {
     fi
 
     # undo symbol replacements
-    $SED -i 's,id9992384923423gzz,\&,g' $1
-    $SED -i 's,id8239230090230gzz,/,g' $1
+    $SED -i 's,id9992384923423gzz,\&,g' "$1"
+    $SED -i 's,id8239230090230gzz,/,g' "$1"
 
 }
 
