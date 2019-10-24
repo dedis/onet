@@ -84,13 +84,13 @@ toc() {
     local output
 
     while IFS='' read -r line || [[ -n "$line" ]]; do
-        level="$(echo "$line" | $SED -E 's/^(#+).*/\1/; s/#/    /g; s/^    //')"
+        level="$(echo "$line" | $SED -E 's/^(#+).*/\1/; s/#/\t/g; s/^\t//')"
         title="$(echo "$line" | $SED -E 's/^#+ //')"
         anchor="$(echo "$title" | tr '[:upper:] ' '[:lower:]-' | tr -d "$INVALID_CHARS")"
 
         # Check that new lines introduced are not duplicated. If so, introduce a
         # number at the end copying doctoc behavior.
-        temp_output=$output"$level- [$title](#$anchor)\n"
+        temp_output=$output"$level-\t[$title](#$anchor)\n"
         counter=1
         while true; do
             nlines=$(echo -e "$temp_output" | wc -l)

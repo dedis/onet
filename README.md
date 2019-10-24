@@ -22,12 +22,12 @@ decentralized task.
 
 Onet allows you to set up the following three elements:
 
-- *protocols*: a short-lived set of messages being passed back and forth between
+-	*protocols*: a short-lived set of messages being passed back and forth between
 one or more conodes
 
-- *services*: define an API usable by client programs and instantiate protocols
+-	*services*: define an API usable by client programs and instantiate protocols
 
-- *apps*: communicate with the service-API of one or more conodes
+-	*apps*: communicate with the service-API of one or more conodes
 
 We also provide a set of methods to set up and run *simulations*.
 
@@ -37,30 +37,30 @@ We also provide a set of methods to set up and run *simulations*.
 <!-- DO NOT EDIT THIS SECTION, INSTEAD RE-RUN doctoc.sh TO UPDATE -->
 **:book: Table of Contents**
 
-- [The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
-- [General information](#general-information)
-    - [Directories](#directories)
-    - [Version](#version)
-    - [License](#license)
-    - [Contribution](#contribution)
-    - [Contact](#contact)
-    - [Reporting security problems](#reporting-security-problems)
-- [Components](#components)
-    - [Router](#router)
-    - [Conode](#conode)
-    - [Roster](#roster)
-    - [Protocol](#protocol)
-    - [Service](#service)
-    - [ServiceManager](#servicemanager)
-    - [Tree](#tree)
-    - [Overlay](#overlay)
-    - [TreeNodeInstance](#treenodeinstance)
-    - [App](#app)
-- [Database Backup and Recovery](#database-backup-and-recovery)
-    - [Backup](#backup)
-    - [Recovery](#recovery)
-    - [Interacting with the database](#interacting-with-the-database)
-- [Simulation](#simulation)
+-	[The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
+-	[General information](#general-information)
+	-	[Directories](#directories)
+	-	[Version](#version)
+	-	[License](#license)
+	-	[Contribution](#contribution)
+	-	[Contact](#contact)
+	-	[Reporting security problems](#reporting-security-problems)
+-	[Components](#components)
+	-	[Router](#router)
+	-	[Conode](#conode)
+	-	[Roster](#roster)
+	-	[Protocol](#protocol)
+	-	[Service](#service)
+	-	[ServiceManager](#servicemanager)
+	-	[Tree](#tree)
+	-	[Overlay](#overlay)
+	-	[TreeNodeInstance](#treenodeinstance)
+	-	[App](#app)
+-	[Database Backup and Recovery](#database-backup-and-recovery)
+	-	[Backup](#backup)
+	-	[Recovery](#recovery)
+	-	[Interacting with the database](#interacting-with-the-database)
+-	[Simulation](#simulation)
 
 <!-- END doctoc.sh generated TOC please keep comment here to allow auto update -->
 
@@ -69,18 +69,18 @@ We also provide a set of methods to set up and run *simulations*.
 
 ## Directories
 
-- [app](app) - useful libraries if you want to create a CLI app for the
-  cothority
+-	[app](app) - useful libraries if you want to create a CLI app for the
+	cothority
 
-- [cfgpath](cfgpath) - single package to get the configuration-path
+-	[cfgpath](cfgpath) - single package to get the configuration-path
 
-- [log](log) - everybody needs its own log-library - this one has log-levels,
-  colors, time, ...
+-   [log](log) - everybody needs its own log-library - this one has log-levels,
+	colors, time, ...
 
-- [network](network) - different type of connections: channels, tcp, tls
+-	[network](network) - different type of connections: channels, tcp, tls
 
-- [simul](simul) - allowing to run your protocols and services on different
-  platforms with up to 50'000 nodes
+-	[simul](simul) - allowing to run your protocols and services on different
+	platforms with up to 50'000 nodes
 
 ## Version
 
@@ -144,9 +144,9 @@ the rabbit hole to explain the most important ones!
 The Router handles all incoming and outgoing messages from and to the network. A
 Router can use different underlying types of connection: 
 
--   *TCP* which uses regular TCP connections, 
--   *Local* which uses channels and is mainly for testing purposes, and 
--   *TLS* which is still in progress.
+-	*TCP* which uses regular TCP connections, 
+-	*Local* which uses channels and is mainly for testing purposes, and 
+-	*TLS* which is still in progress.
 
 ## Conode
 
@@ -173,9 +173,9 @@ Service.
 A Service is a long term entity that is created when a Conode is created. It
 serves different purposes:
 
-- serving external client requests,
-- creating and attaching protocols with the Overlay (and launching them),
-- communicating information to other Services on other Conodes.
+-	serving external client requests,
+-	creating and attaching protocols with the Overlay (and launching them),
+-	communicating information to other Services on other Conodes.
 
 ## ServiceManager
 
@@ -194,9 +194,9 @@ out of a Roster.
 The Overlay provides an abstraction to communicate over different Trees that the
 Protocols and Services need. It handles the following tasks:
 
-- Propagations of the Roster and the Trees between different Conodes
-- Creation of the Protocol
-- Dispatching of incoming and outgoing messages to the right Protocol
+-	Propagations of the Roster and the Trees between different Conodes
+-	Creation of the Protocol
+-	Dispatching of incoming and outgoing messages to the right Protocol
 
 ## TreeNodeInstance
 
@@ -223,8 +223,8 @@ We use [bbolt](https://github.com/etcd-io/bbolt), which supports "fully
 serializable ACID transactions" to ensure data integrity for Onet users. Users
 should be able to do the following:
 
-- Backup data while Onet is running
-- Recovery from a backup in case of data corruption
+-	Backup data while Onet is running
+-	Recovery from a backup in case of data corruption
 
 ## Backup
 
@@ -232,9 +232,9 @@ Users are recommended to perform frequent backups such that data can be
 recovered if Onet nodes fail. Onet stores all of its data in the context folder,
 specified by `$CONODE_SERVICE_PATH`. If unset, it defaults to
 
-- `~/Library/Application Support/conode/data` on macOS,
-- `$HOME\AppData\Local\Conode` on Windows, or
-- `~/.local/share/conode` on other Unix/Linux.
+-	`~/Library/Application Support/conode/data` on macOS,
+-	`$HOME\AppData\Local\Conode` on Windows, or
+-	`~/.local/share/conode` on other Unix/Linux.
 
 Hence, to backup, it is recommended to use a standard backup tool, such as
 rsync, and copy the folder to a different physical location periodically.
