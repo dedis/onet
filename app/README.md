@@ -1,7 +1,3 @@
-Navigation: [DEDIS](https://github.com/dedis/doc/tree/master/README.md) ::
-[Onet](../README.md) ::
-App support
-
 # App support
 
 This is a collection of libraries to support CLI-apps that work with the onet
