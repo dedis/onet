@@ -1,7 +1,3 @@
-Navigation: [DEDIS](https://github.com/dedis/doc/tree/master/README.md) ::
-[Onet](../README.md) ::
-Simulation
-
 # Simulation
 
 The onet library allows for multiple levels of simulations:
