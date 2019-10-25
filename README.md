@@ -34,35 +34,33 @@ We also provide a set of methods to set up and run _simulations_.
 * * *
 
 <!-- START doctoc.sh generated TOC please keep comment here to allow auto update -->
-
 <!-- DO NOT EDIT THIS SECTION, INSTEAD RE-RUN doctoc.sh TO UPDATE -->
-
 **:book: Table of Contents**
 
 -   [The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
--   [General information](#general-information)
-    -   [Directories](#directories)
-    -   [Version](#version)
-    -   [License](#license)
-    -   [Contribution](#contribution)
-    -   [Contact](#contact)
-    -   [Reporting security problems](#reporting-security-problems)
--   [Components](#components)
-    -   [Router](#router)
-    -   [Conode](#conode)
-    -   [Roster](#roster)
-    -   [Protocol](#protocol)
-    -   [Service](#service)
-    -   [ServiceManager](#servicemanager)
-    -   [Tree](#tree)
-    -   [Overlay](#overlay)
-    -   [TreeNodeInstance](#treenodeinstance)
-    -   [App](#app)
--   [Database Backup and Recovery](#database-backup-and-recovery)
-    -   [Backup](#backup)
-    -   [Recovery](#recovery)
-    -   [Interacting with the database](#interacting-with-the-database)
--   [Simulation](#simulation)
+-   [General information](#general-information)
+    -   [Directories](#directories)
+    -   [Version](#version)
+    -   [License](#license)
+    -   [Contribution](#contribution)
+    -   [Contact](#contact)
+    -   [Reporting security problems](#reporting-security-problems)
+-   [Components](#components)
+    -   [Router](#router)
+    -   [Conode](#conode)
+    -   [Roster](#roster)
+    -   [Protocol](#protocol)
+    -   [Service](#service)
+    -   [ServiceManager](#servicemanager)
+    -   [Tree](#tree)
+    -   [Overlay](#overlay)
+    -   [TreeNodeInstance](#treenodeinstance)
+    -   [App](#app)
+-   [Database Backup and Recovery](#database-backup-and-recovery)
+    -   [Backup](#backup)
+    -   [Recovery](#recovery)
+    -   [Interacting with the database](#interacting-with-the-database)
+-   [Simulation](#simulation)
 
 <!-- END doctoc.sh generated TOC please keep comment here to allow auto update -->
 

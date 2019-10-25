@@ -90,7 +90,7 @@ toc() {
 
         # Check that new lines introduced are not duplicated. If so, introduce a
         # number at the end copying doctoc behavior.
-        temp_output=$output"$level-   [$title](#$anchor)\n"
+        temp_output=$output"$level-   [$title](#$anchor)\n\r"
         counter=1
         while true; do
             nlines=$(echo -e "$temp_output" | wc -l)
@@ -98,7 +98,7 @@ toc() {
             if [ "$nlines" = "$duplines" ]; then
                 break
             fi
-            temp_output=$output"$level- [$title](#$anchor-$counter)\n"
+            temp_output=$output"$level-   [$title](#$anchor-$counter)\n\r"
             counter=$((counter+1))
         done
 
