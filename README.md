@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/dedis/onet.svg?branch=master)](https://travis-ci.org/dedis/onet)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dedis/onet)](https://goreportcard.com/report/github.com/dedis/onet)
 [![Coverage Status](https://coveralls.io/repos/github/dedis/onet/badge.svg)](https://coveralls.io/github/dedis/onet)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/11ec79aa77fe41748edfdfcd55e92fab)](https://www.codacy.com/manual/nkcr/onet?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dedis/onet&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/11ec79aa77fe41748edfdfcd55e92fab)](https://www.codacy.com/manual/nkcr/onet?utm_source=github.com&utm_medium=referral&utm_content=dedis/onet&utm_campaign=Badge_Grade)
 
 # The Cothority Overlay Network Library - Onet
 
@@ -22,65 +22,66 @@ decentralized task.
 
 Onet allows you to set up the following three elements:
 
--	*protocols*: a short-lived set of messages being passed back and forth between
-one or more conodes
+-   _protocols_: a short-lived set of messages being passed back and forth between
+    one or more conodes
 
--	*services*: define an API usable by client programs and instantiate protocols
+-   _services_: define an API usable by client programs and instantiate protocols
 
--	*apps*: communicate with the service-API of one or more conodes
+-   _apps_: communicate with the service-API of one or more conodes
 
-We also provide a set of methods to set up and run *simulations*.
+We also provide a set of methods to set up and run _simulations_.
 
----
+* * *
 
 <!-- START doctoc.sh generated TOC please keep comment here to allow auto update -->
+
 <!-- DO NOT EDIT THIS SECTION, INSTEAD RE-RUN doctoc.sh TO UPDATE -->
+
 **:book: Table of Contents**
 
--	[The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
--	[General information](#general-information)
-	-	[Directories](#directories)
-	-	[Version](#version)
-	-	[License](#license)
-	-	[Contribution](#contribution)
-	-	[Contact](#contact)
-	-	[Reporting security problems](#reporting-security-problems)
--	[Components](#components)
-	-	[Router](#router)
-	-	[Conode](#conode)
-	-	[Roster](#roster)
-	-	[Protocol](#protocol)
-	-	[Service](#service)
-	-	[ServiceManager](#servicemanager)
-	-	[Tree](#tree)
-	-	[Overlay](#overlay)
-	-	[TreeNodeInstance](#treenodeinstance)
-	-	[App](#app)
--	[Database Backup and Recovery](#database-backup-and-recovery)
-	-	[Backup](#backup)
-	-	[Recovery](#recovery)
-	-	[Interacting with the database](#interacting-with-the-database)
--	[Simulation](#simulation)
+-   [The Cothority Overlay Network Library - Onet](#the-cothority-overlay-network-library---onet)
+-   [General information](#general-information)
+    -   [Directories](#directories)
+    -   [Version](#version)
+    -   [License](#license)
+    -   [Contribution](#contribution)
+    -   [Contact](#contact)
+    -   [Reporting security problems](#reporting-security-problems)
+-   [Components](#components)
+    -   [Router](#router)
+    -   [Conode](#conode)
+    -   [Roster](#roster)
+    -   [Protocol](#protocol)
+    -   [Service](#service)
+    -   [ServiceManager](#servicemanager)
+    -   [Tree](#tree)
+    -   [Overlay](#overlay)
+    -   [TreeNodeInstance](#treenodeinstance)
+    -   [App](#app)
+-   [Database Backup and Recovery](#database-backup-and-recovery)
+    -   [Backup](#backup)
+    -   [Recovery](#recovery)
+    -   [Interacting with the database](#interacting-with-the-database)
+-   [Simulation](#simulation)
 
 <!-- END doctoc.sh generated TOC please keep comment here to allow auto update -->
-
 
 # General information
 
 ## Directories
 
--	[app](app) - useful libraries if you want to create a CLI app for the
-	cothority
+-   [app](app) - useful libraries if you want to create a CLI app for the
+    cothority
 
--	[cfgpath](cfgpath) - single package to get the configuration-path
+-   [cfgpath](cfgpath) - single package to get the configuration-path
 
 -   [log](log) - everybody needs its own log-library - this one has log-levels,
-	colors, time, ...
+    colors, time, ...
 
--	[network](network) - different type of connections: channels, tcp, tls
+-   [network](network) - different type of connections: channels, tcp, tls
 
--	[simul](simul) - allowing to run your protocols and services on different
-	platforms with up to 50'000 nodes
+-   [simul](simul) - allowing to run your protocols and services on different
+    platforms with up to 50'000 nodes
 
 ## Version
 
@@ -105,7 +106,7 @@ licensing details and feel free to open a pull request.
 
 ## Contact
 
-You can contact us at https://groups.google.com/forum/#!forum/cothority or
+You can contact us at <https://groups.google.com/forum/#!forum/cothority> or
 privately at dedis@epfl.ch.
 
 ## Reporting security problems
@@ -118,14 +119,13 @@ is YOUR RESPONSIBILITY to arrange for that audit.
 If you notice a possible security problem, please report it
 to dedis-security@epfl.ch.
 
-
 # Components
 
-In Onet, you define *Services* that use *Protocols* which can send and receive
-messages. Each *Protocol* is instantiated when needed as a *ProtocolInstance*.
-As multiple *Protocols* can be run at the same time, there can be more than one
-*ProtocolInstance* of the same *Protocol*. Onet makes sure all messages get
-routed to the appropriate *ProtocolInstance*.
+In Onet, you define _Services_ that use _Protocols_ which can send and receive
+messages. Each _Protocol_ is instantiated when needed as a _ProtocolInstance_.
+As multiple _Protocols_ can be run at the same time, there can be more than one
+_ProtocolInstance_ of the same _Protocol_. Onet makes sure all messages get
+routed to the appropriate _ProtocolInstance_.
 
 Foreign applications can communicate with Onet over the service-API, which is
 implemented using protobuf over WebSockets for JavaScript compatibility.
@@ -144,9 +144,9 @@ the rabbit hole to explain the most important ones!
 The Router handles all incoming and outgoing messages from and to the network. A
 Router can use different underlying types of connection: 
 
--	*TCP* which uses regular TCP connections, 
--	*Local* which uses channels and is mainly for testing purposes, and 
--	*TLS* which is still in progress.
+-   _TCP_ which uses regular TCP connections, 
+-   _Local_ which uses channels and is mainly for testing purposes, and 
+-   _TLS_ which is still in progress.
 
 ## Conode
 
@@ -173,9 +173,9 @@ Service.
 A Service is a long term entity that is created when a Conode is created. It
 serves different purposes:
 
--	serving external client requests,
--	creating and attaching protocols with the Overlay (and launching them),
--	communicating information to other Services on other Conodes.
+-   serving external client requests,
+-   creating and attaching protocols with the Overlay (and launching them),
+-   communicating information to other Services on other Conodes.
 
 ## ServiceManager
 
@@ -186,7 +186,7 @@ pass it to the Conode for the sending part; vice versa for the reception part.
 ## Tree
 
 A Tree is a standard tree data structure where each node - called
-*TreeNode* - is denoted by its public key and address. The Tree is constructed
+_TreeNode_ - is denoted by its public key and address. The Tree is constructed
 out of a Roster.
 
 ## Overlay
@@ -194,9 +194,9 @@ out of a Roster.
 The Overlay provides an abstraction to communicate over different Trees that the
 Protocols and Services need. It handles the following tasks:
 
--	Propagations of the Roster and the Trees between different Conodes
--	Creation of the Protocol
--	Dispatching of incoming and outgoing messages to the right Protocol
+-   Propagations of the Roster and the Trees between different Conodes
+-   Creation of the Protocol
+-   Dispatching of incoming and outgoing messages to the right Protocol
 
 ## TreeNodeInstance
 
@@ -214,7 +214,6 @@ or more conodes through the use of the API defined by one or more services. It
 is mostly written in go, but in the cothority-repository you can also find
 libraries to interact in javascript and java.
 
-
 # Database Backup and Recovery
 
 Users of Onet have the option to make use of its built-in database.
@@ -223,8 +222,8 @@ We use [bbolt](https://github.com/etcd-io/bbolt), which supports "fully
 serializable ACID transactions" to ensure data integrity for Onet users. Users
 should be able to do the following:
 
--	Backup data while Onet is running
--	Recovery from a backup in case of data corruption
+-   Backup data while Onet is running
+-   Recovery from a backup in case of data corruption
 
 ## Backup
 
@@ -232,9 +231,9 @@ Users are recommended to perform frequent backups such that data can be
 recovered if Onet nodes fail. Onet stores all of its data in the context folder,
 specified by `$CONODE_SERVICE_PATH`. If unset, it defaults to
 
--	`~/Library/Application Support/conode/data` on macOS,
--	`$HOME\AppData\Local\Conode` on Windows, or
--	`~/.local/share/conode` on other Unix/Linux.
+-   `~/Library/Application Support/conode/data` on macOS,
+-   `$HOME\AppData\Local\Conode` on Windows, or
+-   `~/.local/share/conode` on other Unix/Linux.
 
 Hence, to backup, it is recommended to use a standard backup tool, such as
 rsync, and copy the folder to a different physical location periodically.
@@ -273,7 +272,6 @@ All the [bbolt functions](https://godoc.org/github.com/etcd-io/bbolt) can be
 used with the database handler. However, the user should avoid creating new
 buckets using the bbolt functions and only use `GetAdditionalBucket` to avoid
 bucket name conflicts.
-
 
 # Simulation
 
