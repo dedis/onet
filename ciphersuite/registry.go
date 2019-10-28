@@ -19,8 +19,9 @@ func NewRegistry() *Registry {
 	}
 }
 
-// RegisterCipherSuite stores the cipher if it does not exist yet and return an
-// error otherwise.
+// RegisterCipherSuite stores the cipher if it does not exist. It returns the
+// the suite stored for this name if it already exists, or it returns the
+// provided suite.
 func (cr *Registry) RegisterCipherSuite(suite CipherSuite) CipherSuite {
 	name := suite.Name()
 	if suite := cr.ciphers[name]; suite != nil {
