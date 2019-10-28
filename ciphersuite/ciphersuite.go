@@ -75,12 +75,16 @@ func (d *CipherData) WriteTo(w io.Writer) (n int64, err error) {
 	size, err = w.Write([]byte(d.Name()))
 	n += int64(size)
 	if err != nil {
-		return
+		return n, xerrors.Errorf("writing name: %v", err)
 	}
 
 	size, err = w.Write(d.Data)
 	n += int64(size)
-	return
+	if err != nil {
+		return n, xerrors.Errorf("writing data: %v", err)
+	}
+
+	return n, nil
 }
 
 // MarshalText implements the encoding interface TextMarshaler so that
@@ -158,7 +162,12 @@ func (raw *RawPublicKey) Clone() *RawPublicKey {
 // UnmarshalText converts the raw public key back from a text marshaling.
 func (raw *RawPublicKey) UnmarshalText(text []byte) error {
 	raw.CipherData = &CipherData{}
-	return raw.CipherData.UnmarshalText(text)
+	err := raw.CipherData.UnmarshalText(text)
+	if err != nil {
+		return xerrors.Errorf("unmarshaling cipher data: %v", err)
+	}
+
+	return nil
 }
 
 // RawSecretKey is a raw data structure of a secret key implementation.
@@ -190,7 +199,12 @@ func (raw *RawSecretKey) Clone() *RawSecretKey {
 // UnmarshalText converts the raw secret key back from a text marshaling.
 func (raw *RawSecretKey) UnmarshalText(text []byte) error {
 	raw.CipherData = &CipherData{}
-	return raw.CipherData.UnmarshalText(text)
+	err := raw.CipherData.UnmarshalText(text)
+	if err != nil {
+		return xerrors.Errorf("unmarshaling cipher data: %v", err)
+	}
+
+	return nil
 }
 
 // RawSignature is a raw data structure of a signature implementation.
@@ -222,7 +236,12 @@ func (raw *RawSignature) Clone() *RawSignature {
 // UnmarshalText converts the raw signature back from a text marshaling.
 func (raw *RawSignature) UnmarshalText(text []byte) error {
 	raw.CipherData = &CipherData{}
-	return raw.CipherData.UnmarshalText(text)
+	err := raw.CipherData.UnmarshalText(text)
+	if err != nil {
+		return xerrors.Errorf("unmarshaling cipher data: %v", err)
+	}
+
+	return nil
 }
 
 // PublicKey represents one of the two sides of an asymmetric key pair

@@ -9,13 +9,13 @@ import (
 // Registry stores the cipher suites by name and provides the functions
 // to unpack elements and use the cipher suite primitives.
 type Registry struct {
-	ciphers map[string]CipherSuite
+	ciphers map[Name]CipherSuite
 }
 
 // NewRegistry creates a new empty registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		ciphers: make(map[string]CipherSuite),
+		ciphers: make(map[Name]CipherSuite),
 	}
 }
 
@@ -97,7 +97,7 @@ func (cr *Registry) UnpackSignature(raw *RawSignature) (Signature, error) {
 func (cr *Registry) WithContext(n Nameable, fn func(CipherSuite) error) error {
 	suite, err := cr.get(n.Name())
 	if err != nil {
-		return err
+		return xerrors.Errorf("looking up cipher suite: %v", err)
 	}
 
 	return fn(suite)

@@ -13,7 +13,7 @@ const errInvalidBufferSize = "invalid buffer size"
 
 // Ed25519CipherSuiteName is the name of the cipher suite that is using Ed25519 as
 // the signature algorithm.
-const Ed25519CipherSuiteName = "ED22519_CIPHER_SUITE"
+const Ed25519CipherSuiteName = "ED25519_CIPHER_SUITE"
 
 // Ed25519PublicKey is the public key implementation for the Ed25519 cipher suite.
 type Ed25519PublicKey struct {
@@ -134,7 +134,7 @@ func (s *Ed25519CipherSuite) Signature(raw *RawSignature) (Signature, error) {
 func (s *Ed25519CipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, SecretKey, error) {
 	pk, sk, err := ed25519.GenerateKey(reader)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, xerrors.Errorf("generate ed25519 key: %v", err)
 	}
 
 	return &Ed25519PublicKey{data: pk}, &Ed25519SecretKey{data: sk}, nil
@@ -145,7 +145,7 @@ func (s *Ed25519CipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, Secre
 func (s *Ed25519CipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
 	secretKey, err := s.unpackSecretKey(sk)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("unpacking secret key: %v", err)
 	}
 	sigbuf := ed25519.Sign(secretKey.data, msg)
 
@@ -177,7 +177,7 @@ func (s *Ed25519CipherSuite) unpackPublicKey(pk PublicKey) (*Ed25519PublicKey, e
 		var err error
 		pk, err = s.PublicKey(data)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("unmarshaling raw public key: %v", err)
 		}
 	}
 
@@ -193,7 +193,7 @@ func (s *Ed25519CipherSuite) unpackSecretKey(sk SecretKey) (*Ed25519SecretKey, e
 		var err error
 		sk, err = s.SecretKey(data)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("unmarshaling raw secret key: %v", err)
 		}
 	}
 
@@ -209,7 +209,7 @@ func (s *Ed25519CipherSuite) unpackSignature(sig Signature) (*Ed25519Signature, 
 		var err error
 		sig, err = s.Signature(data)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("unmarshaling raw signature: %v", err)
 		}
 	}
 

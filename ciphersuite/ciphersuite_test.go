@@ -45,7 +45,10 @@ func TestCipherData_Clone(t *testing.T) {
 type badWriter struct{}
 
 func (w *badWriter) Write(b []byte) (int, error) {
-	return 0, xerrors.New("this is a bad writer")
+	if len(b) == 0 {
+		return 0, xerrors.New("this is a bad writer")
+	}
+	return 0, nil
 }
 
 func TestCipherData_WriteTo(t *testing.T) {
@@ -61,6 +64,11 @@ func TestCipherData_WriteTo(t *testing.T) {
 	require.Equal(t, len(data.CipherName)+len(data.Data), int(n))
 	require.Equal(t, []byte{0x61, 0x62, 0x63, 0x1, 0x2, 0x3}, buf.Bytes())
 
+	data.Data = []byte{}
+	n, err = data.WriteTo(new(badWriter))
+	require.Error(t, err)
+
+	data.CipherName = ""
 	n, err = data.WriteTo(new(badWriter))
 	require.Error(t, err)
 }
@@ -117,6 +125,8 @@ func TestRawPublicKey_TextMarshaling(t *testing.T) {
 	decoded := NewRawPublicKey("", []byte{})
 	require.NoError(t, decoded.UnmarshalText(buf))
 	require.True(t, raw.Equal(decoded))
+
+	require.Error(t, decoded.UnmarshalText([]byte{}))
 }
 
 func TestRawSecretKey_Clone(t *testing.T) {
@@ -138,6 +148,8 @@ func TestRawSecretKey_TextMarshaling(t *testing.T) {
 	decoded := NewRawSecretKey("", []byte{})
 	require.NoError(t, decoded.UnmarshalText(buf))
 	require.Equal(t, raw, decoded)
+
+	require.Error(t, decoded.UnmarshalText([]byte{}))
 }
 
 func TestRawSignature_Clone(t *testing.T) {
@@ -159,4 +171,6 @@ func TestRawSignature_TextMarshaling(t *testing.T) {
 	decoded := NewRawSignature("", []byte{})
 	require.NoError(t, decoded.UnmarshalText(buf))
 	require.Equal(t, raw, decoded)
+
+	require.Error(t, decoded.UnmarshalText([]byte{}))
 }
