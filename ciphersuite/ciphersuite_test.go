@@ -101,7 +101,7 @@ func TestCipherData_UnmarshalText(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "data is too small")
 
-	err = data.UnmarshalText(buf[:sizeLength*2+2])
+	err = data.UnmarshalText(buf[:encodedNameLengthSize*2+2])
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "data is too small")
 }

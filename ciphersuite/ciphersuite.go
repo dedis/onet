@@ -25,7 +25,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
-var sizeLength = 32 / 8
+// encodedNameLengthSize defines the size in bytes of the name length
+// when marshaling cipher data.
+const encodedNameLengthSize = 32 / 8
 
 // Name is the type that can differentiate multiple ciphers.
 type Name = string
@@ -91,7 +93,7 @@ func (d *CipherData) WriteTo(w io.Writer) (n int64, err error) {
 // it can be serialized in format such as TOML.
 func (d *CipherData) MarshalText() ([]byte, error) {
 	name := []byte(d.Name())
-	size := make([]byte, sizeLength)
+	size := make([]byte, encodedNameLengthSize)
 	binary.LittleEndian.PutUint32(size, uint32(len(name)))
 
 	// Buffer starts with the size of the cipher suite name, then the name
@@ -112,17 +114,17 @@ func (d *CipherData) UnmarshalText(text []byte) error {
 		return xerrors.Errorf("decoding hex: %v", err)
 	}
 
-	if len(buf) < sizeLength {
+	if len(buf) < encodedNameLengthSize {
 		return xerrors.Errorf("data is too small")
 	}
 
-	size := int(binary.LittleEndian.Uint32(buf[:sizeLength]))
-	if len(buf) < sizeLength+size {
+	size := int(binary.LittleEndian.Uint32(buf[:encodedNameLengthSize]))
+	if len(buf) < encodedNameLengthSize+size {
 		return xerrors.Errorf("data is too small")
 	}
 
-	d.CipherName = string(buf[sizeLength : sizeLength+size])
-	d.Data = buf[sizeLength+size:]
+	d.CipherName = string(buf[encodedNameLengthSize : encodedNameLengthSize+size])
+	d.Data = buf[encodedNameLengthSize+size:]
 	return nil
 }
 

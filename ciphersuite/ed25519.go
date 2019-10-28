@@ -1,7 +1,6 @@
 package ciphersuite
 
 import (
-	"encoding/hex"
 	"io"
 
 	"golang.org/x/crypto/ed25519"
@@ -26,7 +25,7 @@ func (pk *Ed25519PublicKey) Name() Name {
 }
 
 func (pk *Ed25519PublicKey) String() string {
-	return hex.EncodeToString(pk.data)
+	return pk.Raw().String()
 }
 
 // Raw returns the raw public key.
@@ -50,7 +49,7 @@ func (sk *Ed25519SecretKey) Name() Name {
 }
 
 func (sk *Ed25519SecretKey) String() string {
-	return hex.EncodeToString(sk.data)
+	return sk.Raw().String()
 }
 
 // Raw returns the raw secret key.
@@ -69,7 +68,7 @@ func (sig *Ed25519Signature) Name() Name {
 }
 
 func (sig *Ed25519Signature) String() string {
-	return hex.EncodeToString(sig.data)
+	return sig.Raw().String()
 }
 
 // Raw returns the raw signature.
