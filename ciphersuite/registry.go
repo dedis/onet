@@ -1,6 +1,10 @@
 package ciphersuite
 
-import "golang.org/x/xerrors"
+import (
+	"io"
+
+	"golang.org/x/xerrors"
+)
 
 // Registry stores the cipher suites by name and provides the functions
 // to unpack elements and use the cipher suite primitives.
@@ -99,15 +103,22 @@ func (cr *Registry) WithContext(n Nameable, fn func(CipherSuite) error) error {
 	return fn(suite)
 }
 
-// KeyPair returns a random secret key and its associated public key. It will
-// panic if the cipher suite is not known.
-func (cr *Registry) KeyPair(name Name) (PublicKey, SecretKey) {
+// GenerateKeyPair returns a random secret key and its associated public key. This
+// function will panic in case of error which means the cipher suite should
+// be known and the default randomness should not trigger an error. If it
+// happens, that means something is wrong with the configuration.
+func (cr *Registry) GenerateKeyPair(name Name, reader io.Reader) (PublicKey, SecretKey, error) {
 	c, err := cr.get(name)
 	if err != nil {
-		panic(err)
+		return nil, nil, xerrors.Errorf("searching for cipher suite: %v", err)
 	}
 
-	return c.KeyPair()
+	pk, sk, err := c.GenerateKeyPair(reader)
+	if err != nil {
+		return nil, nil, xerrors.Errorf("generating key pair: %v", err)
+	}
+
+	return pk, sk, nil
 }
 
 // Sign takes a secret key and a message and produces a signature. It will

@@ -20,7 +20,7 @@ Defines the simulation for the count-protocol
 var builder = onet.NewDefaultBuilder()
 
 func init() {
-	builder.SetSuite(&ciphersuite.UnsecureCipherSuite{})
+	builder.SetSuite(ciphersuite.NewEd25519CipherSuite())
 
 	onet.SimulationRegister("CountTest", NewSimulation)
 }

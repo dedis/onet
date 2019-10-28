@@ -10,8 +10,10 @@ import (
 func TestServerIdentity(t *testing.T) {
 	log.OutputToBuf()
 	defer log.OutputToOs()
-	pk1, _ := unsecureSuite.KeyPair()
-	pk2, _ := unsecureSuite.KeyPair()
+	pk1, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
+	pk2, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 
 	si1 := NewServerIdentity(pk1.Raw(), NewLocalAddress("1"))
 	si2 := NewServerIdentity(pk2.Raw(), NewLocalAddress("2"))
@@ -68,11 +70,13 @@ func TestGlobalBind(t *testing.T) {
 // TestServiceIdentity checks that service identities are instantiated
 // correctly and that we can access the keys
 func TestServiceIdentity(t *testing.T) {
-	pk, sk := unsecureSuite.KeyPair()
+	pk, sk, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 	si := NewServerIdentity(pk.Raw(), NewLocalAddress("1"))
 	si.SetPrivate(sk.Raw())
 
-	spk, sks := unsecureSuite.KeyPair()
+	spk, sks, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spk.Raw(), sks.Raw()))
 	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spk.Raw(), nil))
 

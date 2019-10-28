@@ -631,7 +631,10 @@ func genLocalPeerName(nbrLocal, nbrPort int) []network.Address {
 func genRoster(suite ciphersuite.CipherSuite, names []network.Address) *Roster {
 	var ids []*network.ServerIdentity
 	for _, n := range names {
-		pk, _ := suite.KeyPair()
+		pk, _, err := suite.GenerateKeyPair(nil)
+		if err != nil {
+			panic(err)
+		}
 		srvid := network.NewServerIdentity(pk.Raw(), n)
 		srvid.ServiceIdentities = []network.ServiceIdentity{
 			genServiceIdentity("ServiceTest", testSuite),
@@ -644,7 +647,10 @@ func genRoster(suite ciphersuite.CipherSuite, names []network.Address) *Roster {
 }
 
 func genServiceIdentity(name string, suite ciphersuite.CipherSuite) network.ServiceIdentity {
-	pk, sk := suite.KeyPair()
+	pk, sk, err := suite.GenerateKeyPair(nil)
+	if err != nil {
+		panic(err)
+	}
 
 	return network.NewServiceIdentity(name, pk.Raw(), sk.Raw())
 }

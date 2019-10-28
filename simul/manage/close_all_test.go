@@ -12,7 +12,7 @@ import (
 var testBuilder = onet.NewDefaultBuilder()
 
 func TestMain(m *testing.M) {
-	testBuilder.SetSuite(&ciphersuite.UnsecureCipherSuite{})
+	testBuilder.SetSuite(ciphersuite.NewEd25519CipherSuite())
 	log.MainTest(m)
 }
 

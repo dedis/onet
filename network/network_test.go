@@ -7,10 +7,10 @@ import (
 	"go.dedis.ch/onet/v4/log"
 )
 
-var unsecureSuite = &ciphersuite.UnsecureCipherSuite{}
+var testSuite = ciphersuite.NewEd25519CipherSuite()
 var testRegistry = ciphersuite.NewRegistry()
 
 func TestMain(m *testing.M) {
-	testRegistry.RegisterCipherSuite(unsecureSuite)
+	testRegistry.RegisterCipherSuite(testSuite)
 	log.MainTest(m)
 }

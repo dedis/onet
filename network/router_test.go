@@ -517,7 +517,8 @@ func TestRouterRxTx(t *testing.T) {
 	go router2.Start()
 
 	addr := NewAddress(router1.address.ConnType(), "127.0.0.1:"+router1.address.Port())
-	pk, _ := unsecureSuite.KeyPair()
+	pk, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 	si1 := NewServerIdentity(pk.Raw(), addr)
 
 	sentLen, err := router2.Send(si1, si1)

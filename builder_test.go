@@ -92,7 +92,7 @@ func TestDefaultBuilder_UseServerIdentity(t *testing.T) {
 }
 
 type fakeCipherSuite struct {
-	*ciphersuite.UnsecureCipherSuite
+	*ciphersuite.Ed25519CipherSuite
 }
 
 func (c *fakeCipherSuite) Name() ciphersuite.Name {
@@ -100,12 +100,11 @@ func (c *fakeCipherSuite) Name() ciphersuite.Name {
 }
 
 func TestDefaultBuilder_RegisterServices(t *testing.T) {
-	anotherSuite := &ciphersuite.UnsecureCipherSuite{}
+	anotherSuite := ciphersuite.NewEd25519CipherSuite()
 
 	b := NewDefaultBuilder()
 	b.SetSuite(testSuite)
 	b.SetService("fakeService1", nil, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
-		println(s, testSuite)
 		if s != testSuite {
 			t.Error("should be the same suite pointer")
 		}

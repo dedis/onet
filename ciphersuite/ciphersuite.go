@@ -2,8 +2,8 @@
 // a secure channel between the conodes. It is built around a cipher suite
 // interface that provides the cryptographic primitives.
 //
-// The package also provides a mock cipher suite that can be used for the
-// tests but that is *not* secure per se.
+// The package also provides a cipher suite implementation that is using the
+// Ed25519 signature scheme.
 //
 // As a server could use multiple cipher suites, the package implements a
 // cipher registry that takes an implementation of a cipher suite and
@@ -272,7 +272,7 @@ type CipherSuite interface {
 	Signature(raw *RawSignature) (Signature, error)
 
 	// KeyPair must return a random secret key and its associated public key.
-	KeyPair() (PublicKey, SecretKey)
+	GenerateKeyPair(reader io.Reader) (PublicKey, SecretKey, error)
 
 	// Sign must produce a signature that can be validated by the
 	// associated public key of the secret key.

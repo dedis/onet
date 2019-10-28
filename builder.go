@@ -284,7 +284,12 @@ func (b *DefaultBuilder) registerServices(srv *Server) {
 }
 
 func (b *DefaultBuilder) newIdentity(addr network.Address) *network.ServerIdentity {
-	pk, sk := b.suite.KeyPair()
+	// TODO: allow a different source of randomness
+	pk, sk, err := b.suite.GenerateKeyPair(nil)
+	if err != nil {
+		log.Error(err)
+		panic("The builder failed to generate a new identity. See error logs.")
+	}
 	id := network.NewServerIdentity(pk.Raw(), addr)
 	id.SetPrivate(sk.Raw())
 	b.generateKeyPairs(id)
@@ -296,7 +301,12 @@ func (b *DefaultBuilder) generateKeyPairs(si *network.ServerIdentity) {
 	services := []network.ServiceIdentity{}
 	for name, record := range b.services {
 		if record.suite != nil {
-			pk, sk := record.suite.KeyPair()
+			// TODO: allow a different source of randomness
+			pk, sk, err := record.suite.GenerateKeyPair(nil)
+			if err != nil {
+				log.Error(err)
+				panic("The builder failed to generate a new service identity. See error logs.")
+			}
 			sid := network.NewServiceIdentity(name, pk.Raw(), sk.Raw())
 
 			services = append(services, sid)

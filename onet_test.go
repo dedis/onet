@@ -7,7 +7,7 @@ import (
 	"go.dedis.ch/onet/v4/log"
 )
 
-var testSuite = &ciphersuite.UnsecureCipherSuite{}
+var testSuite = ciphersuite.NewEd25519CipherSuite()
 var testRegistry = ciphersuite.NewRegistry()
 
 // To avoid setting up testing-verbosity in all tests

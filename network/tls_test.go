@@ -12,7 +12,10 @@ import (
 
 func NewTestTLSHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTLSAddress("127.0.0.1:" + strconv.Itoa(port))
-	pk, sk := unsecureSuite.KeyPair()
+	pk, sk, err := testSuite.GenerateKeyPair(nil)
+	if err != nil {
+		return nil, err
+	}
 	e := NewServerIdentity(pk.Raw(), addr)
 	e.SetPrivate(sk.Raw())
 	return NewTCPHost(cr, e)
@@ -162,7 +165,8 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 }
 
 func Test_pubFromCN(t *testing.T) {
-	pk, _ := unsecureSuite.KeyPair()
+	pk, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 
 	pkbuf, err := protobuf.Encode(pk.Raw())
 	require.NoError(t, err)
