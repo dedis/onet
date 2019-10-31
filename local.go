@@ -269,6 +269,9 @@ func (l *LocalTest) WaitDone(t time.Duration) error {
 // CloseAll closes all the servers.
 func (l *LocalTest) CloseAll() {
 	log.Lvl3("Stopping all")
+	if err := l.WaitDone(time.Second); err != nil {
+		log.Warn("Some things still running:", err)
+	}
 	if r := recover(); r != nil {
 		// Make sure that a panic is correctly caught, as CloseAll is most often
 		// called in a `defer` statement, and we don't want to show leaking
