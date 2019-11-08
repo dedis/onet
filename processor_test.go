@@ -52,7 +52,6 @@ func TestProcessor_AddMessage(t *testing.T) {
 		procMsgWrong4,
 		procMsgWrong5,
 		procMsgWrong6,
-		procMsgWrong7,
 	}
 	for _, f := range wrongFunctions {
 		fsig := reflect.TypeOf(f).String()
@@ -67,7 +66,7 @@ func TestProcessor_RegisterMessages(t *testing.T) {
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
-	require.Error(t, p.RegisterHandlers(procMsg3, procMsgWrong4))
+	require.Error(t, p.RegisterHandlers(procMsg3, procMsgWrong1))
 }
 
 func TestProcessor_RegisterStreamingMessage(t *testing.T) {
@@ -274,19 +273,15 @@ func procMsgWrong3(msg *testMsg3) error {
 	return nil
 }
 
-func procMsgWrong4(msg *testMsg4) (error, network.Message) {
-	return nil, msg
-}
-
-func procMsgWrong5(msg *testMsg) (*network.Message, error) {
+func procMsgWrong4(msg *testMsg) (*network.Message, error) {
 	return nil, nil
 }
 
-func procMsgWrong6(msg *testMsg) (int, error) {
+func procMsgWrong5(msg *testMsg) (int, error) {
 	return 10, nil
 }
 
-func procMsgWrong7(msg *testMsg) (testMsg, error) {
+func procMsgWrong6(msg *testMsg) (testMsg, error) {
 	return *msg, nil
 }
 
@@ -362,7 +357,6 @@ func TestProcessor_REST_Registration(t *testing.T) {
 	require.Error(t, p.RegisterRESTHandler(procMsgWrong4, "dummyService", "POST", 3, 3))
 	require.Error(t, p.RegisterRESTHandler(procMsgWrong5, "dummyService", "POST", 3, 3))
 	require.Error(t, p.RegisterRESTHandler(procMsgWrong6, "dummyService", "POST", 3, 3))
-	require.Error(t, p.RegisterRESTHandler(procMsgWrong7, "dummyService", "POST", 3, 3))
 }
 
 type bnPoint struct {
