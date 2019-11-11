@@ -78,7 +78,7 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 
 		sim, err := onet.NewSimulation(simul, sc.Config)
 		if err != nil {
-			return xerrors.New("couldn't create new simulation: " + err.Error())
+			return xerrors.Errorf("couldn't create new simulation: %+v", err)
 		}
 		sims[i] = sim
 		// Need to store sc in a tmp-variable so it's correctly passed
@@ -95,9 +95,13 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 			}()
 
 			err = sim.Node(scTmp)
-			log.ErrFatal(err)
+			if err != nil {
+				return xerrors.Errorf("couldn't simulate: %+v", err)
+			}
 			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
-			log.ErrFatal(err)
+			if err != nil {
+				return xerrors.Errorf("couldn't send done: %+v", err)
+			}
 			return nil
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {
