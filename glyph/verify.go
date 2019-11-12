@@ -1,45 +1,36 @@
 package glyph
 
-import "fmt"
-
 func (pk *PublicKey) Verify(sig *Signature, msg []byte) bool {
 	ctx := pk.ctx
 	z1 := ctx.NewPoly()
 	z2 := ctx.NewPoly()
 	z1.Copy(sig.z1)
 	z2.Copy(sig.z2)
-	a := pk.a
+	a := ctx.NewPoly()
+	a.Copy(pk.a)
 	ctx.NTT(z1, z1)
 	ctx.NTT(z2, z2)
-	h := ctx.NewPoly()
-	ctx.MulCoeffs(a, z1, h)
-	ctx.Add(h, z2, h)
-	ctx.InvNTT(h, h)
-	tc := sparseMul(sig.c, pk.t, ctx, omega)
-	ctx.Sub(h, tc, h)
-	sss := kfloor(h.GetCoefficients())
-	h.SetCoefficients(sss)
-	hashOutput := hash(h, msg, ctx.N)
-	sparse := encodeSparsePolynomial(ctx, omega, hashOutput)
-	sparseCoefficients := sparse.GetCoefficients()
-	coeffs := sig.c.GetCoefficients()
-	l1 := len(coeffs)
-	l2 := len(sparseCoefficients)
-	if l1 != l2 {
-		return false
-	}
-	for i := 0; i < l1; i++ {
-		c1 := coeffs[i]
-		c2 := sparseCoefficients[i]
-		l11 := len(c1)
-		l22 := len(c2)
-		if l11 != l22 {
-			fmt.Println("Yo")
-			return false
-		}
-		for j := 0; j < l11; j++ {
-			if c1[j] != c2[j] {
-				fmt.Println("J: ", j)
+	c := ctx.NewPoly()
+	c.Copy(sig.c)
+	ctx.NTT(c, c)
+	az1z2 := ctx.NewPoly()
+	az1 := ctx.NewPoly()
+	ctx.MulCoeffs(a, z1, az1)
+	ctx.Add(az1, z2, az1z2)
+	ctx.InvNTT(az1z2, az1z2)
+	az1z2tc := ctx.NewPoly()
+	t := pk.GetT()
+	tc := ctx.NewPoly()
+	ctx.MulCoeffs(t, c, tc)
+	ctx.Sub(az1z2, tc, az1z2tc)
+	az1z2tc.SetCoefficients(kfloor(az1z2tc.GetCoefficients()))
+	dp := hash(az1z2tc, msg, ctx.N)
+	d := encodeSparsePolynomial(ctx, omega, dp)
+	for i, coeffs := range d.GetCoefficients() {
+		c2 := d.GetCoefficients()[i]
+		for j, cof1 := range coeffs {
+			cof2 := c2[j]
+			if cof1 != cof2 {
 				return false
 			}
 		}

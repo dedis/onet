@@ -155,20 +155,28 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	ctx.NTT(y2, y2fft)
 	//a * y1 + y2
 	t := ctx.NewPoly()
-	t.Copy(y2fft)
 	mul := ctx.NewPoly()
 	ctx.MulCoeffs(a, y1fft, mul)
-	ctx.Add(mul, t, t)
+	ctx.Add(mul, y2fft, t)
 	ctx.InvNTT(t, t)
-	ay1y2 := make([][]uint64, len(t.GetCoefficients()))
-	copy(ay1y2, t.GetCoefficients())
-	ay1y2 = kfloor(ay1y2)
+	//done making t
+	//floored coefficients
+	ay1y2 := kfloor(t.GetCoefficients())
 	rounded := ctx.NewPoly()
 	rounded.SetCoefficients(ay1y2)
 	h := hash(rounded, message, ctx.N)
 	c := encodeSparsePolynomial(ctx, omega, h)
-	z1 := sparseMul(c, pk.s, ctx, omega)
-	ctx.Add(z1, y1, z1)
+	ctx.NTT(c, c)
+	//making z1 = s*c + y1
+	sc := ctx.NewPoly()
+	s := ctx.NewPoly()
+	z1 := ctx.NewPoly()
+	s.Copy(pk.s)
+	ctx.NTT(s, s)
+	ctx.MulCoeffs(s, c, sc)
+	ctx.Add(sc, y1fft, z1)
+	ctx.InvNTT(z1, z1)
+	//done
 	for i, pol := range z1.GetCoefficients() {
 		Q := ctx.Modulus[i]
 		for _, coeff := range pol {
@@ -178,8 +186,15 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 			}
 		}
 	}
-	z2 := sparseMul(c, pk.e, ctx, omega)
-	ctx.Add(z2, y1, z2)
+	//making z2 = e*c + y2
+	ec := ctx.NewPoly()
+	e := ctx.NewPoly()
+	z2 := ctx.NewPoly()
+	e.Copy(pk.e)
+	ctx.NTT(e, e)
+	ctx.MulCoeffs(e, c, ec)
+	ctx.Add(sc, y2fft, z1)
+	ctx.InvNTT(z2, z2)
 	for i, pol := range z2.GetCoefficients() {
 		Q := ctx.Modulus[i]
 		for _, coeff := range pol {
@@ -193,7 +208,7 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	az1tc := ctx.NewPoly()
 	ctx.Sub(t, z1, az1tc)
 
-	z2compressed := make([][]uint64, len(ctx.Modulus))
+	/*z2compressed := make([][]uint64, len(ctx.Modulus))
 	subCoeffs := az1tc.GetCoefficients()
 	for j, coeffs := range subCoeffs {
 		var e error
@@ -205,7 +220,7 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 		}
 	}
 
-	z2.SetCoefficients(z2compressed)
+	z2.SetCoefficients(z2compressed)*/
 	sig := &Signature{
 		z1: z1,
 		z2: z2,
