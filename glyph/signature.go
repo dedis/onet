@@ -47,10 +47,12 @@ func (pk *PrivateKey) GetPublicParameter() *ring.Poly {
 
 func NewPrivateKey(ctx *ring.Context, a *ring.Poly) (*PrivateKey, error) {
 	s, e := getSigningPair(ctx)
+	antt := ctx.NewPoly()
+	antt.Copy(a)
 	return &PrivateKey{
 		s:   s,
 		e:   e,
-		a:   a,
+		a:   antt,
 		ctx: ctx,
 	}, nil
 }
@@ -59,6 +61,8 @@ func (sk *PrivateKey) PK() *PublicKey {
 	ctx := sk.GetCtx()
 	s1 := sk.s
 	s2 := sk.e
+	s1.Copy(sk.s)
+	s2.Copy(sk.e)
 	ctx.NTT(s1, s1)
 	ctx.NTT(s2, s2)
 	a := sk.GetPublicParameter()
@@ -193,7 +197,7 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	e.Copy(pk.e)
 	ctx.NTT(e, e)
 	ctx.MulCoeffs(e, c, ec)
-	ctx.Add(sc, y2fft, z1)
+	ctx.Add(ec, y2fft, z2)
 	ctx.InvNTT(z2, z2)
 	for i, pol := range z2.GetCoefficients() {
 		Q := ctx.Modulus[i]
@@ -204,9 +208,6 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 
 		}
 	}
-
-	az1tc := ctx.NewPoly()
-	ctx.Sub(t, z1, az1tc)
 
 	/*z2compressed := make([][]uint64, len(ctx.Modulus))
 	subCoeffs := az1tc.GetCoefficients()
@@ -221,6 +222,8 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	}
 
 	z2.SetCoefficients(z2compressed)*/
+	ctx.InvNTT(c, c)
+	//fmt.Println("C: ", c)
 	sig := &Signature{
 		z1: z1,
 		z2: z2,
@@ -233,9 +236,6 @@ func encodeSparsePolynomial(ctx *ring.Context, omega uint64, h [][32]byte) *ring
 	l := len(h)
 	N := ctx.N
 	modulus := ctx.Modulus
-	if l != len(modulus) {
-		panic("lol")
-	}
 	newCoeffs := make([][]uint64, len(modulus))
 	usedIndexes := make([]uint64, 0)
 	for k := uint64(0); k < uint64(l); k++ {
