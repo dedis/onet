@@ -18,7 +18,9 @@ func (pk *PublicKey) Verify(sig *Signature, msg []byte) bool {
 	ctx.MulCoeffs(a, z1, az1)
 	ctx.Add(az1, z2, az1z2)
 	//ctx.InvNTT(az1z2, az1z2)
+	//calculating a * z1 + z2 - tc
 	az1z2tc := ctx.NewPoly()
+	//this is a *s + e the public key
 	t := pk.GetT()
 	ctx.NTT(t, t)
 	tc := ctx.NewPoly()

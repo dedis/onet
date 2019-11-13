@@ -1,3 +1,5 @@
+github.com/AidosKuneen/numcpu v0.0.0-20181228120708-3060e816f1ca h1:VUYAN43DwrdrdOd2Z7voeFxGFQCmHmWZNAM1BCy193A=
+github.com/AidosKuneen/numcpu v0.0.0-20181228120708-3060e816f1ca/go.mod h1:6JNUqe35uC3v1izjG0X+PJh3l9pejZmzx3zc/GZtB4M=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

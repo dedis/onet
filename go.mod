@@ -1,6 +1,7 @@
 module go.dedis.ch/onet/v3
 
 require (
+	github.com/AidosKuneen/numcpu v0.0.0-20181228120708-3060e816f1ca
 	github.com/BurntSushi/toml v0.3.1
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/daviddengcn/go-colortext v0.0.0-20180409174941-186a3d44e920
@@ -15,6 +16,7 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.5
 	go.dedis.ch/protobuf v1.0.7
 	go.etcd.io/bbolt v1.3.3
+	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sys v0.0.0-20190412213103-97732733099d
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
