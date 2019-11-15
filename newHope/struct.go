@@ -27,6 +27,10 @@ type PrivateKeyPoly struct {
 	ctx *ring.Context
 }
 
+func (pk *PublicKeyPoly) GetT() *ring.Poly {
+	return pk.t
+}
+
 func (pk *PrivateKeyPoly) GetS() *ring.Poly {
 	return pk.s
 }
@@ -49,4 +53,8 @@ type PublicKeyPoly struct {
 	t   *ring.Poly
 	a   *ring.Poly
 	ctx *ring.Context
+}
+
+func (pk *PublicKeyPoly) GetA() *ring.Poly {
+	return pk.a
 }

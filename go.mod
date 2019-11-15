@@ -19,6 +19,7 @@ require (
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/sys v0.0.0-20190412213103-97732733099d
 	golang.org/x/text v0.3.2 // indirect
+	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/satori/go.uuid.v1 v1.2.0
 	gopkg.in/tylerb/graceful.v1 v1.2.15

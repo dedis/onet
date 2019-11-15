@@ -14,70 +14,8 @@ import (
 *
  */
 
-type PrivateKey struct {
-	s   *ring.Poly
-	e   *ring.Poly
-	a   *ring.Poly
-	ctx *ring.Context
-}
-
-type Signature struct {
-	z1 *ring.Poly
-	z2 *ring.Poly
-	c  *ring.Poly
-}
-
-type PublicKey struct {
-	t   *ring.Poly
-	a   *ring.Poly
-	ctx *ring.Context
-}
-
-func (psk *PublicKey) GetT() *ring.Poly {
-	return psk.t
-}
-
-func (pk *PrivateKey) GetCtx() *ring.Context {
-	return pk.ctx
-}
-
-func (pk *PrivateKey) GetPublicParameter() *ring.Poly {
-	return pk.a
-}
-
-func NewPrivateKey(ctx *ring.Context, a *ring.Poly) (*PrivateKey, error) {
-	s, e := getSigningPair(ctx)
-	antt := ctx.NewPoly()
-	antt.Copy(a)
-	return &PrivateKey{
-		s:   s,
-		e:   e,
-		a:   antt,
-		ctx: ctx,
-	}, nil
-}
-
-func (sk *PrivateKey) PK() *PublicKey {
-	ctx := sk.GetCtx()
-	s1 := sk.s
-	s2 := sk.e
-	s1.Copy(sk.s)
-	s2.Copy(sk.e)
-	ctx.NTT(s1, s1)
-	ctx.NTT(s2, s2)
-	a := sk.GetPublicParameter()
-	pkPol := ctx.NewPoly()
-	ctx.MulCoeffs(a, s1, pkPol)
-	ctx.Add(pkPol, s2, pkPol)
-	ctx.InvNTT(pkPol, pkPol)
-	return &PublicKey{
-		t:   pkPol,
-		a:   a,
-		ctx: ctx,
-	}
-}
-
-func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
+func (k *PrivateKey) Sign(m []byte) (*Signature, error) {
+	pk := k.pols
 	notify := make(chan *Signature, numcpu.NumCPU())
 	ringCtx := pk.GetCtx()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -134,7 +72,7 @@ func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 					y2Temp[i] = temp
 				}
 				y2.SetCoefficients(y2Temp)
-				sig, err := pk.deterministicSign(y1, y2, m)
+				sig, err := k.deterministicSign(y1, y2, m)
 				if err == nil {
 					notify <- sig
 					return
@@ -150,8 +88,9 @@ func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 	}
 }
 
-func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
-	a := pk.GetPublicParameter()
+func (key *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
+	pk := key.pols
+	a := pk.GetA()
 	ctx := pk.GetCtx()
 	y1fft := ctx.NewPoly()
 	y2fft := ctx.NewPoly()
@@ -175,7 +114,7 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	sc := ctx.NewPoly()
 	s := ctx.NewPoly()
 	z1 := ctx.NewPoly()
-	s.Copy(pk.s)
+	s.Copy(pk.GetS())
 	ctx.NTT(s, s)
 	ctx.MulCoeffs(s, c, sc)
 	ctx.Add(sc, y1fft, z1)
@@ -194,7 +133,7 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Sig
 	ec := ctx.NewPoly()
 	e := ctx.NewPoly()
 	z2 := ctx.NewPoly()
-	e.Copy(pk.e)
+	e.Copy(pk.GetE())
 	ctx.NTT(e, e)
 	ctx.MulCoeffs(e, c, ec)
 	ctx.Add(ec, y2fft, z2)

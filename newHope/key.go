@@ -24,6 +24,12 @@ func (pk *PrivateKeyPoly) GetCtx() *ring.Context {
 	return pk.ctx
 }
 
+func GetA(ctx *ring.Context) *ring.Poly {
+	a := ctx.NewPoly()
+	a.SetCoefficients([][]uint64{constA[:]})
+	return a
+}
+
 func NewPrivateKey(ctx *ring.Context, a *ring.Poly) (*PrivateKeyPoly, error) {
 	s, e := getSigningPair(ctx)
 	antt := ctx.NewPoly()
