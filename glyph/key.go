@@ -2,7 +2,6 @@ package glyph
 
 import (
 	"github.com/ldsec/lattigo/ring"
-	"go.dedis.ch/onet/v3/newHope"
 )
 
 func getSigningPair(ctx *ring.Context) (*ring.Poly, *ring.Poly) {
@@ -15,22 +14,33 @@ func getSigningPair(ctx *ring.Context) (*ring.Poly, *ring.Poly) {
 }
 
 func NewPrivateKey(ctx *ring.Context, a *ring.Poly) (*PrivateKey, error) {
+	s, e := getSigningPair(ctx)
 	antt := ctx.NewPoly()
 	antt.Copy(a)
-	pk, err := newHope.NewPrivateKey(ctx, antt)
-	if err != nil {
-		return nil, err
-	}
 	return &PrivateKey{
-		pols: pk,
+		s:   s,
+		e:   e,
+		a:   antt,
+		ctx: ctx,
 	}, nil
 }
 
-func (pk *PrivateKey) PK() *PublicKey {
-	k := pk.pols.PK()
-	key := &PublicKey{
-		pols: k,
-		ctx:  pk.pols.GetCtx(),
+func (sk *PrivateKey) PK() *PublicKey {
+	ctx := sk.GetCtx()
+	s1 := sk.GetS()
+	s2 := sk.GetE()
+	s1.Copy(sk.GetS())
+	s2.Copy(sk.GetE())
+	ctx.NTT(s1, s1)
+	ctx.NTT(s2, s2)
+	a := sk.GetA()
+	pkPol := ctx.NewPoly()
+	ctx.MulCoeffs(a, s1, pkPol)
+	ctx.Add(pkPol, s2, pkPol)
+	ctx.InvNTT(pkPol, pkPol)
+	return &PublicKey{
+		t:   pkPol,
+		a:   a,
+		ctx: ctx,
 	}
-	return key
 }

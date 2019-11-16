@@ -1,16 +1,13 @@
 package glyph
 
-import "go.dedis.ch/onet/v3/newHope"
-
-func (k *PublicKey) Verify(sig *Signature, msg []byte) bool {
-	pk := k.pols
-	ctx := k.ctx
+func (pk *PublicKey) Verify(sig *Signature, msg []byte) bool {
+	ctx := pk.ctx
 	z1 := ctx.NewPoly()
 	z2 := ctx.NewPoly()
 	z1.Copy(sig.z1)
 	z2.Copy(sig.z2)
 	a := ctx.NewPoly()
-	a.Copy(newHope.GetA(ctx))
+	a.Copy(GetA(ctx))
 	ctx.NTT(z1, z1)
 	ctx.NTT(z2, z2)
 	c := ctx.NewPoly()

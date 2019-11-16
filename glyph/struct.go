@@ -2,11 +2,13 @@ package glyph
 
 import (
 	"github.com/ldsec/lattigo/ring"
-	"go.dedis.ch/onet/v3/newHope"
 )
 
 type PrivateKey struct {
-	pols *newHope.PrivateKeyPoly
+	s   *ring.Poly
+	e   *ring.Poly
+	a   *ring.Poly
+	ctx *ring.Context
 }
 
 type Signature struct {
@@ -16,6 +18,51 @@ type Signature struct {
 }
 
 type PublicKey struct {
-	ctx  *ring.Context
-	pols *newHope.PublicKeyPoly
+	t   *ring.Poly
+	a   *ring.Poly
+	ctx *ring.Context
+}
+
+func NewPublicKey(t *ring.Poly) *PublicKey {
+	ctx := GetCtx()
+	a := GetA(ctx)
+	return &PublicKey{
+		t:   t,
+		a:   a,
+		ctx: GetCtx(),
+	}
+}
+
+func (pk *PublicKey) GetT() *ring.Poly {
+	return pk.t
+}
+
+func (pk *PrivateKey) GetS() *ring.Poly {
+	return pk.s
+}
+
+func (pk *PrivateKey) GetE() *ring.Poly {
+	return pk.e
+}
+
+func (pk *PrivateKey) GetA() *ring.Poly {
+	return pk.a
+}
+
+func (pk *PublicKey) GetA() *ring.Poly {
+	return pk.a
+}
+
+func (pk *PrivateKey) GetCtx() *ring.Context {
+	return pk.ctx
+}
+
+func GetA(ctx *ring.Context) *ring.Poly {
+	a := ctx.NewPoly()
+	a.SetCoefficients([][]uint64{constA[:]})
+	return a
+}
+
+func GetCtx() *ring.Context {
+	return nil
 }

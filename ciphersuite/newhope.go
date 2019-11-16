@@ -5,7 +5,6 @@ import (
 	"io"
 
 	"go.dedis.ch/onet/v3/newHope"
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/xerrors"
 )
 
@@ -108,9 +107,9 @@ func (s *NewHopeCipherSuite) Signature(raw *RawSignature) (Signature, error) {
 }
 
 func (s *NewHopeCipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, SecretKey, error) {
-	pk, sk, err := ed25519.GenerateKey(reader)
+	pk, sk, err := newHope.GenerateKey(reader)
 	if err != nil {
 		return nil, nil, err
 	}
-	return &Ed25519PublicKey{data: pk}, &Ed25519SecretKey{data: sk}, nil
+	return &NewHopePublicKey{data: pk}, &NewHopePrivateKey{data: sk}, nil
 }

@@ -14,8 +14,15 @@ import (
 *
  */
 
-func (k *PrivateKey) Sign(m []byte) (*Signature, error) {
-	pk := k.pols
+func NewSignature(z1, z2, c *ring.Poly) *Signature {
+	return &Signature{
+		z1: z1,
+		z2: z2,
+		c:  c,
+	}
+}
+
+func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 	notify := make(chan *Signature, numcpu.NumCPU())
 	ringCtx := pk.GetCtx()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -72,7 +79,7 @@ func (k *PrivateKey) Sign(m []byte) (*Signature, error) {
 					y2Temp[i] = temp
 				}
 				y2.SetCoefficients(y2Temp)
-				sig, err := k.deterministicSign(y1, y2, m)
+				sig, err := pk.deterministicSign(y1, y2, m)
 				if err == nil {
 					notify <- sig
 					return
@@ -88,8 +95,7 @@ func (k *PrivateKey) Sign(m []byte) (*Signature, error) {
 	}
 }
 
-func (key *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
-	pk := key.pols
+func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
 	a := pk.GetA()
 	ctx := pk.GetCtx()
 	y1fft := ctx.NewPoly()
