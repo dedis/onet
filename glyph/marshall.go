@@ -1,5 +1,7 @@
 package glyph
 
+import "fmt"
+
 func (pk *PublicKey) Marshall() ([]byte, error) {
 	t := pk.GetT()
 	return t.MarshalBinary()
@@ -17,10 +19,13 @@ func (pk *PrivateKey) Marshall() ([]byte, error) {
 		return nil, e2
 	}
 	l1, l2 := len(d1), len(d2)
-	data := make([]byte, l1+l2)
-	copy(data[:l1], d1)
-	copy(data[l1:l1+l2], d2)
-	return data, nil
+	data := make([]byte, l1)
+	data2 := make([]byte, l2)
+	copy(data, d1)
+	copy(data2, d2)
+	comb := make([]byte, l1+l2)
+	comb = append(data, data2...)
+	return comb, nil
 }
 
 func (sig *Signature) Marshall() ([]byte, error) {
@@ -44,5 +49,6 @@ func (sig *Signature) Marshall() ([]byte, error) {
 	copy(data[0:l1], d1)
 	copy(data[l1:l1+l2], d2)
 	copy(data[l1+l2:l1+l2+l3], d3)
+	fmt.Println(data)
 	return data, nil
 }

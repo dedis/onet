@@ -46,6 +46,8 @@ func (sk *PrivateKey) PK() *PublicKey {
 	ctx.MulCoeffs(a, s1, pkPol)
 	ctx.Add(pkPol, s2, pkPol)
 	ctx.InvNTT(pkPol, pkPol)
+	ctx.InvNTT(s1, s1)
+	ctx.InvNTT(s2, s2)
 	return &PublicKey{
 		t:   pkPol,
 		a:   a,

@@ -59,7 +59,9 @@ func (pk *PrivateKey) GetCtx() *ring.Context {
 
 func GetA(ctx *ring.Context) *ring.Poly {
 	a := ctx.NewPoly()
-	a.SetCoefficients([][]uint64{constA[:]})
+	A := make([]uint64, len(constA))
+	copy(A, constA[:])
+	a.SetCoefficients([][]uint64{A})
 	return a
 }
 

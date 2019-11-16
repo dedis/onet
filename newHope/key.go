@@ -1,6 +1,7 @@
 package newHope
 
 import (
+	"fmt"
 	"io"
 
 	"go.dedis.ch/onet/v3/glyph"
@@ -32,6 +33,15 @@ func GenerateKey(rand io.Reader) ([]byte, []byte, error) {
 	publicData, e1 := public.Marshall()
 	if e1 != nil {
 		return nil, nil, e1
+	}
+	/*t, ep := checkPublicKey(publicData, ctx)
+	if ep != nil {
+		return nil, nil, ep
+	}*/
+	fmt.Println("IF")
+	if !ctx.Equal(public.GetT(), private.PK().GetT()) {
+		fmt.Println("Bjorinn")
+		panic("LOL")
 	}
 	privateData, e2 := private.Marshall()
 	if e2 != nil {

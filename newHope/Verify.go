@@ -1,8 +1,6 @@
 package newHope
 
 import (
-	"fmt"
-
 	"github.com/ldsec/lattigo/ring"
 	"go.dedis.ch/onet/v3/glyph"
 	"golang.org/x/xerrors"
@@ -59,7 +57,6 @@ func checkSignature(sig []byte, ctx *ring.Context) (*glyph.Signature, error) {
 func checkPrivateKey(sk []byte, ctx *ring.Context) (*glyph.PrivateKey, error) {
 	polySize := NewHopePolySize
 	l := len(sk)
-	fmt.Println(2*polySize, l)
 	if l != 2*polySize {
 		return nil, xerrors.New(InvalidPrivateKey)
 	}
