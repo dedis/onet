@@ -96,8 +96,8 @@ func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 }
 
 func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
-	a := pk.GetA()
 	ctx := pk.GetCtx()
+	a := GetA(ctx)
 	y1fft := ctx.NewPoly()
 	y2fft := ctx.NewPoly()
 	ctx.NTT(y1, y1fft)

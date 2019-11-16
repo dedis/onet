@@ -22,27 +22,20 @@ func GenerateKey(rand io.Reader) ([]byte, []byte, error) {
 	if rand != nil {
 		//TODO: Use it
 		return nil, nil, nil
-	} else {
-		ctx := glyph.GetCtx()
-		private, e := glyph.NewPrivateKey(ctx, glyph.GetA(ctx))
-		if e != nil {
-			return nil, nil, e
-		}
-		public := private.PK()
-		publicData, e1 := public.Marshall()
-		if e1 != nil {
-			return nil, nil, e1
-		}
-		privateData, e2 := private.Marshall()
-		if e2 != nil {
-			return nil, nil, e2
-		}
-		return privateData, publicData, nil
 	}
-}
-
-func GetA(ctx *ring.Context) *ring.Poly {
-	a := ctx.NewPoly()
-	a.SetCoefficients([][]uint64{constA[:]})
-	return a
+	ctx := glyph.GetCtx()
+	private, e := glyph.NewPrivateKey(ctx, glyph.GetA(ctx))
+	if e != nil {
+		return nil, nil, e
+	}
+	public := private.PK()
+	publicData, e1 := public.Marshall()
+	if e1 != nil {
+		return nil, nil, e1
+	}
+	privateData, e2 := private.Marshall()
+	if e2 != nil {
+		return nil, nil, e2
+	}
+	return privateData, publicData, nil
 }

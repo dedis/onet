@@ -64,5 +64,10 @@ func GetA(ctx *ring.Context) *ring.Poly {
 }
 
 func GetCtx() *ring.Context {
-	return nil
+	N := constN
+	Q := constQ
+	contextT := ring.NewContext()
+	contextT.SetParameters(N, []uint64{Q})
+	contextT.GenNTTParams()
+	return contextT
 }

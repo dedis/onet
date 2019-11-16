@@ -113,3 +113,43 @@ func (s *NewHopeCipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, Secre
 	}
 	return &NewHopePublicKey{data: pk}, &NewHopePrivateKey{data: sk}, nil
 }
+
+func (s *NewHopeCipherSuite) SecretKey(raw *RawSecretKey) (SecretKey, error) {
+	if raw.Name() != s.Name() {
+		return nil, xerrors.New(errNotEd25519CipherSuite)
+	}
+
+	if len(raw.Data) != newHope.NewHopePrivateKeySize {
+		return nil, xerrors.New(errInvalidBufferSize)
+	}
+
+	return &Ed25519SecretKey{data: raw.Data}, nil
+}
+
+func (s *NewHopeCipherSuite) unpackSecretKey(sk SecretKey) (*NewHopePrivateKey, error) {
+	if data, ok := sk.(*RawSecretKey); ok {
+		var err error
+		sk, err = s.SecretKey(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if secretKey, ok := sk.(*NewHopePrivateKey); ok {
+		return secretKey, nil
+	}
+
+	return nil, xerrors.New("wrong type of secret key")
+}
+
+func (s *NewHopeCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
+	secretKey, err := s.unpackSecretKey(sk)
+	if err != nil {
+		return nil, err
+	}
+	sigbuf, e := newHope.Sign(secretKey.data, msg)
+	if e != nil {
+		return nil, e
+	}
+	return &NewHopeSignature{data: sigbuf}, nil
+}

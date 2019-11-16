@@ -12,6 +12,8 @@ const InvalidPolynomialError = "Invalid polynomial"
 
 const InvalidSignature = "Invalid signature: Signature could not be verified with the public key"
 
+const InvalidPrivateKey = "Invalid size of secret key"
+
 func checkPublicKey(pk []byte, ctx *ring.Context) (*glyph.PublicKey, error) {
 	size := NewHopePublicKeySize
 	l := len(pk)
@@ -54,6 +56,27 @@ func checkSignature(sig []byte, ctx *ring.Context) (*glyph.Signature, error) {
 	return glyph.NewSignature(z1, z2, c), nil
 }
 
+func checkPrivateKey(sk []byte, ctx *ring.Context) (*glyph.PrivateKey, error) {
+	polySize := NewHopePolySize
+	l := len(sk)
+	fmt.Println(2*polySize, l)
+	if l != 2*polySize {
+		return nil, xerrors.New(InvalidPrivateKey)
+	}
+	d1 := sk[0:polySize]
+	d2 := sk[polySize : 2*polySize]
+	z1, z2 := ctx.NewPoly(), ctx.NewPoly()
+	p1, e1 := z1.UnMarshalBinary(d1)
+	if e1 != nil {
+		return nil, e1
+	}
+	p2, e2 := z2.UnMarshalBinary(d2)
+	if e2 != nil {
+		return nil, e2
+	}
+	return glyph.ConstructPrivateKey(p1, p2, ctx), nil
+}
+
 func Verify(pk, msg, sig []byte) error {
 	ctx := glyph.GetCtx()
 	public, e := checkPublicKey(pk, ctx)
@@ -64,7 +87,6 @@ func Verify(pk, msg, sig []byte) error {
 	if esig != nil {
 		return esig
 	}
-	fmt.Println(public, signature)
 	verified := public.Verify(signature, msg)
 	if !verified {
 		return xerrors.New(InvalidSignature)

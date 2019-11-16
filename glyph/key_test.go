@@ -83,11 +83,7 @@ func TestSparsePolyGeneration(t *testing.T) {
 
 func TestSign1(t *testing.T) {
 	message := []byte("Bjorn")
-	N := constN
-	Q := constQ
-	contextT := ring.NewContext()
-	contextT.SetParameters(N, []uint64{Q})
-	contextT.GenNTTParams()
+	contextT := GetCtx()
 	a := contextT.NewPoly()
 	a.SetCoefficients([][]uint64{constA[:]})
 	pk, e := NewPrivateKey(contextT, a)
