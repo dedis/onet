@@ -24,7 +24,7 @@ func NewSignature(z1, z2, c *ring.Poly) *Signature {
 
 func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 	notify := make(chan *Signature, numcpu.NumCPU())
-	ringCtx := pk.GetCtx()
+	ringCtx := GetCtx()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	for i := 0; i < numcpu.NumCPU(); i++ {
@@ -96,7 +96,7 @@ func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 }
 
 func (pk *PrivateKey) deterministicSign(y1, y2 *ring.Poly, message []byte) (*Signature, error) {
-	ctx := pk.GetCtx()
+	ctx := GetCtx()
 	a := GetA(ctx)
 	y1fft := ctx.NewPoly()
 	y2fft := ctx.NewPoly()

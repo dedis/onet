@@ -1,7 +1,6 @@
 package newHope
 
 import (
-	"fmt"
 	"io"
 
 	"go.dedis.ch/onet/v3/glyph"
@@ -19,9 +18,15 @@ func getSigningPair(ctx *ring.Context) (*ring.Poly, *ring.Poly) {
 	return s1, s2
 }
 
-func GenerateKey(rand io.Reader) ([]byte, []byte, error) {
+func GenerateKey(rand io.Reader) (PublicKey, PrivateKey, error) {
 	if rand != nil {
 		//TODO: Use it
+		secretBuffer := make([]byte, NewHopePrivateKeySize)
+		_, e := rand.Read(secretBuffer)
+		if e != nil {
+			return nil, nil, e
+		}
+		//TODO: make this an actual thing
 		return nil, nil, nil
 	}
 	ctx := glyph.GetCtx()
@@ -38,14 +43,12 @@ func GenerateKey(rand io.Reader) ([]byte, []byte, error) {
 	if ep != nil {
 		return nil, nil, ep
 	}*/
-	fmt.Println("IF")
 	if !ctx.Equal(public.GetT(), private.PK().GetT()) {
-		fmt.Println("Bjorinn")
 		panic("LOL")
 	}
 	privateData, e2 := private.Marshall()
 	if e2 != nil {
 		return nil, nil, e2
 	}
-	return privateData, publicData, nil
+	return publicData, privateData, nil
 }

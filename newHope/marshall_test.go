@@ -68,7 +68,7 @@ func TestSecretMarshall(t *testing.T) {
 }
 
 func TestMarshall(t *testing.T) {
-	priv, pub, e := GenerateKey(nil)
+	pub, priv, e := GenerateKey(nil)
 	if e != nil {
 		t.Log(e)
 		t.FailNow()

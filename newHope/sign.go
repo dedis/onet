@@ -1,6 +1,8 @@
 package newHope
 
 import (
+	"fmt"
+
 	"go.dedis.ch/onet/v3/glyph"
 )
 
@@ -14,5 +16,6 @@ func Sign(sk PrivateKey, msg []byte) ([]byte, error) {
 	if e != nil {
 		return nil, e
 	}
+	fmt.Println("bjorn")
 	return sig.Marshall()
 }

@@ -153,3 +153,60 @@ func (s *NewHopeCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
 	}
 	return &NewHopeSignature{data: sigbuf}, nil
 }
+
+// Verify returns nil when the signature of the message can be verified by
+// the public key.
+func (s *NewHopeCipherSuite) Verify(pk PublicKey, sig Signature, msg []byte) error {
+	publicKey, err := s.unpackPublicKey(pk)
+	if err != nil {
+		return xerrors.Errorf("unpacking public key: %v", err)
+	}
+
+	signature, err := s.unpackSignature(sig)
+	if err != nil {
+		return xerrors.Errorf("unpacking signature: %v", err)
+	}
+
+	e := newHope.Verify(publicKey.data, msg, signature.data)
+	if e != nil {
+		return e
+	}
+
+	return nil
+}
+
+func (s *NewHopeCipherSuite) unpackPublicKey(pk PublicKey) (*NewHopePublicKey, error) {
+	if data, ok := pk.(*RawPublicKey); ok {
+		var err error
+		pk, err = s.PublicKey(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if publicKey, ok := pk.(*NewHopePublicKey); ok {
+		return publicKey, nil
+	}
+
+	return nil, xerrors.New("wrong type of public key")
+}
+
+func (s *NewHopeCipherSuite) unpackSignature(sig Signature) (*NewHopeSignature, error) {
+	if data, ok := sig.(*RawSignature); ok {
+		var err error
+		sig, err = s.Signature(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if signature, ok := sig.(*NewHopeSignature); ok {
+		return signature, nil
+	}
+
+	return nil, xerrors.New("wrong type of signature")
+}
+
+func NewNewHopeCipherSuite() *NewHopeCipherSuite {
+	return &NewHopeCipherSuite{}
+}
