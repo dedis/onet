@@ -1,8 +1,6 @@
 package onet
 
 import (
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -11,11 +9,10 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/suites"
-	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 type simulationCreate func(string) (Simulation, error)
@@ -53,6 +50,8 @@ type Simulation interface {
 // SimulationConfig has to be returned from 'Setup' and will be passed to
 // 'Run'.
 type SimulationConfig struct {
+	// Builder is used to generate servers and rosters.
+	Builder Builder
 	// Represents the tree that has to be used
 	Tree *Tree
 	// The Roster used by the tree
@@ -72,15 +71,15 @@ type SimulationConfig struct {
 // SimulationPrivateKey contains the default private key and the service
 // private keys for the ones registered with a suite.
 type SimulationPrivateKey struct {
-	Private  kyber.Scalar
-	Services []kyber.Scalar
+	Private  *ciphersuite.RawSecretKey
+	Services []*ciphersuite.RawSecretKey
 }
 
 // newSimulationPrivateKey instantiates and makes the map
-func newSimulationPrivateKey(priv kyber.Scalar) *SimulationPrivateKey {
+func newSimulationPrivateKey(priv *ciphersuite.RawSecretKey) *SimulationPrivateKey {
 	return &SimulationPrivateKey{
 		Private:  priv,
-		Services: make([]kyber.Scalar, 0),
+		Services: make([]*ciphersuite.RawSecretKey, 0),
 	}
 }
 
@@ -96,26 +95,24 @@ type SimulationConfigFile struct {
 
 // LoadSimulationConfig gets all configuration from dir + SimulationFileName and instantiates the
 // corresponding host 'ca'.
-func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
+func LoadSimulationConfig(builder Builder, dir, ca string) ([]*SimulationConfig, error) {
 	// Have all servers created by NewServerTCP below put their
 	// db's into this simulation directory.
 	os.Setenv("CONODE_SERVICE_PATH", dir)
 
-	// TODO: Figure this out from the incoming simulation file somehow
-	suite := suites.MustFind(s)
-
 	network.RegisterMessage(SimulationConfigFile{})
 	bin, err := ioutil.ReadFile(dir + "/" + SimulationFileName)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("reading file: %v", err)
 	}
-	_, msg, err := network.Unmarshal(bin, suite)
+	_, msg, err := network.Unmarshal(bin)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("unmarshaling: %v", err)
 	}
 
 	scf := msg.(*SimulationConfigFile)
 	sc := &SimulationConfig{
+		Builder:     builder,
 		Roster:      scf.Roster,
 		PrivateKeys: scf.PrivateKeys,
 		TLS:         scf.TLS,
@@ -123,7 +120,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 	}
 	sc.Tree, err = scf.TreeMarshal.MakeTree(sc.Roster)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("making tree: %v", err)
 	}
 
 	var ret []*SimulationConfig
@@ -139,14 +136,11 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 				// Populate the private key in the same array order
 				for i, privkey := range scf.PrivateKeys[e.Address].Services {
 					sid := e.ServiceIdentities[i]
-					suite, err := suites.Find(sid.Suite)
-					if err != nil {
-						return nil, fmt.Errorf("Unknown suite with name %s", sid.Suite)
-					}
-					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, suite, sid.Public, privkey)
+					e.ServiceIdentities[i] = network.NewServiceIdentity(sid.Name, sid.PublicKey, privkey)
 				}
 
-				server := NewServerTCP(e, suite)
+				builder.SetIdentity(e)
+				server := builder.Build()
 				server.UnauthOk = true
 				server.Quiet = true
 				scNew := *sc
@@ -156,7 +150,7 @@ func LoadSimulationConfig(s, dir, ca string) ([]*SimulationConfig, error) {
 			}
 		}
 		if len(ret) == 0 {
-			return nil, errors.New("Address not used in simulation: " + ca)
+			return nil, xerrors.New("Address not used in simulation: " + ca)
 		}
 	} else {
 		ret = append(ret, sc)
@@ -220,15 +214,15 @@ func SimulationRegister(name string, sim simulationCreate) {
 func NewSimulation(name string, conf string) (Simulation, error) {
 	sim, ok := simulationRegistered[name]
 	if !ok {
-		return nil, errors.New("Didn't find simulation " + name)
+		return nil, xerrors.New("Didn't find simulation " + name)
 	}
 	simInst, err := sim(conf)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating simulation: %v", err)
 	}
 	_, err = toml.Decode(conf, simInst)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("decoding toml: %v", err)
 	}
 	return simInst, nil
 }
@@ -241,7 +235,6 @@ type SimulationBFTree struct {
 	Hosts      int
 	SingleHost bool
 	Depth      int
-	Suite      string
 	PreScript  string // executable script to run before the simulation on each machine
 	TLS        bool   // tells if using TLS or PlainTCP addresses
 }
@@ -251,12 +244,13 @@ type SimulationBFTree struct {
 // 'addresses'. The network.Address(es) created are of type TLS or PlainTCP,
 // depending on the value 'TLS' in 'sc'.
 func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string, port int) {
+	if sc.Builder == nil {
+		// TODO: must have a better way to inforce to get the builder.
+		panic("Missing builder in the configuration")
+	}
+
 	start := time.Now()
 	sc.TLS = s.TLS
-	suite, err := suites.Find(s.Suite)
-	if err != nil {
-		log.Fatalf("Could not look up suite \"%v\": %v", s.Suite, err.Error())
-	}
 	nbrAddr := len(addresses)
 	if sc.PrivateKeys == nil {
 		sc.PrivateKeys = make(map[network.Address]*SimulationPrivateKey)
@@ -279,12 +273,11 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 	}
 	entities := make([]*network.ServerIdentity, hosts)
 	log.Lvl3("Doing", hosts, "hosts")
-	key := key.NewKeyPair(suite)
 	for c := 0; c < hosts; c++ {
-		key.Private.Add(key.Private, suite.Scalar().One())
-		key.Public.Add(key.Public, suite.Point().Base())
+		sc.Builder.SetPort(port)
+		ident := sc.Builder.Identity()
 		address := addresses[c%nbrAddr] + ":"
-		var add network.Address
+		var addr network.Address
 		if localhosts {
 			// If we have localhosts, we have to search for an empty port
 			port := 0
@@ -304,27 +297,26 @@ func (s *SimulationBFTree) CreateRoster(sc *SimulationConfig, addresses []string
 			}
 			address += strconv.Itoa(port)
 			if sc.TLS {
-				add = network.NewTLSAddress(address)
+				addr = network.NewTLSAddress(address)
 			} else {
-				add = network.NewTCPAddress(address)
+				addr = network.NewTCPAddress(address)
 			}
 			log.Lvl4("Found free port", address)
 		} else {
 			address += strconv.Itoa(port + (c/nbrAddr)*2)
 			if sc.TLS {
-				add = network.NewTLSAddress(address)
+				addr = network.NewTLSAddress(address)
 			} else {
-				add = network.NewTCPAddress(address)
+				addr = network.NewTCPAddress(address)
 			}
 		}
-		entities[c] = network.NewServerIdentity(key.Public.Clone(), add)
-		entities[c].SetPrivate(key.Private)
-		ServiceFactory.generateKeyPairs(entities[c])
+		ident.Address = addr
+		entities[c] = ident
 
-		privConf := newSimulationPrivateKey(key.Private.Clone())
+		privConf := newSimulationPrivateKey(ident.GetPrivate())
 		sc.PrivateKeys[entities[c].Address] = privConf
 		for _, sid := range entities[c].ServiceIdentities {
-			privConf.Services = append(privConf.Services, sid.GetPrivate().Clone())
+			privConf.Services = append(privConf.Services, sid.GetPrivate())
 		}
 	}
 
@@ -354,7 +346,7 @@ func (s *SimulationBFTree) CreateTree(sc *SimulationConfig) error {
 	log.Lvl3("CreateTree strarted")
 	start := time.Now()
 	if sc.Roster == nil {
-		return errors.New("Empty Roster")
+		return xerrors.New("Empty Roster")
 	}
 	sc.Tree = sc.Roster.GenerateBigNaryTree(s.BF, s.Hosts)
 	log.Lvl3("Creating tree took: " + time.Now().Sub(start).String())

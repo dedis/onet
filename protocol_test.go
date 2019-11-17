@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"testing"
 
@@ -9,7 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 var testProto = "test"
@@ -71,7 +71,7 @@ func (p *SimpleProtocol) Start() error {
 // Dispatch analyses the message and does nothing else
 func (p *SimpleProtocol) ReceiveMessage(msg MsgSimpleMessage) error {
 	if msg.I != 10 {
-		return errors.New("Not the value expected")
+		return xerrors.New("Not the value expected")
 	}
 	p.Chan <- true
 	p.Done()
@@ -143,7 +143,7 @@ func TestProtocolAutomaticInstantiation(t *testing.T) {
 
 	_, err := GlobalProtocolRegister(simpleProto, fn)
 	require.Nil(t, err)
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 	h, _, tree := local.GenTree(2, true)
 	h1 := h[0]
@@ -190,7 +190,7 @@ func TestProtocolError(t *testing.T) {
 
 	_, err := GlobalProtocolRegister(simpleProto, fn)
 	require.Nil(t, err)
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(localTestBuilder)
 	h, _, tree := local.GenTree(2, true)
 	h1 := h[0]
 
@@ -221,7 +221,7 @@ func TestProtocolError(t *testing.T) {
 	<-done
 	assert.Equal(t, "", log.GetStdErr(), "This should yield no error")
 
-	protocolError = errors.New("Protocol Error")
+	protocolError = xerrors.New("Protocol Error")
 	// start the protocol
 	go func() {
 		_, err := h1.StartProtocol(simpleProto, tree)
@@ -252,7 +252,7 @@ func TestGlobalProtocolRegisterTooLate(t *testing.T) {
 		return &ps, nil
 	}
 
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 	local.GenTree(2, true)
 	fnShouldPanic := func() {
@@ -269,7 +269,7 @@ func TestMessageProxyFactory(t *testing.T) {
 
 func TestMessageProxyStore(t *testing.T) {
 	defer eraseAllMessageProxy()
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(localTestBuilder)
 	defer local.CloseAll()
 
 	RegisterMessageProxy(NewTestMessageProxy)
@@ -337,13 +337,13 @@ func (t *TestMessageProxy) Wrap(msg interface{}, info *OverlayMsg) (interface{},
 func (t *TestMessageProxy) Unwrap(msg interface{}) (interface{}, *OverlayMsg, error) {
 	if msg == nil {
 		chanProtoIOFeedback <- "message nil!"
-		return nil, nil, errors.New("message nil")
+		return nil, nil, xerrors.New("message nil")
 	}
 
 	real, ok := msg.(*OuterPacket)
 	if !ok {
 		chanProtoIOFeedback <- "wrong type of message in unwrap"
-		return nil, nil, errors.New("wrong message")
+		return nil, nil, xerrors.New("wrong message")
 	}
 	chanProtoIOFeedback <- ""
 	return real.Inner, real.Info, nil

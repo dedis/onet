@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,12 +10,10 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/suites"
-	"go.dedis.ch/kyber/v3/util/encoding"
 	"go.dedis.ch/onet/v3"
-	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // CothorityConfig is the configuration structure of the cothority daemon.
@@ -30,12 +27,10 @@ import (
 // - WebSocketTLSCertificate: TLS certificate for the WebSocket
 // - WebSocketTLSCertificateKey: TLS certificate key for the WebSocket
 type CothorityConfig struct {
-	Suite                      string
-	Public                     string
+	Public                     *ciphersuite.RawPublicKey
+	Private                    *ciphersuite.RawSecretKey
 	Services                   map[string]ServiceConfig
-	Private                    string
 	Address                    network.Address
-	ListenAddress              string
 	Description                string
 	URL                        string
 	WebSocketTLSCertificate    CertificateURL
@@ -45,9 +40,8 @@ type CothorityConfig struct {
 // ServiceConfig is the configuration of a specific service to override
 // default parameters as the key pair
 type ServiceConfig struct {
-	Suite   string
-	Public  string
-	Private string
+	Public  *ciphersuite.RawPublicKey
+	Private *ciphersuite.RawSecretKey
 }
 
 // Save will save this CothorityConfig to the given file name. It
@@ -56,13 +50,13 @@ type ServiceConfig struct {
 func (hc *CothorityConfig) Save(file string) error {
 	fd, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		return err
+		return xerrors.Errorf("opening config file: %v", err)
 	}
 	fd.WriteString("# This file contains your private key.\n")
 	fd.WriteString("# Do not give it away lightly!\n")
 	err = toml.NewEncoder(fd).Encode(hc)
 	if err != nil {
-		return err
+		return xerrors.Errorf("toml encoding: %v", err)
 	}
 	return nil
 }
@@ -72,12 +66,7 @@ func LoadCothority(file string) (*CothorityConfig, error) {
 	hc := &CothorityConfig{}
 	_, err := toml.DecodeFile(file, hc)
 	if err != nil {
-		return nil, err
-	}
-
-	// Backwards compatibility with configs before we included the suite name
-	if hc.Suite == "" {
-		hc.Suite = "Ed25519"
+		return nil, xerrors.Errorf("toml decoding: %v", err)
 	}
 	return hc, nil
 }
@@ -85,22 +74,8 @@ func LoadCothority(file string) (*CothorityConfig, error) {
 // GetServerIdentity will convert a CothorityConfig into a *network.ServerIdentity.
 // It can give an error if there is a problem parsing the strings from the CothorityConfig.
 func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) {
-	suite, err := suites.Find(hc.Suite)
-	if err != nil {
-		return nil, err
-	}
-
-	// Try to decode the Hex values
-	private, err := encoding.StringHexToScalar(suite, hc.Private)
-	if err != nil {
-		return nil, fmt.Errorf("parsing private key: %v", err)
-	}
-	point, err := encoding.StringHexToPoint(suite, hc.Public)
-	if err != nil {
-		return nil, fmt.Errorf("parsing public key: %v", err)
-	}
-	si := network.NewServerIdentity(point, hc.Address)
-	si.SetPrivate(private)
+	si := network.NewServerIdentity(hc.Public, hc.Address)
+	si.SetPrivate(hc.Private)
 	si.Description = hc.Description
 	si.ServiceIdentities = parseServiceConfig(hc.Services)
 	if hc.WebSocketTLSCertificateKey != "" {
@@ -109,7 +84,7 @@ func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) 
 		} else {
 			p, err := strconv.Atoi(si.Address.Port())
 			if err != nil {
-				return nil, err
+				return nil, xerrors.Errorf("port conversion: %v")
 			}
 			si.URL = fmt.Sprintf("https://%s:%d", si.Address.Host(), p+1)
 		}
@@ -123,43 +98,44 @@ func (hc *CothorityConfig) GetServerIdentity() (*network.ServerIdentity, error) 
 // ParseCothority parses the config file into a CothorityConfig.
 // It returns the CothorityConfig, the Host so we can already use it, and an error if
 // the file is inaccessible or has wrong values in it.
-func ParseCothority(file string) (*CothorityConfig, *onet.Server, error) {
+func ParseCothority(builder onet.Builder, file string) (*CothorityConfig, *onet.Server, error) {
 	hc, err := LoadCothority(file)
 	if err != nil {
-		return nil, nil, err
-	}
-	suite, err := suites.Find(hc.Suite)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, xerrors.Errorf("reading config: %v", err)
 	}
 
 	si, err := hc.GetServerIdentity()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, xerrors.Errorf("parse server identity: %v", err)
 	}
 
-	// Same as `NewServerTCP` if `hc.ListenAddress` is empty
-	server := onet.NewServerTCPWithListenAddr(si, suite, hc.ListenAddress)
+	builder.SetIdentity(si)
 
 	// Set Websocket TLS if possible
 	if hc.WebSocketTLSCertificate != "" && hc.WebSocketTLSCertificateKey != "" {
-		tlsCertificate, err := hc.WebSocketTLSCertificate.Content()
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting WebSocketTLSCertificate content: %v", err)
-		}
-		tlsCertificateKey, err := hc.WebSocketTLSCertificateKey.Content()
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
-		}
-		cert, err := tls.X509KeyPair(tlsCertificate, tlsCertificateKey)
-		if err != nil {
-			return nil, nil, fmt.Errorf("loading X509KeyPair: %v", err)
-		}
+		if hc.WebSocketTLSCertificate.CertificateURLType() == File &&
+			hc.WebSocketTLSCertificateKey.CertificateURLType() == File {
+			// Use the reloader only when both are files as it doesn't
+			// make sense for string embedded certificates.
 
-		server.WebSocket.Lock()
-		server.WebSocket.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
-		server.WebSocket.Unlock()
+			cert := []byte(hc.WebSocketTLSCertificate.blobPart())
+			key := []byte(hc.WebSocketTLSCertificateKey.blobPart())
+			builder.SetSSLCertificate(cert, key, true)
+		} else {
+			cert, err := hc.WebSocketTLSCertificate.Content()
+			if err != nil {
+				return nil, nil, xerrors.Errorf("getting WebSocketTLSCertificate content: %v", err)
+			}
+			key, err := hc.WebSocketTLSCertificateKey.Content()
+			if err != nil {
+				return nil, nil, xerrors.Errorf("getting WebSocketTLSCertificateKey content: %v", err)
+			}
+
+			builder.SetSSLCertificate(cert, key, false)
+		}
 	}
+
+	server := builder.Build()
 	return hc, server, nil
 }
 
@@ -181,8 +157,7 @@ func NewGroupToml(servers ...*ServerToml) *GroupToml {
 // the cothority.
 type ServerToml struct {
 	Address     network.Address
-	Suite       string
-	Public      string
+	Public      *ciphersuite.RawPublicKey
 	Description string
 	Services    map[string]ServerServiceConfig
 	URL         string `toml:"URL,omitempty"`
@@ -191,8 +166,7 @@ type ServerToml struct {
 // ServerServiceConfig is a public configuration for a server (i.e. private key
 // is missing)
 type ServerServiceConfig struct {
-	Public string
-	Suite  string
+	Public *ciphersuite.RawPublicKey
 }
 
 // Group holds the Roster and the server-description.
@@ -207,30 +181,17 @@ func (g *Group) GetDescription(e *network.ServerIdentity) string {
 }
 
 // Toml returns the GroupToml instance of this Group
-func (g *Group) Toml(suite suites.Suite) (*GroupToml, error) {
+func (g *Group) Toml() (*GroupToml, error) {
 	servers := make([]*ServerToml, len(g.Roster.List))
 	for i, si := range g.Roster.List {
-		pub, err := encoding.PointToStringHex(suite, si.Public)
-		if err != nil {
-			return nil, err
-		}
-
 		services := make(map[string]ServerServiceConfig)
 		for _, sid := range si.ServiceIdentities {
-			suite := onet.ServiceFactory.Suite(sid.Name)
-
-			pub, err := encoding.PointToStringHex(suite, sid.Public)
-			if err != nil {
-				return nil, err
-			}
-
-			services[sid.Name] = ServerServiceConfig{Public: pub, Suite: suite.String()}
+			services[sid.Name] = ServerServiceConfig{Public: sid.PublicKey.Clone()}
 		}
 
 		servers[i] = &ServerToml{
 			Address:     si.Address,
-			Suite:       suite.String(),
-			Public:      pub,
+			Public:      si.PublicKey.Clone(),
 			Description: si.Description,
 			Services:    services,
 			URL:         si.URL,
@@ -241,10 +202,10 @@ func (g *Group) Toml(suite suites.Suite) (*GroupToml, error) {
 }
 
 // Save converts the group into a toml structure and save it to the file
-func (g *Group) Save(suite suites.Suite, filename string) error {
-	gt, err := g.Toml(suite)
+func (g *Group) Save(filename string) error {
+	gt, err := g.Toml()
 	if err != nil {
-		return err
+		return xerrors.Errorf("toml encoding: %v", err)
 	}
 
 	return gt.Save(filename)
@@ -258,20 +219,13 @@ func ReadGroupDescToml(f io.Reader) (*Group, error) {
 	group := &GroupToml{}
 	_, err := toml.DecodeReader(f, group)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("toml decoding: %v", err)
 	}
 	// convert from ServerTomls to entities
 	var entities = make([]*network.ServerIdentity, len(group.Servers))
 	var descs = make(map[*network.ServerIdentity]string)
 	for i, s := range group.Servers {
-		// Backwards compatibility with old group files.
-		if s.Suite == "" {
-			s.Suite = "Ed25519"
-		}
-		en, err := s.ToServerIdentity()
-		if err != nil {
-			return nil, err
-		}
+		en := s.ToServerIdentity()
 		entities[i] = en
 		descs[en] = s.Description
 	}
@@ -285,11 +239,15 @@ func ReadGroupDescToml(f io.Reader) (*Group, error) {
 func (gt *GroupToml) Save(fname string) error {
 	file, err := os.Create(fname)
 	if err != nil {
-		return err
+		return xerrors.Errorf("creating file: %v", err)
 	}
 	defer file.Close()
 	_, err = file.WriteString(gt.String())
-	return err
+	if err != nil {
+		return xerrors.Errorf("writing file: %v", err)
+	}
+
+	return nil
 }
 
 // String returns the TOML representation of this GroupToml.
@@ -308,48 +266,31 @@ func (gt *GroupToml) String() string {
 }
 
 // ToServerIdentity converts this ServerToml struct to a ServerIdentity.
-func (s *ServerToml) ToServerIdentity() (*network.ServerIdentity, error) {
-	suite, err := suites.Find(s.Suite)
-	if err != nil {
-		return nil, err
-	}
-
-	pubR := strings.NewReader(s.Public)
-	public, err := encoding.ReadHexPoint(suite, pubR)
-	if err != nil {
-		return nil, err
-	}
-	si := network.NewServerIdentity(public, s.Address)
+func (s *ServerToml) ToServerIdentity() *network.ServerIdentity {
+	si := network.NewServerIdentity(s.Public, s.Address)
 	si.URL = s.URL
 	si.Description = s.Description
 	si.ServiceIdentities = parseServerServiceConfig(s.Services)
 
-	return si, err
+	return si
 }
 
 // NewServerToml takes a public key and an address and returns
 // the corresponding ServerToml.
 // If an error occurs, it will be printed to StdErr and nil
 // is returned.
-func NewServerToml(suite network.Suite, public kyber.Point, addr network.Address,
-	desc string, services map[string]ServiceConfig) *ServerToml {
-	var buff bytes.Buffer
-	if err := encoding.WriteHexPoint(suite, &buff, public); err != nil {
-		log.Error("Error writing public key")
-		return nil
-	}
+func NewServerToml(public *ciphersuite.RawPublicKey, addr network.Address, conf *CothorityConfig) *ServerToml {
 
 	// Keep only the public key
 	publics := make(map[string]ServerServiceConfig)
-	for name, conf := range services {
-		publics[name] = ServerServiceConfig{Public: conf.Public, Suite: conf.Suite}
+	for name, conf := range conf.Services {
+		publics[name] = ServerServiceConfig{Public: conf.Public}
 	}
 
 	return &ServerToml{
 		Address:     addr,
-		Suite:       suite.String(),
-		Public:      buff.String(),
-		Description: desc,
+		Public:      public,
+		Description: conf.Description,
 		Services:    publics,
 	}
 }
@@ -447,11 +388,11 @@ func (cu CertificateURL) Content() ([]byte, error) {
 	if cuType == File {
 		dat, err := ioutil.ReadFile(cu.blobPart())
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("reading file: %v", err)
 		}
 		return dat, nil
 	}
-	return nil, fmt.Errorf("Unknown CertificateURL type (%s), cannot get its content", cuType)
+	return nil, xerrors.Errorf("Unknown CertificateURL type (%s), cannot get its content", cuType)
 }
 
 // typePart returns only the string representing the type of a CertificateURL
@@ -476,64 +417,24 @@ func (cu CertificateURL) blobPart() string {
 
 // parseServiceConfig takes the map and creates service identities
 func parseServiceConfig(configs map[string]ServiceConfig) []network.ServiceIdentity {
-	si := []network.ServiceIdentity{}
+	sis := []network.ServiceIdentity{}
 
 	for name, sc := range configs {
-		sid, err := parseServiceIdentity(name, sc.Suite, sc.Public, sc.Private)
-		if err != nil {
-			// You might try to parse a toml file for a single service so
-			// you can ignore other pairs
-			log.Lvlf2("Service `%s` not registered. Ignoring the key pair.", name)
-		} else {
-			si = append(si, sid)
-		}
+		sid := network.NewServiceIdentity(name, sc.Public, sc.Private)
+		sis = append(sis, sid)
 	}
 
-	return si
+	return sis
 }
 
 // parseServerServiceConfig takes the map and creates service identities with only the public key
 func parseServerServiceConfig(configs map[string]ServerServiceConfig) []network.ServiceIdentity {
-	si := []network.ServiceIdentity{}
+	sis := []network.ServiceIdentity{}
 
 	for name, sc := range configs {
-		sid, err := parseServiceIdentity(name, sc.Suite, sc.Public, "")
-		if err != nil {
-			// You might try to parse a toml file for a single service so
-			// you can ignore other pairs
-			log.Lvlf2("Service `%s` not registered. Ignoring the key pair.", name)
-		} else {
-			si = append(si, sid)
-		}
+		sid := network.NewServiceIdentity(name, sc.Public, nil)
+		sis = append(sis, sid)
 	}
 
-	return si
-}
-
-// parseServiceIdentity creates the service identity
-func parseServiceIdentity(name string, suiteName string, pub string, priv string) (srvid network.ServiceIdentity, err error) {
-	suite := onet.ServiceFactory.Suite(name)
-	if suite == nil {
-		return srvid, fmt.Errorf(
-			"Service `%s` has not been registered with a suite", name)
-	} else if suite.String() != suiteName {
-		panic(fmt.Sprintf(
-			"Using suite `%s` but `%s` is required for the `%s` service", suiteName, suite.String(), name))
-	}
-
-	private := suite.Scalar()
-	if priv != "" {
-		private, err = encoding.StringHexToScalar(suite, priv)
-		if err != nil {
-			return srvid, fmt.Errorf("parsing `%s` private key: %s", name, err.Error())
-		}
-	}
-
-	public, err := encoding.StringHexToPoint(suite, pub)
-	if err != nil {
-		return srvid, fmt.Errorf("parsing `%s` public key: %s", name, err.Error())
-	}
-
-	si := network.NewServiceIdentity(name, suite, public, private)
-	return si, nil
+	return sis
 }

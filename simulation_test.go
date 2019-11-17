@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -10,24 +9,21 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
-var pairingSuite = suites.MustFind("bn256.adapter")
+var simTestBuilder = NewDefaultBuilder()
 
-func registerService() {
-	RegisterNewServiceWithSuite("simulationTestService", tSuite, func(c *Context) (Service, error) {
+func init() {
+	simTestBuilder.SetSuite(testSuite)
+	simTestBuilder.SetService("simulationTestService", testSuite, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
-	RegisterNewServiceWithSuite("simulationTestService2", pairingSuite, func(c *Context) (Service, error) {
+	simTestBuilder.SetService("simulationTestService2", testSuite, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return nil, nil
 	})
-}
-
-func unregisterService() {
-	UnregisterService("simulationTestService")
-	UnregisterService("simulationTestService2")
 }
 
 func TestSimulationBF(t *testing.T) {
@@ -77,9 +73,6 @@ func TestSimulationBigTree(t *testing.T) {
 }
 
 func TestSimulationLoadSave(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	sc, _, err := createBFTree(7, 2, false, []string{"127.0.0.1", "127.0.0.2"})
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +81,7 @@ func TestSimulationLoadSave(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig("Ed25519", dir, sc.Roster.List[0].Address.NetworkAddress())
+	sc2, err := LoadSimulationConfig(simTestBuilder, dir, sc.Roster.List[0].Address.NetworkAddress())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +108,7 @@ func TestSimulationMultipleInstances(t *testing.T) {
 	log.ErrFatal(err)
 	defer os.RemoveAll(dir)
 	sc.Save(dir)
-	sc2, err := LoadSimulationConfig("Ed25519", dir, sc.Roster.List[0].Address.Host())
+	sc2, err := LoadSimulationConfig(simTestBuilder, dir, sc.Roster.List[0].Address.Host())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,23 +135,22 @@ func closeAll(scs []*SimulationConfig) {
 }
 
 func createBFTree(hosts, bf int, tls bool, addresses []string) (*SimulationConfig, *SimulationBFTree, error) {
-	sc := &SimulationConfig{}
+	sc := &SimulationConfig{Builder: simTestBuilder}
 	sb := &SimulationBFTree{
 		Hosts: hosts,
 		BF:    bf,
-		Suite: "Ed25519",
 		TLS:   tls,
 	}
 	sb.CreateRoster(sc, addresses, 2000)
 	if len(sc.Roster.List) != hosts {
-		return nil, nil, errors.New("Didn't get correct number of entities")
+		return nil, nil, xerrors.New("Didn't get correct number of entities")
 	}
 	err := sb.CreateTree(sc)
 	if err != nil {
 		return nil, nil, err
 	}
 	if !sc.Tree.IsNary(sc.Tree.Root, bf) {
-		return nil, nil, errors.New("Tree isn't " + strconv.Itoa(bf) + "-ary")
+		return nil, nil, xerrors.New("Tree isn't " + strconv.Itoa(bf) + "-ary")
 	}
 
 	return sc, sb, nil

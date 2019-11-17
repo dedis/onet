@@ -2,12 +2,11 @@ package network
 
 import (
 	"crypto/tls"
-	"errors"
-	"fmt"
 	"strings"
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Router handles all networking operations such as:
@@ -100,7 +99,7 @@ func (r *Router) Unpause() {
 // blocking call until r.Stop() is called.
 func (r *Router) Start() {
 	if !r.Quiet {
-		log.Lvlf1("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
+		log.Lvlf3("New router with address %s and public key %s", r.address, r.ServerIdentity.PublicKey)
 	}
 
 	// Any incoming connection waits for the remote server identity
@@ -110,12 +109,11 @@ func (r *Router) Start() {
 		if err != nil {
 			if !strings.Contains(err.Error(), "EOF") {
 				// Avoid printing error message if it's just a stray connection.
-				log.Errorf("receiving server identity from %#v failed: %v",
+				log.Errorf("receiving server identity from %#v failed: %+v",
 					c.Remote().NetworkAddress(), err)
 			}
 			if err := c.Close(); err != nil {
-				log.Error("Couldn't close secure connection:",
-					err)
+				log.Error("Couldn't close secure connection:", err)
 			}
 			return
 		}
@@ -161,7 +159,7 @@ func (r *Router) Stop() error {
 	r.wg.Wait()
 
 	if err != nil {
-		return err
+		return xerrors.Errorf("stopping: %v", err)
 	}
 	return nil
 }
@@ -169,7 +167,7 @@ func (r *Router) Stop() error {
 // Send sends to an ServerIdentity without wrapping the msg into a ProtocolMsg
 func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 	if msg == nil {
-		return 0, errors.New("Can't send nil-packet")
+		return 0, xerrors.New("Can't send nil-packet")
 	}
 
 	// Update the message counter with the new message about to be sent.
@@ -184,12 +182,12 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 			Msg:            msg,
 		}
 		if err := r.Dispatch(packet); err != nil {
-			return 0, fmt.Errorf("Error dispatching: %s", err)
+			return 0, xerrors.Errorf("Error dispatching: %s", err)
 		}
 		// Marshal the message to get its length
 		b, err := Marshal(msg)
 		if err != nil {
-			return 0, err
+			return 0, xerrors.Errorf("marshaling: %v", err)
 		}
 		log.Lvl5("Message sent")
 
@@ -204,7 +202,7 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		c, sentLen, err = r.connect(e)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, err
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 	}
 
@@ -216,12 +214,12 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		c, sentLen, err := r.connect(e)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, err
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 		sentLen, err = c.Send(msg)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, err
+			return totSentLen, xerrors.Errorf("connecting: %v", err)
 		}
 	}
 	log.Lvl5("Message sent")
@@ -235,20 +233,20 @@ func (r *Router) connect(si *ServerIdentity) (Conn, uint64, error) {
 	c, err := r.host.Connect(si)
 	if err != nil {
 		log.Lvl3("Could not connect to", si.Address, err)
-		return nil, 0, err
+		return nil, 0, xerrors.Errorf("connecting: %v", err)
 	}
 	log.Lvl3(r.address, "Connected to", si.Address)
 	var sentLen uint64
 	if sentLen, err = c.Send(r.ServerIdentity); err != nil {
-		return nil, sentLen, err
+		return nil, sentLen, xerrors.Errorf("sending: %v", err)
 	}
 
 	if err = r.registerConnection(si, c); err != nil {
-		return nil, sentLen, err
+		return nil, sentLen, xerrors.Errorf("register connection: %v", err)
 	}
 
 	if err = r.launchHandleRoutine(si, c); err != nil {
-		return nil, sentLen, err
+		return nil, sentLen, xerrors.Errorf("handling routine: %v", err)
 	}
 	return c, sentLen, nil
 
@@ -322,19 +320,19 @@ func (r *Router) handleConn(remote *ServerIdentity, c Conn) {
 		}
 
 		if err != nil {
-			if err == ErrTimeout {
+			if xerrors.Is(err, ErrTimeout) {
 				log.Lvlf5("%s drops %s connection: timeout", r.ServerIdentity.Address, remote.Address)
 				r.triggerConnectionErrorHandlers(remote)
 				return
 			}
 
-			if err == ErrClosed || err == ErrEOF {
+			if xerrors.Is(err, ErrClosed) || xerrors.Is(err, ErrEOF) {
 				// Connection got closed.
 				log.Lvlf5("%s drops %s connection: closed", r.ServerIdentity.Address, remote.Address)
 				r.triggerConnectionErrorHandlers(remote)
 				return
 			}
-			if err == ErrUnknown {
+			if xerrors.Is(err, ErrUnknown) {
 				// The error might not be recoverable so the connection is dropped
 				log.Lvlf5("%v drops %v connection: unknown", r.ServerIdentity, remote)
 				r.triggerConnectionErrorHandlers(remote)
@@ -377,7 +375,7 @@ func (r *Router) registerConnection(remote *ServerIdentity, c Conn) error {
 	r.Lock()
 	defer r.Unlock()
 	if r.isClosed {
-		return ErrClosed
+		return xerrors.Errorf("closing: %w", ErrClosed)
 	}
 	_, okc := r.connections[remote.ID]
 	if okc {
@@ -391,7 +389,7 @@ func (r *Router) launchHandleRoutine(dst *ServerIdentity, c Conn) error {
 	r.Lock()
 	defer r.Unlock()
 	if r.isClosed {
-		return ErrClosed
+		return xerrors.Errorf("closing: %w", ErrClosed)
 	}
 	r.wg.Add(1)
 	go r.handleConn(dst, c)
@@ -460,11 +458,11 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 	// Receive the other ServerIdentity
 	nm, err := c.Receive()
 	if err != nil {
-		return nil, fmt.Errorf("Error while receiving ServerIdentity during negotiation %s", err)
+		return nil, xerrors.Errorf("Error while receiving ServerIdentity during negotiation: %v", err)
 	}
 	// Check if it is correct
 	if nm.MsgType != ServerIdentityType {
-		return nil, fmt.Errorf("Received wrong type during negotiation %s", nm.MsgType.String())
+		return nil, xerrors.Errorf("Received wrong type during negotiation %s", nm.MsgType.String())
 	}
 
 	// Set the ServerIdentity for this connection
@@ -476,25 +474,25 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 		if tlsConn, ok := tcpConn.conn.(*tls.Conn); ok {
 			cs := tlsConn.ConnectionState()
 			if len(cs.PeerCertificates) == 0 {
-				return nil, errors.New("TLS connection with no peer certs?")
+				return nil, xerrors.New("TLS connection with no peer certs?")
 			}
-			pub, err := pubFromCN(tcpConn.suite, cs.PeerCertificates[0].Subject.CommonName)
+			pub, err := pubFromCN(cs.PeerCertificates[0].Subject.CommonName)
 			if err != nil {
-				return nil, err
+				return nil, xerrors.Errorf("decoding key: %v", err)
 			}
 
-			if !pub.Equal(dst.Public) {
-				return nil, errors.New("mismatch between certificate CommonName and ServerIdentity.Public")
+			if !pub.Equal(dst.PublicKey) {
+				return nil, xerrors.New("mismatch between certificate CommonName and ServerIdentity.Public")
 			}
 			log.Lvl4(r.address, "Public key from CommonName and ServerIdentity match:", pub)
 		} else {
 			// We get here for TCPConn && !tls.Conn. Make them wish they were using TLS...
 			if !r.UnauthOk {
-				log.Warn("Public key", dst.Public, "from ServerIdentity not authenticated.")
+				log.Warn("Public key", dst.PublicKey, "from ServerIdentity not authenticated.")
 			}
 		}
 	}
-	log.Lvlf3("%s: Identity received si=%v from %s", r.address, dst.Public, dst.Address)
+	log.Lvlf3("%s: Identity received si=%v from %s", r.address, dst.PublicKey, dst.Address)
 	return dst, nil
 }
 

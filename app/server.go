@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -12,12 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"go.dedis.ch/kyber/v3/util/encoding"
-	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/cfgpath"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 // DefaultServerConfig is the default server configuration file-name.
@@ -41,39 +39,35 @@ const portscan = "https://blog.dedis.ch/portscan.php"
 // no public IP can be configured, localhost will be used.
 // If everything is OK, the configuration-files will be written.
 // In case of an error this method Fatals.
-func InteractiveConfig(suite network.Suite, binaryName string) {
+func InteractiveConfig(builder *onet.DefaultBuilder, binaryName string) {
 	log.Info("Setting up a cothority-server.")
+
+	// Force the use of TLS for production servers.
+	builder.UseTLS()
+
 	str := Inputf(strconv.Itoa(DefaultPort), "Please enter the [address:]PORT for incoming to bind to and where other nodes will be able to contact you.")
-	// let's dissect the port / IP
-	var hostStr string
-	var ipProvided = true
-	var portStr string
-	var serverBinding network.Address
+
 	if !strings.Contains(str, ":") {
 		str = ":" + str
 	}
 	host, port, err := net.SplitHostPort(str)
 	log.ErrFatal(err, "Couldn't interpret", str)
 
-	if str == "" {
-		portStr = strconv.Itoa(DefaultPort)
-		hostStr = "0.0.0.0"
-		ipProvided = false
-	} else if host == "" {
-		// one element provided
-		// ip
-		ipProvided = false
-		hostStr = "0.0.0.0"
-		portStr = port
+	if port != "" {
+		iport, err := strconv.Atoi(port)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+		builder.SetPort(iport)
 	} else {
-		hostStr = host
-		portStr = port
+		builder.SetPort(DefaultPort)
 	}
 
-	serverBinding = network.NewAddress(network.TLS, net.JoinHostPort(hostStr, portStr))
-	if !serverBinding.Valid() {
-		log.Error("Unable to validate address given", serverBinding)
-		return
+	if host != "" {
+		builder.SetHost(host)
+	} else {
+		builder.SetHost("0.0.0.0")
 	}
 
 	log.Info()
@@ -81,62 +75,42 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 	log.Info("and clients to contact you. This address will be put in a group definition")
 	log.Info("file that you can share and combine with others to form a Cothority roster.")
 
-	var publicAddress network.Address
-	var failedPublic bool
 	// if IP was not provided then let's get the public IP address
-	if !ipProvided {
+	if host == "" {
+		// TODO: https://stackoverflow.com/questions/23558425/how-do-i-get-the-local-ip-address-in-go
+		// TODO: this depends on an online service.
 		resp, err := http.Get(portscan)
 		// cant get the public ip then ask the user for a reachable one
 		if err != nil {
 			log.Error("Could not get your public IP address")
-			failedPublic = true
 		} else {
 			buff, err := ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 			if err != nil {
 				log.Error("Could not parse your public IP address", err)
-				failedPublic = true
 			} else {
-				publicAddress = network.NewAddress(network.TLS, strings.TrimSpace(string(buff))+":"+portStr)
-			}
-		}
-	} else {
-		publicAddress = serverBinding
-	}
-
-	// Let's directly ask the user for a reachable address
-	if failedPublic {
-		publicAddress = askReachableAddress(portStr)
-	} else {
-		if publicAddress.Public() {
-			// trying to connect to ipfound:portgiven
-			tryIP := publicAddress
-			log.Info("Check if the address", tryIP, "is reachable from the Internet by binding to", serverBinding, ".")
-			if err := tryConnect(tryIP, serverBinding); err != nil {
-				log.Error(err)
-				publicAddress = askReachableAddress(portStr)
-			} else {
-				publicAddress = tryIP
-				log.Info("Address", publicAddress, "is publicly available from the Internet.")
+				host = strings.TrimSpace(string(buff))
+				builder.SetHost(host)
 			}
 		}
 	}
-
-	if !publicAddress.Valid() {
-		log.Fatal("Could not validate public ip address:", publicAddress)
-	}
-
-	// Generate the key pairs for the registered services
-	services := GenerateServiceKeyPairs()
 
 	// create the keys
-	privStr, pubStr := createKeyPair(suite)
+	si := builder.Identity()
+
+	if si.Address.Public() {
+		// TODO: is it really necessary ?
+		if err := tryConnect(si.Address); err != nil {
+			log.Error(err)
+			return
+		}
+	}
+
 	conf := &CothorityConfig{
-		Suite:    suite.String(),
-		Public:   pubStr,
-		Private:  privStr,
-		Address:  publicAddress,
-		Services: services,
+		Public:   si.PublicKey,
+		Private:  si.GetPrivate(),
+		Address:  si.Address,
+		Services: extractServiceIdentities(si),
 		Description: Input("New cothority",
 			"Give a description of the cothority"),
 	}
@@ -165,12 +139,7 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		}
 	}
 
-	public, err := encoding.StringHexToPoint(suite, pubStr)
-	if err != nil {
-		log.Fatal("Impossible to parse public key:", err)
-	}
-
-	server := NewServerToml(suite, public, publicAddress, conf.Description, services)
+	server := NewServerToml(si.PublicKey, si.Address, conf)
 	group := NewGroupToml(server)
 
 	saveFiles(conf, configFile, group, groupFile)
@@ -179,19 +148,12 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 
 // GenerateServiceKeyPairs generates a map of the service with their
 // key pairs. It can be used to generate server configuration.
-func GenerateServiceKeyPairs() map[string]ServiceConfig {
+func extractServiceIdentities(si *network.ServerIdentity) map[string]ServiceConfig {
 	services := make(map[string]ServiceConfig)
-	for _, name := range onet.ServiceFactory.RegisteredServiceNames() {
-		serviceSuite := onet.ServiceFactory.Suite(name)
-		if serviceSuite != nil {
-			private, public := createKeyPair(serviceSuite)
-			si := ServiceConfig{
-				Suite:   serviceSuite.String(),
-				Public:  public,
-				Private: private,
-			}
-
-			services[name] = si
+	for _, srvid := range si.ServiceIdentities {
+		services[srvid.Name] = ServiceConfig{
+			Public:  srvid.PublicKey,
+			Private: srvid.GetPrivate(),
 		}
 	}
 
@@ -206,23 +168,6 @@ func checkOverwrite(file string) bool {
 		return InputYN(true, "Configuration file "+file+" already exists. Override?")
 	}
 	return true
-}
-
-// createKeyPair returns the private and public key in hexadecimal representation.
-func createKeyPair(suite network.Suite) (string, string) {
-	log.Infof("Creating private and public keys for suite %v.", suite.String())
-	kp := key.NewKeyPair(suite)
-	privStr, err := encoding.ScalarToStringHex(suite, kp.Private)
-	if err != nil {
-		log.Fatal("Error formating private key to hexadecimal. Abort.")
-	}
-	pubStr, err := encoding.PointToStringHex(suite, kp.Public)
-	if err != nil {
-		log.Fatal("Could not parse public key. Abort.")
-	}
-
-	log.Info("Public key:", pubStr)
-	return privStr, pubStr
 }
 
 // saveFiles takes a CothorityConfig and its filename, and a GroupToml and its filename,
@@ -242,41 +187,17 @@ func saveFiles(conf *CothorityConfig, fileConf string, group *GroupToml, fileGro
 	log.Info(group.String())
 }
 
-// askReachableAddress uses stdin to get the contactable IP-address of the server
-// and adding port if necessary.
-// In case of an error, it will Fatal.
-func askReachableAddress(port string) network.Address {
-	ipStr := Input(DefaultAddress, "IP-address where your server can be reached")
-
-	splitted := strings.Split(ipStr, ":")
-	if len(splitted) == 2 && splitted[1] != port {
-		// if the client gave a port number, it must be the same
-		log.Fatal("The port you gave is not the same as the one your server will be listening. Abort.")
-	} else if len(splitted) == 2 && net.ParseIP(splitted[0]) == nil {
-		// of if the IP address is wrong
-		log.Fatal("Invalid IP:port address given:", ipStr)
-	} else if len(splitted) == 1 {
-		// check if the ip is valid
-		if net.ParseIP(ipStr) == nil {
-			log.Fatal("Invalid IP address given:", ipStr)
-		}
-		// add the port
-		ipStr = ipStr + ":" + port
-	}
-	return network.NewAddress(network.TLS, ipStr)
-}
-
 // tryConnect binds to the given IP address and ask an internet service to
 // connect to it. binding is the address where we must listen (needed because
 // the reachable address might not be the same as the binding address => NAT, ip
 // rules etc).
 // In case anything goes wrong, an error is returned.
-func tryConnect(ip, binding network.Address) error {
+func tryConnect(ip network.Address) error {
 	stopCh := make(chan bool, 1)
 	listening := make(chan bool)
 	// let's bind
 	go func() {
-		ln, err := net.Listen("tcp", binding.NetworkAddress())
+		ln, err := net.Listen("tcp", ip.NetworkAddress())
 		if err != nil {
 			log.Error("Trouble with binding to the address:", err)
 			return
@@ -294,7 +215,7 @@ func tryConnect(ip, binding network.Address) error {
 	select {
 	case <-listening:
 	case <-time.After(2 * time.Second):
-		return errors.New("timeout while listening on " + binding.NetworkAddress())
+		return xerrors.New("timeout while listening on " + ip.NetworkAddress())
 	}
 	conn, err := net.Dial("tcp", ip.NetworkAddress())
 	log.ErrFatal(err, "Could not connect itself to public address.\n"+
@@ -306,12 +227,12 @@ func tryConnect(ip, binding network.Address) error {
 
 	_, portStr, err := net.SplitHostPort(ip.NetworkAddress())
 	if err != nil {
-		return err
+		return xerrors.Errorf("invalid address: %v", err)
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		return err
+		return xerrors.Errorf("invalid port: %v", err)
 	}
 
 	// Ask the check. Since the public adress may not be available at this time
@@ -325,32 +246,32 @@ func tryConnect(ip, binding network.Address) error {
 	resp, err := client.Get(url)
 	// can't get the public ip then ask the user for a reachable one
 	if err != nil {
-		return errors.New("...could not get your public IP address")
+		return xerrors.New("...could not get your public IP address")
 	}
 
 	buff, err := ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
-		return err
+		return xerrors.Errorf("reading body: %v", err)
 	}
 
 	res := string(buff)
 	if res != "Open" {
-		return fmt.Errorf("Portscan returned: %s", res)
+		return xerrors.Errorf("Portscan returned: %s", res)
 	}
 	return nil
 }
 
-// RunServer starts a conode with the given config file name. It can
+// MakeServer creates a conode with the given config file name. It can
 // be used by different apps (like CoSi, for example)
-func RunServer(configFilename string) {
+func MakeServer(builder onet.Builder, configFilename string) *onet.Server {
 	if _, err := os.Stat(configFilename); os.IsNotExist(err) {
 		log.Fatalf("[-] Configuration file does not exist. %s", configFilename)
 	}
 	// Let's read the config
-	_, server, err := ParseCothority(configFilename)
+	_, server, err := ParseCothority(builder, configFilename)
 	if err != nil {
 		log.Fatal("Couldn't parse config:", err)
 	}
-	server.Start()
+	return server
 }

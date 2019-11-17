@@ -11,27 +11,31 @@ import (
 	"go.dedis.ch/onet/v3/network"
 )
 
+var treenodeTestBuilder = NewDefaultBuilder()
+
 func init() {
 	GlobalProtocolRegister(spawnName, newSpawnProto)
 	GlobalProtocolRegister(pingPongProtoName, newPingPongProto)
+
+	treenodeTestBuilder.SetSuite(testSuite)
 }
 
 func TestTreeNodeInstance_KeyPairs(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	_, _, tree := local.GenTree(5, true)
 	tni, err := local.NewTreeNodeInstance(tree.Root, spawnName)
 
 	require.NoError(t, err)
-	require.True(t, tni.Private().Equal(tni.Host().private))
-	require.True(t, tni.Public().Equal(tni.Host().ServerIdentity.Public))
-	require.True(t, tni.Public().Equal(tni.NodePublic(tni.Host().ServerIdentity)))
-	require.Equal(t, 5, len(tni.Publics()))
+	require.True(t, tni.SecretKey().Raw().Equal(tni.Host().secretKey.Raw().CipherData))
+	require.True(t, tni.PublicKey().Raw().Equal(tni.Host().ServerIdentity.PublicKey))
+	require.True(t, tni.PublicKey().Raw().Equal(tni.NodePublic(tni.Host().ServerIdentity).Raw()))
+	require.Equal(t, 5, len(tni.PublicKeys()))
 }
 
 func TestTreeNodeCreateProtocol(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	hosts, _, tree := local.GenTree(1, true)
@@ -50,11 +54,11 @@ func TestTreeNodeCreateProtocol(t *testing.T) {
 }
 
 func TestTreeNodeRxTx(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	testTreeNodeRxTx(t, local)
 	local.CloseAll()
 
-	local = NewLocalTest(tSuite)
+	local = NewLocalTest(treenodeTestBuilder)
 	testTreeNodeRxTx(t, local)
 	local.CloseAll()
 }
@@ -71,7 +75,7 @@ func testTreeNodeRxTx(t *testing.T, local *LocalTest) {
 }
 
 func TestHandlerReturn(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	hosts, _, tree := local.GenTree(1, true)
@@ -105,7 +109,7 @@ func (p *configProcessor) Process(env *network.Envelope) {
 }
 
 func TestConfigPropagation(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 	const treeSize = 3
 	var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
@@ -120,7 +124,6 @@ func TestConfigPropagation(t *testing.T) {
 		host.RegisterProcessor(pr,
 			ProtocolMsgID,
 			RequestTreeMsgID,
-			SendTreeMsgID,
 			ConfigMsgID)
 	}
 
@@ -147,7 +150,7 @@ func TestConfigPropagation(t *testing.T) {
 }
 
 func TestTreeNodeInstance_RegisterChannel(t *testing.T) {
-	local := NewLocalTest(tSuite)
+	local := NewLocalTest(treenodeTestBuilder)
 	defer local.CloseAll()
 
 	_, _, tree := local.GenTree(3, true)

@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -23,14 +22,19 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
+var wsTestBuilder = NewDefaultBuilder()
+
 func init() {
-	RegisterNewService(serviceWebSocket, newServiceWebSocket)
+	wsTestBuilder.SetSuite(testSuite)
+	wsTestBuilder.SetService(serviceWebSocket, nil, newServiceWebSocket)
 }
 
 // Adapted from 'https://golang.org/src/crypto/tls/generate_cert.go'
@@ -141,15 +145,15 @@ func getSelfSignedCertificateAndKey() ([]byte, []byte, error) {
 }
 
 func TestNewWebSocket(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(wsTestBuilder))
 	defer l.CloseAll()
 
-	c := l.NewServer(tSuite, 2050)
+	c := l.NewServer(2050)
 
 	defer c.Close()
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
-	cl := NewClientKeep(tSuite, "WebSocket")
+	cl := NewClientKeep("WebSocket")
 	req := &SimpleResponse{}
 	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
 	buf, err := protobuf.Encode(req)
@@ -169,17 +173,18 @@ func TestNewWebSocketTLS(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	l := NewTCPTest(tSuite)
-	l.webSocketTLSCertificate = cert
-	l.webSocketTLSCertificateKey = key
+	builder := wsTestBuilder.Clone()
+	builder.SetSSLCertificate(cert, key, false)
+
+	l := NewLocalTest(builder)
 	defer l.CloseAll()
 
-	c := l.NewServer(tSuite, 2050)
+	c := l.NewServer(2050)
 	require.Equal(t, len(c.serviceManager.services), len(c.WebSocket.services))
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 
 	// Test the traditional host:port+1 way of specifying the websocket server.
-	cl := NewClientKeep(tSuite, "WebSocket")
+	cl := NewClientKeep("WebSocket")
 	defer cl.Close()
 	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
@@ -187,6 +192,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	buf, err := protobuf.Encode(req)
 	require.Nil(t, err)
 	rcv, err := cl.Send(c.ServerIdentity, "SimpleResponse", buf)
+	require.NoError(t, err)
 	log.Lvlf1("Received reply: %x", rcv)
 	rcvMsg := &SimpleResponse{}
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))
@@ -205,6 +211,45 @@ func TestNewWebSocketTLS(t *testing.T) {
 	require.Equal(t, int64(1), rcvMsg.Val)
 }
 
+// Test the certificate reloader for websocket over TLS.
+func TestCertificateReloader(t *testing.T) {
+	certPath, keyPath, err := generateSelfSignedCert()
+	require.NoError(t, err)
+	defer func() {
+		os.Remove(certPath)
+		os.Remove(keyPath)
+	}()
+
+	reloader, err := NewCertificateReloader(certPath, keyPath)
+	require.NoError(t, err)
+
+	cert, err := reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+
+	reloader.certPath = ""
+	reloader.keyPath = ""
+
+	// It should work as the certificate is cached.
+	cert, err = reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+
+	// Try with an expired certificate
+	// thus expecting an error.
+	cert.Leaf.NotAfter = time.Now().Add(30 * time.Minute)
+	_, err = reloader.GetCertificateFunc()(nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no such file or directory")
+
+	// And finally it should reload the new cert
+	reloader.certPath = certPath
+	reloader.keyPath = keyPath
+	cert, err = reloader.GetCertificateFunc()(nil)
+	require.NoError(t, err)
+	require.NotNil(t, cert)
+}
+
 func TestGetWebHost(t *testing.T) {
 	url, err := getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
 	require.NotNil(t, err)
@@ -219,16 +264,15 @@ func TestGetWebHost(t *testing.T) {
 }
 
 func TestClient_Send(t *testing.T) {
-	local := NewTCPTest(tSuite)
-	defer local.CloseAll()
-
-	// register service
-	RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
 	})
-	defer ServiceFactory.Unregister(backForthServiceName)
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(4, false)
@@ -254,18 +298,66 @@ func TestClientTLS_Send(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	local := NewTCPTest(tSuite)
-	local.webSocketTLSCertificate = cert
-	local.webSocketTLSCertificateKey = key
-	defer local.CloseAll()
-
-	// register service
-	RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetSSLCertificate(cert, key, false)
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
 	})
-	defer ServiceFactory.Unregister(backForthServiceName)
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
+
+	// create servers
+	servers, el, _ := local.GenTree(4, false)
+	client := local.NewClient(backForthServiceName)
+	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
+
+	r := &SimpleRequest{
+		ServerIdentities: el,
+		Val:              10,
+	}
+	sr := &SimpleResponse{}
+	require.Equal(t, uint64(0), client.Rx())
+	require.Equal(t, uint64(0), client.Tx())
+	require.Nil(t, client.SendProtobuf(servers[0].ServerIdentity, r, sr))
+	require.Equal(t, sr.Val, int64(10))
+	require.NotEqual(t, uint64(0), client.Rx())
+	require.NotEqual(t, uint64(0), client.Tx())
+	require.True(t, client.Tx() > client.Rx())
+}
+
+func TestClientTLS_certfile_Send(t *testing.T) {
+	// like TestClientTLSfile_Send, but uses cert and key from a file
+	// to solve issue 583.
+	cert, key, err := getSelfSignedCertificateAndKey()
+	require.Nil(t, err)
+	CAPool := x509.NewCertPool()
+	CAPool.AppendCertsFromPEM(cert)
+
+	f1, err := ioutil.TempFile("", "cert")
+	require.NoError(t, err)
+	defer os.Remove(f1.Name())
+	f1.Write(cert)
+	f1.Close()
+
+	f2, err := ioutil.TempFile("", "key")
+	require.NoError(t, err)
+	defer os.Remove(f2.Name())
+	f2.Write(key)
+	f2.Close()
+
+	builder := wsTestBuilder.Clone()
+	builder.SetSSLCertificate([]byte(f1.Name()), []byte(f2.Name()), true)
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
+		return &simpleService{
+			ctx: c,
+		}, nil
+	})
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(4, false)
@@ -289,16 +381,15 @@ func TestClientTLS_Send(t *testing.T) {
 func TestClient_Parallel(t *testing.T) {
 	nbrNodes := 4
 	nbrParallel := 20
-	local := NewTCPTest(tSuite)
-	defer local.CloseAll()
-
-	// register service
-	RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
 	})
-	defer ServiceFactory.Unregister(backForthServiceName)
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(nbrNodes, true)
@@ -332,18 +423,16 @@ func TestClientTLS_Parallel(t *testing.T) {
 
 	nbrNodes := 4
 	nbrParallel := 20
-	local := NewTCPTest(tSuite)
-	local.webSocketTLSCertificate = cert
-	local.webSocketTLSCertificateKey = key
-	defer local.CloseAll()
-
-	// register service
-	RegisterNewService(backForthServiceName, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetSSLCertificate(cert, key, false)
+	builder.SetService(backForthServiceName, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		return &simpleService{
 			ctx: c,
 		}, nil
 	})
-	defer ServiceFactory.Unregister(backForthServiceName)
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
 
 	// create servers
 	servers, el, _ := local.GenTree(nbrNodes, true)
@@ -370,23 +459,22 @@ func TestClientTLS_Parallel(t *testing.T) {
 }
 
 func TestNewClientKeep(t *testing.T) {
-	c := NewClientKeep(tSuite, serviceWebSocket)
+	c := NewClientKeep(serviceWebSocket)
 	require.True(t, c.keep)
 }
 
 func TestMultiplePath(t *testing.T) {
-	_, err := RegisterNewService(dummyService3Name, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetService(dummyService3Name, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
-	require.Nil(t, err)
-	defer UnregisterService(dummyService3Name)
 
-	local := NewTCPTest(tSuite)
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
-	client := NewClientKeep(tSuite, dummyService3Name)
+	client := NewClientKeep(dummyService3Name)
 	msg, err := protobuf.Encode(&DummyMsg{})
 	require.Nil(t, err)
 	path1, path2 := "path1", "path2"
@@ -404,20 +492,18 @@ func TestMultiplePathTLS(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	_, err = RegisterNewService(dummyService3Name, func(c *Context) (Service, error) {
+	builder := wsTestBuilder.Clone()
+	builder.SetSSLCertificate(cert, key, false)
+	builder.SetService(dummyService3Name, nil, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 		ds := &DummyService3{}
 		return ds, nil
 	})
-	require.Nil(t, err)
-	defer UnregisterService(dummyService3Name)
 
-	local := NewTCPTest(tSuite)
-	local.webSocketTLSCertificate = cert
-	local.webSocketTLSCertificateKey = key
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
-	client := NewClientKeep(tSuite, dummyService3Name)
+	client := NewClientKeep(dummyService3Name)
 	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	msg, err := protobuf.Encode(&DummyMsg{})
 	require.Nil(t, err)
@@ -431,8 +517,12 @@ func TestMultiplePathTLS(t *testing.T) {
 }
 
 func TestWebSocket_Error(t *testing.T) {
-	client := NewClientKeep(tSuite, dummyService3Name)
-	local := NewTCPTest(tSuite)
+	client := NewClientKeep(dummyService3Name)
+
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
@@ -453,11 +543,13 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	CAPool := x509.NewCertPool()
 	CAPool.AppendCertsFromPEM(cert)
 
-	client := NewClientKeep(tSuite, dummyService3Name)
+	client := NewClientKeep(dummyService3Name)
 	client.TLSClientConfig = &tls.Config{RootCAs: CAPool}
-	local := NewTCPTest(tSuite)
-	local.webSocketTLSCertificate = cert
-	local.webSocketTLSCertificateKey = key
+
+	builder := NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+	builder.SetSSLCertificate(cert, key, false)
+	local := NewLocalTest(builder)
 	hs := local.GenServers(2)
 	server := hs[0]
 	defer local.CloseAll()
@@ -477,13 +569,12 @@ func TestWebSocketTLS_Error(t *testing.T) {
 // (2) unhappy-path, where client closes early
 // (3) unhappy-path, where service closes early
 func TestWebSocket_Streaming(t *testing.T) {
-	local := NewTCPTest(tSuite)
-	defer local.CloseAll()
-
 	serName := "streamingService"
-	serID, err := RegisterNewService(serName, newStreamingService)
-	require.NoError(t, err)
-	defer UnregisterService(serName)
+	builder := wsTestBuilder.Clone()
+	builder.SetService(serName, nil, newStreamingService)
+
+	local := NewLocalTest(builder)
+	defer local.CloseAll()
 
 	servers, el, _ := local.GenTree(4, false)
 	client := local.NewClientKeep(serName)
@@ -516,7 +607,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 	// (2) This time, have the client terminate early, the service's
 	// go-routine should also terminate.
 	client = local.NewClientKeep(serName)
-	services := local.GetServices(servers, serID)
+	services := local.GetServices(servers, serName)
 	serviceRoot := services[0].(*StreamingService)
 	serviceRoot.gotStopChan = make(chan bool, 1)
 
@@ -554,16 +645,15 @@ func TestWebSocket_Streaming(t *testing.T) {
 // TestWebSocket_Streaming_Parallel is essentially the same as
 // TestWebSocket_Streaming, except we do it in parallel.
 func TestWebSocket_Streaming_Parallel(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	serName := "streamingService"
+	builder := wsTestBuilder.Clone()
+	builder.SetService(serName, nil, newStreamingService)
+
+	local := NewLocalTest(builder)
 	defer local.CloseAll()
 
-	serName := "streamingService"
-	serID, err := RegisterNewService(serName, newStreamingService)
-	require.NoError(t, err)
-	defer UnregisterService(serName)
-
 	servers, el, _ := local.GenTree(4, false)
-	services := local.GetServices(servers, serID)
+	services := local.GetServices(servers, serName)
 	serviceRoot := services[0].(*StreamingService)
 	n := 10
 
@@ -670,7 +760,7 @@ func TestWebSocket_Streaming_Parallel(t *testing.T) {
 
 // Tests the correct returning of values depending on the ParallelOptions structure
 func TestParallelOptions_GetList(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(wsTestBuilder)
 	defer l.CloseAll()
 
 	var po *ParallelOptions
@@ -733,11 +823,11 @@ func TestParallelOptions_GetList(t *testing.T) {
 }
 
 func TestClient_SendProtobufParallel(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(wsTestBuilder)
 	defer l.CloseAll()
 
 	servers, roster, _ := l.GenTree(3, false)
-	cl := NewClient(tSuite, serviceWebSocket)
+	cl := NewClient(serviceWebSocket)
 	tests := 10
 	firstNodes := make([]*network.ServerIdentity, tests)
 	for i := 0; i < tests; i++ {
@@ -775,16 +865,16 @@ func TestClient_SendProtobufParallel(t *testing.T) {
 }
 
 func TestClient_SendProtobufParallelWithDecoder(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(wsTestBuilder)
 	defer l.CloseAll()
 
 	_, roster, _ := l.GenTree(3, false)
-	cl := NewClient(tSuite, serviceWebSocket)
+	cl := NewClient(serviceWebSocket)
 
 	decoderWithError := func(data []byte, ret interface{}) error {
 		// As an example, the decoder should first decode the response, and it can then make
 		// further verification like the latest block index.
-		return errors.New("decoder error")
+		return xerrors.New("decoder error")
 	}
 
 	_, err := cl.SendProtobufParallelWithDecoder(roster.List, &SimpleResponse{}, &SimpleResponse{}, nil, decoderWithError)
@@ -819,16 +909,16 @@ func (i *ServiceWebSocket) ErrorRequest(msg *ErrorRequest) (network.Message, err
 	i.Errors = 1
 	index, _ := msg.Roster.Search(i.ServerIdentity().ID)
 	if index < 0 {
-		return nil, errors.New("not in roster")
+		return nil, xerrors.New("not in roster")
 	}
 	if msg.Flags&(1<<uint(index)) > 0 {
-		return nil, errors.New("found in flags: " + i.ServerIdentity().String())
+		return nil, xerrors.New("found in flags: " + i.ServerIdentity().String())
 	}
 	i.Errors = 0
 	return &SimpleResponse{}, nil
 }
 
-func newServiceWebSocket(c *Context) (Service, error) {
+func newServiceWebSocket(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &ServiceWebSocket{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
@@ -859,7 +949,7 @@ type StreamingService struct {
 	gotStopChan chan bool
 }
 
-func newStreamingService(c *Context) (Service, error) {
+func newStreamingService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &StreamingService{
 		ServiceProcessor: NewServiceProcessor(c),
 		stopAt:           -1,

@@ -9,8 +9,14 @@ import (
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
+var serverTestBuilder = NewLocalBuilder(NewDefaultBuilder())
+
+func init() {
+	serverTestBuilder.SetSuite(testSuite)
+}
+
 func TestServer_ProtocolRegisterName(t *testing.T) {
-	c := NewLocalServer(tSuite, 0)
+	c := serverTestBuilder.Build()
 	defer c.Close()
 	plen := len(c.protocols.instantiators)
 	require.True(t, plen > 0)
@@ -26,14 +32,14 @@ func TestServer_ProtocolRegisterName(t *testing.T) {
 }
 
 func TestServer_GetService(t *testing.T) {
-	c := NewLocalServer(tSuite, 0)
+	c := serverTestBuilder.Build()
 	defer c.Close()
 	s := c.Service("nil")
 	require.Nil(t, s)
 }
 
 func TestServer_Database(t *testing.T) {
-	c := NewLocalServer(tSuite, 0)
+	c := serverTestBuilder.Build()
 	require.NotNil(t, c.serviceManager.db)
 
 	for _, s := range c.serviceManager.availableServices() {

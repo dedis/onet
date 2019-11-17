@@ -8,6 +8,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // WriteTomlConfig write  any structure to a toml-file
@@ -30,12 +31,12 @@ func ReadTomlConfig(conf interface{}, filename string, dirOpt ...string) error {
 	if err != nil {
 		pwd, _ := os.Getwd()
 		log.Lvl1("Didn't find", filename, "in", pwd)
-		return err
+		return xerrors.Errorf("reading file: %v", err)
 	}
 
 	_, err = toml.Decode(string(buf), conf)
 	if err != nil {
-		log.Fatal("failed to parse " + filename + ": " + err.Error())
+		return xerrors.Errorf("toml parse: %v", err)
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -53,10 +54,10 @@ func NewCloseAll(n *onet.TreeNodeInstance) (onet.ProtocolInstance, error) {
 	p := &ProtocolCloseAll{TreeNodeInstance: n}
 	p.Done = make(chan bool, 1)
 	if err := p.RegisterHandler(p.FuncPrepareClose); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("registering handler: %v", err)
 	}
 	if err := p.RegisterHandler(p.FuncClose); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("registering handler: %v", err)
 	}
 	return p, nil
 }

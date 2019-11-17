@@ -2,10 +2,7 @@ package onet
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -14,27 +11,30 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3"
-	"go.dedis.ch/kyber/v3/group/edwards25519"
-	"go.dedis.ch/kyber/v3/pairing/bn256"
-	"go.dedis.ch/kyber/v3/sign/bls"
-	"go.dedis.ch/kyber/v3/util/key"
-	"go.dedis.ch/kyber/v3/util/random"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 )
 
 const testServiceName = "testService"
 
+func makeProcessorTestBuilder() Builder {
+	processorTestBuilder := NewDefaultBuilder()
+	processorTestBuilder.SetSuite(testSuite)
+	processorTestBuilder.SetService(testServiceName, nil, newTestService)
+	processorTestBuilder.SetPort(2000)
+
+	return processorTestBuilder
+}
+
 func init() {
-	RegisterNewService(testServiceName, newTestService)
-	ServiceFactory.ServiceID(testServiceName)
 	network.RegisterMessages(&testMsg{}, &testPanicMsg{})
 }
 
 func TestProcessor_AddMessage(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandler(procMsg))
@@ -63,7 +63,7 @@ func TestProcessor_AddMessage(t *testing.T) {
 }
 
 func TestProcessor_RegisterMessages(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
@@ -71,7 +71,7 @@ func TestProcessor_RegisterMessages(t *testing.T) {
 }
 
 func TestProcessor_RegisterStreamingMessage(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 
@@ -120,7 +120,7 @@ func TestProcessor_RegisterStreamingMessage(t *testing.T) {
 }
 
 func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2))
@@ -160,7 +160,7 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 }
 
 func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 
 	p := NewServiceProcessor(&Context{server: h1})
@@ -197,7 +197,7 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	// generate 1 host
 	h := local.GenServers(1)[0]
@@ -217,7 +217,7 @@ func TestProcessor_ProcessClientRequest(t *testing.T) {
 
 // Test that the panic will be recovered and announced without crashing the server.
 func TestProcessor_PanicClientRequest(t *testing.T) {
-	local := NewTCPTest(tSuite)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	h := local.GenServers(1)[0]
 	defer local.CloseAll()
@@ -241,7 +241,7 @@ type testPanicMsg struct{}
 func procMsg(msg *testMsg) (network.Message, error) {
 	// Return an error for testing
 	if msg.I == 42 {
-		return nil, errors.New("42 is NOT the answer")
+		return nil, xerrors.New("42 is NOT the answer")
 	}
 	return msg, nil
 }
@@ -249,7 +249,7 @@ func procMsg(msg *testMsg) (network.Message, error) {
 func procMsg2(msg *testMsg2) (network.Message, error) {
 	// Return an error for testing
 	if msg.I == 42 {
-		return nil, errors.New("42 is NOT the answer")
+		return nil, xerrors.New("42 is NOT the answer")
 	}
 	return nil, nil
 }
@@ -295,7 +295,7 @@ type testService struct {
 	Msg interface{}
 }
 
-func newTestService(c *Context) (Service, error) {
+func newTestService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	ts := &testService{
 		ServiceProcessor: NewServiceProcessor(c),
 	}
@@ -315,9 +315,6 @@ func newTestService(c *Context) (Service, error) {
 	if err := ts.RegisterRESTHandler(procRestMsgPOSTString, testServiceName, "POST", 3, 3); err != nil {
 		panic(err.Error())
 	}
-	if err := ts.RegisterRESTHandler(procRestMsgPOSTPoint, testServiceName, "POST", 3, 3); err != nil {
-		panic(err.Error())
-	}
 	return ts, nil
 }
 
@@ -335,7 +332,7 @@ func (ts *testService) ProcessMsgPanic(msg *testPanicMsg) (network.Message, erro
 }
 
 func TestProcessor_REST_Registration(t *testing.T) {
-	h1 := NewLocalServer(tSuite, 2000)
+	h1 := makeProcessorTestBuilder().Build()
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
 	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET1, "dummyService", "GET", 3, 3))
@@ -343,7 +340,6 @@ func TestProcessor_REST_Registration(t *testing.T) {
 	require.NoError(t, p.RegisterRESTHandler(procRestMsgGET3, "dummyService", "GET", 3, 3))
 
 	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTString, "dummyService", "POST", 3, 3))
-	require.NoError(t, p.RegisterRESTHandler(procRestMsgPOSTPoint, "dummyService", "POST", 3, 3))
 	require.NoError(t, p.RegisterRESTHandler(procMsg, "dummyService", "POST", 3, 3))
 	require.NoError(t, p.RegisterRESTHandler(procMsg2, "dummyService", "POST", 3, 3))
 	require.NoError(t, p.RegisterRESTHandler(procMsg3, "dummyService", "POST", 3, 3))
@@ -365,120 +361,10 @@ func TestProcessor_REST_Registration(t *testing.T) {
 	require.Error(t, p.RegisterRESTHandler(procMsgWrong7, "dummyService", "POST", 3, 3))
 }
 
-type bnPoint struct {
-	P kyber.Point
-}
-
-type bnPointWrapper struct {
-	P []byte
-}
-
-func (p bnPoint) MarshalJSON() ([]byte, error) {
-	buf, err := p.P.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	return []byte(fmt.Sprintf(`{"P": "%s"}`, base64.StdEncoding.EncodeToString(buf))), nil
-}
-
-func (p *bnPoint) UnmarshalJSON(b []byte) error {
-	wrapper := bnPointWrapper{}
-	if err := json.Unmarshal(b, &wrapper); err != nil {
-		return err
-	}
-	suite := bn256.NewSuite()
-	g2 := suite.G2().Point()
-	if err := g2.UnmarshalBinary(wrapper.P); err != nil {
-		return err
-	}
-	p.P = g2
-	return nil
-}
-
-type edPoint struct {
-	P kyber.Point
-}
-
-type edPointWrapper struct {
-	P []byte
-}
-
-func (p edPoint) MarshalJSON() ([]byte, error) {
-	buf, err := p.P.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	return []byte(fmt.Sprintf(`{"P": "%s"}`, base64.StdEncoding.EncodeToString(buf))), nil
-}
-
-func (p *edPoint) UnmarshalJSON(b []byte) error {
-	wrapper := edPointWrapper{}
-	if err := json.Unmarshal(b, &wrapper); err != nil {
-		return err
-	}
-	suite := edwards25519.NewBlakeSHA256Ed25519()
-	point := suite.Point()
-	if err := point.UnmarshalBinary(wrapper.P); err != nil {
-		return err
-	}
-	p.P = point
-	return nil
-}
-
-type twoPoints struct {
-	PointEd edPoint
-	PointBn bnPoint
-}
-
-func TestMarshalJSON_bn(t *testing.T) {
-	suite := bn256.NewSuite()
-	_, pk := bls.NewKeyPair(suite, random.New())
-	p := bnPoint{pk}
-	buf, err := json.Marshal(&p)
-	require.NoError(t, err)
-
-	p2 := bnPoint{}
-	err = json.Unmarshal(buf, &p2)
-	require.NoError(t, err)
-
-	require.True(t, p2.P.Equal(pk))
-}
-
-func TestMarshalJSON_ed(t *testing.T) {
-	suite := edwards25519.NewBlakeSHA256Ed25519()
-	pk := key.NewKeyPair(suite).Public
-
-	p := edPoint{pk}
-	buf, err := json.Marshal(&p)
-	require.NoError(t, err)
-
-	p2 := edPoint{}
-	err = json.Unmarshal(buf, &p2)
-	require.NoError(t, err)
-
-	require.True(t, p2.P.Equal(pk))
-}
-
-func TestMarshalJSON_twoPoints(t *testing.T) {
-	pkEd := key.NewKeyPair(edwards25519.NewBlakeSHA256Ed25519()).Public
-	_, pkBn := bls.NewKeyPair(bn256.NewSuite(), random.New())
-
-	pTwo := twoPoints{edPoint{pkEd}, bnPoint{pkBn}}
-	buf, err := json.Marshal(&pTwo)
-	require.NoError(t, err)
-
-	pTwo2 := twoPoints{}
-	err = json.Unmarshal(buf, &pTwo2)
-	require.NoError(t, err)
-
-	require.True(t, pTwo2.PointEd.P.Equal(pkEd))
-	require.True(t, pTwo2.PointBn.P.Equal(pkBn))
-}
-
 func TestProcessor_REST_Handler(t *testing.T) {
 	log.AddUserUninterestingGoroutine("created by net/http.(*Transport).dialConn")
 
-	local := NewTCPTest(tSuite)
+	local := NewLocalTest(makeProcessorTestBuilder())
 
 	// generate 1 host
 	h := local.GenServers(1)[0]
@@ -567,17 +453,6 @@ func TestProcessor_REST_Handler(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, resp.StatusCode, http.StatusMethodNotAllowed)
 	checkJSONMsg(t, resp.Body, "unsupported method")
-
-	// test sending points
-	_, pk := bls.NewKeyPair(bn256.NewSuite(), random.New())
-	buf, err := json.Marshal(&restMsgPOSTPoint{bnPoint{pk}})
-	require.NoError(t, err)
-	resp, err = c.Post(addr+"/v3/testService/restMsgPOSTPoint", "application/json", bytes.NewReader(buf))
-	require.NoError(t, err)
-	require.Equal(t, resp.StatusCode, http.StatusOK)
-	respPoint := restMsgPOSTPoint{}
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&respPoint))
-	require.True(t, respPoint.bnPoint.P.Equal(pk))
 }
 
 func checkJSONMsg(t *testing.T, r io.Reader, contains string) {
@@ -618,13 +493,9 @@ func procRestMsgGETWrong3(s *restMsgGETWrong3) (*testMsg, error) {
 
 func procRestMsgPOSTString(s *restMsgPOSTString) (*testMsg, error) {
 	if s.S != "42" {
-		return nil, errors.New("not the right answer")
+		return nil, xerrors.New("not the right answer")
 	}
 	return &testMsg{}, nil
-}
-
-func procRestMsgPOSTPoint(s *restMsgPOSTPoint) (*restMsgPOSTPoint, error) {
-	return &restMsgPOSTPoint{s.bnPoint}, nil
 }
 
 type restMsgGET1 struct {
@@ -653,8 +524,4 @@ type restMsgGETWrong3 struct {
 
 type restMsgPOSTString struct {
 	S string
-}
-
-type restMsgPOSTPoint struct {
-	bnPoint
 }

@@ -6,31 +6,30 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/suites"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 )
-
-var tSuite = suites.MustFind("Ed25519")
 
 const clientServiceName = "ClientService"
 
 var clientServiceID ServiceID
 
+var localTestBuilder = NewDefaultBuilder()
+
 func init() {
-	var err error
-	clientServiceID, err = RegisterNewService(clientServiceName, newClientService)
-	log.ErrFatal(err)
+	localTestBuilder.SetSuite(testSuite)
+	localTestBuilder.SetService(clientServiceName, nil, newClientService)
 }
 
 func Test_panicClose(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(localTestBuilder))
 	l.CloseAll()
 	require.Panics(t, func() { l.genLocalHosts(2) })
 }
 
 func Test_showPanic(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(localTestBuilder))
 	c := make(chan bool)
 	go func() {
 		<-c
@@ -45,7 +44,7 @@ func Test_showPanic(t *testing.T) {
 
 func Test_showFail(t *testing.T) {
 	t.Skip("I have no idea how I can have this test passing... It tests that CloseAll doesn't test goroutines when a test fails.")
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(localTestBuilder))
 	c := make(chan bool)
 	go func() {
 		<-c
@@ -62,7 +61,7 @@ func Test_showFail(t *testing.T) {
 }
 
 func TestGenLocalHost(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(localTestBuilder))
 	hosts := l.genLocalHosts(2)
 	defer l.CloseAll()
 
@@ -73,7 +72,7 @@ func TestGenLocalHost(t *testing.T) {
 }
 
 func TestGenLocalHostAfter(t *testing.T) {
-	l := NewLocalTest(tSuite)
+	l := NewLocalTest(NewLocalBuilder(localTestBuilder))
 	defer l.CloseAll()
 	hosts := l.genLocalHosts(2)
 	hosts2 := l.genLocalHosts(2)
@@ -83,17 +82,30 @@ func TestGenLocalHostAfter(t *testing.T) {
 // This tests the client-connection in the case of a non-garbage-collected
 // client that stays in the service.
 func TestNewTCPTest(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewLocalTest(localTestBuilder)
 	_, el, _ := l.GenTree(3, true)
 	defer l.CloseAll()
 
-	c1 := NewClient(tSuite, clientServiceName)
+	c1 := NewClient(clientServiceName)
 	err := c1.SendProtobuf(el.List[0], &SimpleMessage{}, nil)
 	log.ErrFatal(err)
 }
 
+func TestNewTLSTest(t *testing.T) {
+	builder := localTestBuilder.Clone()
+	builder.(*DefaultBuilder).UseTLS()
+
+	l := NewLocalTest(builder)
+	_, ro, _ := l.GenTree(3, true)
+	defer l.CloseAll()
+
+	c1 := NewClient(clientServiceName)
+	err := c1.SendProtobuf(ro.List[0], &SimpleMessage{}, nil)
+	require.NoError(t, err)
+}
+
 func TestLocalTCPGenConnectableRoster(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewLocalTest(localTestBuilder)
 	defer l.CloseAll()
 	servers := l.GenServers(3)
 	roster := *l.GenRosterFromHost(servers...)
@@ -107,9 +119,9 @@ func TestLocalTCPGenConnectableRoster(t *testing.T) {
 
 // Tests whether TestClose is called in the service.
 func TestTestClose(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewLocalTest(localTestBuilder)
 	servers, _, _ := l.GenTree(1, true)
-	services := l.GetServices(servers, clientServiceID)
+	services := l.GetServices(servers, clientServiceName)
 	pingpong := make(chan bool, 1)
 	go func() {
 		pingpong <- true
@@ -126,11 +138,11 @@ func TestTestClose(t *testing.T) {
 }
 
 func TestWaitDone(t *testing.T) {
-	l := NewTCPTest(tSuite)
+	l := NewLocalTest(localTestBuilder)
 	servers, ro, _ := l.GenTree(1, true)
 	defer l.CloseAll()
 
-	services := l.GetServices(servers, clientServiceID)
+	services := l.GetServices(servers, clientServiceName)
 	service := services[0].(*clientService)
 	require.Nil(t, service.SendRaw(ro.List[0], &RawMessage{}))
 	<-service.click
@@ -173,10 +185,10 @@ func (c *clientService) TestClose() {
 	c.closed <- true
 }
 
-func newClientService(c *Context) (Service, error) {
+func newClientService(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
 	s := &clientService{
 		ServiceProcessor: NewServiceProcessor(c),
-		cl:               NewClient(c.server.Suite(), clientServiceName),
+		cl:               NewClient(clientServiceName),
 		click:            make(chan bool, 1),
 		closed:           make(chan bool, 1),
 	}

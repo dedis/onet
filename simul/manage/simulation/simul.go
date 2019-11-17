@@ -1,22 +1,27 @@
 package main
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/simul"
 	"go.dedis.ch/onet/v3/simul/manage"
 	"go.dedis.ch/onet/v3/simul/monitor"
+	"golang.org/x/xerrors"
 )
 
 /*
 Defines the simulation for the count-protocol
 */
 
+var builder = onet.NewDefaultBuilder()
+
 func init() {
+	builder.SetSuite(ciphersuite.NewEd25519CipherSuite())
+
 	onet.SimulationRegister("Count", NewSimulation)
 }
 
@@ -29,24 +34,21 @@ type simulation struct {
 // initialised using the config-file
 func NewSimulation(config string) (onet.Simulation, error) {
 	es := &simulation{}
-	// Set defaults before toml.Decode
-	es.Suite = "Ed25519"
 
 	_, err := toml.Decode(config, es)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("decoding: %v", err)
 	}
 	return es, nil
 }
 
 // Setup creates the tree used for that simulation
-func (e *simulation) Setup(dir string, hosts []string) (
-	*onet.SimulationConfig, error) {
-	sc := &onet.SimulationConfig{}
+func (e *simulation) Setup(dir string, hosts []string) (*onet.SimulationConfig, error) {
+	sc := &onet.SimulationConfig{Builder: builder}
 	e.CreateRoster(sc, hosts, 2000)
 	err := e.CreateTree(sc)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating tree: %v", err)
 	}
 	return sc, nil
 }
@@ -61,13 +63,13 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 		round := monitor.NewTimeMeasure("round")
 		p, err := config.Overlay.CreateProtocol("Count", config.Tree, onet.NilServiceID)
 		if err != nil {
-			return err
+			return xerrors.Errorf("creating protocol: %v", err)
 		}
 		go p.Start()
 		children := <-p.(*manage.ProtocolCount).Count
 		round.Record()
 		if children != size {
-			return errors.New("Didn't get " + strconv.Itoa(size) +
+			return xerrors.New("Didn't get " + strconv.Itoa(size) +
 				" children")
 		}
 	}
@@ -75,5 +77,5 @@ func (e *simulation) Run(config *onet.SimulationConfig) error {
 }
 
 func main() {
-	simul.Start()
+	simul.Start(builder)
 }

@@ -1,7 +1,6 @@
 package ciphersuite
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -72,7 +71,6 @@ func TestNewHopeCipherSuite_BasicUsage(t *testing.T) {
 
 	err = suite.Verify(pk, sig, msg)
 	require.NoError(t, err)
-	fmt.Println("Bjorninn")
 }
 
 type testPublicKeyNewHope struct {
@@ -136,7 +134,6 @@ func TestNewHopeCipherSuite_unpacking(t *testing.T) {
 	_, err = suite.Signature(rawSig)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errInvalidBufferSize)
-	fmt.Println("Bjorn")
 }
 
 type badReaderNewHope struct{}
@@ -195,5 +192,4 @@ func TestNewHopeCipherSuite_Verify(t *testing.T) {
 	rawPk.CipherName = "abc"
 	err = suite.Verify(rawPk, sig, []byte{})
 	require.Error(t, err)
-	fmt.Println("Bjorinn")
 }

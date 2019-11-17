@@ -1,14 +1,15 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // timeout used to clean up protocol state so that children can keep
@@ -19,6 +20,7 @@ const globalProtocolTimeout = 10 * time.Minute
 // Nodes and ProtocolInstances upon request and dispatches the messages.
 type Overlay struct {
 	server *Server
+	cr     *ciphersuite.Registry
 
 	treeStorage *treeStorage
 
@@ -51,9 +53,18 @@ type Overlay struct {
 }
 
 // NewOverlay creates a new overlay-structure
-func NewOverlay(c *Server) *Overlay {
+func NewOverlay(c *Server, cr *ciphersuite.Registry) *Overlay {
+	if c == nil {
+		panic("expecting a server to be provided")
+	}
+
+	if cr == nil {
+		panic("expecting a cipher suite registry to be provided")
+	}
+
 	o := &Overlay{
 		server:             c,
+		cr:                 cr,
 		treeStorage:        newTreeStorage(globalProtocolTimeout),
 		instances:          make(map[TokenID]*TreeNodeInstance),
 		instancesInfo:      make(map[TokenID]bool),
@@ -61,16 +72,13 @@ func NewOverlay(c *Server) *Overlay {
 		pendingTreeMarshal: make(map[RosterID][]*TreeMarshal),
 		pendingConfigs:     make(map[TokenID]*GenericConfig),
 	}
-	o.protoIO = newMessageProxyStore(c.suite, c, o)
+	o.protoIO = newMessageProxyStore(c, o)
 	// messages going to protocol instances
 	c.RegisterProcessor(o,
 		ProtocolMsgID,     // protocol instance's messages
 		RequestTreeMsgID,  // request a tree
 		ResponseTreeMsgID, // send a tree back to a request
-		RequestRosterMsgID,
-		SendRosterMsgID,
-		SendTreeMsgID,
-		ConfigMsgID) // fetch config information
+		ConfigMsgID)       // fetch config information
 	return o
 }
 
@@ -95,12 +103,6 @@ func (o *Overlay) Process(env *network.Envelope) {
 		o.handleRequestTree(env.ServerIdentity, info.RequestTree, io)
 	case info.ResponseTree != nil:
 		o.handleSendTree(env.ServerIdentity, info.ResponseTree, io)
-	case info.TreeMarshal != nil:
-		o.handleSendTreeMarshal(env.ServerIdentity, info.TreeMarshal, io)
-	case info.RequestRoster != nil:
-		o.handleRequestRoster(env.ServerIdentity, info.RequestRoster, io)
-	case info.Roster != nil:
-		o.handleSendRoster(env.ServerIdentity, info.Roster)
 	default:
 		typ := network.MessageType(inner)
 		protoMsg := &ProtocolMsg{
@@ -127,11 +129,18 @@ func (o *Overlay) Process(env *network.Envelope) {
 // io is the messageProxy to use if a specific wireformat protocol is used.
 // It can be nil: in that case it fall backs to default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
-	tree := o.treeStorage.Get(onetMsg.To.TreeID)
+	// Get the tree if it exists and prevent any pending deletion
+	// if required. The tree will be clean when this instance is
+	// over (or the last instance using the tree).
+	tree := o.treeStorage.getAndRefresh(onetMsg.To.TreeID)
 	if tree == nil {
 		// request anyway because we need to store the pending message
 		// the following routine will take care of requesting once
-		return o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
+		err := o.requestTree(onetMsg.ServerIdentity, onetMsg, io)
+		if err != nil {
+			return xerrors.Errorf("requesting tree: %v", err)
+		}
+		return nil
 	}
 
 	o.transmitMux.Lock()
@@ -151,7 +160,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		log.Lvlf4("Creating TreeNodeInstance at %s %x", o.server.ServerIdentity, onetMsg.To.ID())
 		tn, err := o.TreeNodeFromTree(tree, onetMsg.To.TreeNodeID)
 		if err != nil {
-			return errors.New("No TreeNode defined in this tree here")
+			return xerrors.New("No TreeNode defined in this tree here")
 		}
 		tni := o.newTreeNodeInstanceFromToken(tn, onetMsg.To, io)
 		// retrieve the possible generic config for this message
@@ -162,7 +171,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			o.instancesLock.Lock()
 			o.nodeDelete(onetMsg.To)
 			o.instancesLock.Unlock()
-			return err
+			return xerrors.Errorf("creating protocol: %v", err)
 		}
 		if pi == nil {
 			return nil
@@ -170,7 +179,7 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
-					svc := ServiceFactory.Name(tni.Token().ServiceID)
+					_, svc := tni.Service()
 					log.Errorf("Panic in call to protocol <%s>.Dispatch() from service <%s> at address %s: %v",
 						tni.ProtocolName(), svc, o.server.ServerIdentity, r)
 					log.Error(log.Stack())
@@ -179,12 +188,12 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 
 			err := pi.Dispatch()
 			if err != nil {
-				svc := ServiceFactory.Name(tni.Token().ServiceID)
+				_, svc := tni.Service()
 				log.Errorf("%v %s.Dispatch() returned error %s", o.server.ServerIdentity, svc, err)
 			}
 		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
-			return errors.New("Error Binding TreeNodeInstance and ProtocolInstance:" +
+			return xerrors.New("Error Binding TreeNodeInstance and ProtocolInstance:" +
 				err.Error())
 		}
 		log.Lvl4(o.server.Address(), "Overlay created new ProtocolInstace msg => ",
@@ -247,15 +256,15 @@ func (o *Overlay) checkPendingMessages(t *Tree) {
 // checkPendingTreeMarshal is called each time we add a new Roster to the
 // system. It checks if some treeMarshal use this entityList so they can be
 // converted to Tree.
-func (o *Overlay) checkPendingTreeMarshal(el *Roster) {
+func (o *Overlay) checkPendingTreeMarshal(ro *Roster) {
 	o.pendingTreeLock.Lock()
-	sl, ok := o.pendingTreeMarshal[el.ID]
+	sl, ok := o.pendingTreeMarshal[ro.GetID()]
 	if !ok {
 		// no tree for this roster
 		return
 	}
 	for _, tm := range sl {
-		tree, err := tm.MakeTree(el)
+		tree, err := tm.MakeTree(ro)
 		if err != nil {
 			log.Error("Tree from Roster failed")
 			continue
@@ -288,7 +297,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 		RequestTree: &RequestTree{TreeID: onetMsg.To.TreeID, Version: 1},
 	})
 	if err != nil {
-		return err
+		return xerrors.Errorf("wrapping message: %v", err)
 	}
 
 	if o.treeStorage.IsRegistered(onetMsg.To.TreeID) {
@@ -303,7 +312,7 @@ func (o *Overlay) requestTree(si *network.ServerIdentity, onetMsg *ProtocolMsg, 
 	_, err = o.server.Send(si, msg)
 	if err != nil {
 		o.treeStorage.Unregister(onetMsg.To.TreeID)
-		return err
+		return xerrors.Errorf("sending tree request: %v", err)
 	}
 
 	return nil
@@ -320,26 +329,7 @@ func (o *Overlay) RegisterTree(t *Tree) {
 func (o *Overlay) TreeNodeFromTree(tree *Tree, id TreeNodeID) (*TreeNode, error) {
 	tn := tree.Search(id)
 	if tn == nil {
-		return nil, errors.New("didn't find treenode")
-	}
-
-	return tn, nil
-}
-
-// TreeNodeFromToken returns the treeNode corresponding to a token
-// Deprecated: only the overlay should create treeNodes but use
-// TreeNodeFromTree if you need to create one treeNode
-func (o *Overlay) TreeNodeFromToken(t *Token) (*TreeNode, error) {
-	if t == nil {
-		return nil, errors.New("didn't find tree-node: No token given")
-	}
-	tree := o.treeStorage.Get(t.TreeID)
-	if tree == nil {
-		return nil, errors.New("didn't find tree")
-	}
-	tn := tree.Search(t.TreeNodeID)
-	if tn == nil {
-		return nil, errors.New("didn't find treenode")
+		return nil, xerrors.New("didn't find treenode")
 	}
 
 	return tn, nil
@@ -366,12 +356,6 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 
 	treeM := tree.MakeTreeMarshal()
 
-	if req.Version == 0 {
-		log.Warnf("[DEPRECATION] got an old version of the RequestTree from %s", si)
-		o.handleRequestTreeDeprecated(si, treeM, io)
-		return
-	}
-
 	msg, err := io.Wrap(nil, &OverlayMsg{
 		ResponseTree: &ResponseTree{
 			TreeMarshal: treeM,
@@ -388,61 +372,6 @@ func (o *Overlay) handleRequestTree(si *network.ServerIdentity, req *RequestTree
 	if err != nil {
 		log.Error("Couldn't send tree:", err)
 	}
-}
-
-// Deprecated: a new handler has been written to handle RequestTree messages
-func (o *Overlay) handleRequestTreeDeprecated(si *network.ServerIdentity, tm *TreeMarshal, io MessageProxy) {
-	msg, err := io.Wrap(nil, &OverlayMsg{TreeMarshal: tm})
-	if err != nil {
-		log.Error("couldn't wrap TreeMarshal: ", err)
-		return
-	}
-
-	_, err = o.server.Send(si, msg)
-	if err != nil {
-		log.Error("couldn't send tree: ", err)
-	}
-}
-
-// Deprecated: recent versions use the message ResponseTree
-func (o *Overlay) handleSendTreeMarshal(si *network.ServerIdentity, tm *TreeMarshal, io MessageProxy) {
-	if tm.TreeID.IsNil() {
-		log.Error("received en empty tree")
-		return
-	}
-
-	if !o.treeStorage.IsRegistered(tm.TreeID) {
-		// we only accept known trees to prevent a denial of service
-		// by filling up the storage
-		log.Error("ignoring unknown tree")
-		return
-	}
-
-	var ro *Roster
-	for _, inst := range o.instances {
-		if inst.Roster().ID.Equal(tm.RosterID) {
-			ro = inst.Roster()
-		}
-	}
-
-	if ro == nil {
-		log.Lvl1("unknown roster")
-		msg, err := io.Wrap(nil, &OverlayMsg{
-			RequestRoster: &RequestRoster{tm.RosterID},
-		})
-		if err != nil {
-			log.Error("could not wrap RequestRoster:", err)
-		}
-		if _, err := o.server.Send(si, msg); err != nil {
-			log.Error("Requesting Roster in SendTree failed", err)
-		}
-
-		o.addPendingTreeMarshal(tm)
-		return
-	}
-
-	rt := &ResponseTree{TreeMarshal: tm, Roster: ro}
-	o.handleSendTree(si, rt, io)
 }
 
 // Receive a tree from a peer
@@ -471,39 +400,6 @@ func (o *Overlay) handleSendTree(si *network.ServerIdentity, rt *ResponseTree, i
 	}
 	log.Lvl4("Received new tree")
 	o.RegisterTree(tree)
-}
-
-// Deprecated: roster is not sent anymore, only the tree
-func (o *Overlay) handleRequestRoster(si *network.ServerIdentity, req *RequestRoster, io MessageProxy) {
-	ro := o.treeStorage.GetRoster(req.RosterID)
-
-	if ro == nil {
-		// XXX Bad reaction to request...
-		log.Lvl2("Requested roster that we don't have")
-		ro = &Roster{}
-	}
-
-	msg, err := io.Wrap(nil, &OverlayMsg{Roster: ro})
-	if err != nil {
-		log.Error("error wraping up roster: ", err)
-		return
-	}
-
-	_, err = o.server.Send(si, msg)
-	if err != nil {
-		log.Error("Couldn't send roster from host:", o.server.ServerIdentity.String(), err)
-		return
-	}
-}
-
-// Deprecated: roster is not sent anymore, only the tree
-func (o *Overlay) handleSendRoster(si *network.ServerIdentity, roster *Roster) {
-	if roster.ID.IsNil() {
-		log.Error("received an empty roster")
-		return
-	}
-
-	o.checkPendingTreeMarshal(roster)
 }
 
 // handleConfigMessage stores the config message so it can be dispatched
@@ -549,7 +445,7 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 		totSentLen += sentLen
 		if err != nil {
 			log.Error("sending config failed:", err)
-			return totSentLen, err
+			return totSentLen, xerrors.Errorf("sending: %v", err)
 		}
 	}
 	// then send the message
@@ -562,12 +458,15 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	}
 	final, err := io.Wrap(msg, info)
 	if err != nil {
-		return totSentLen, err
+		return totSentLen, xerrors.Errorf("wrapping message: %v", err)
 	}
 
 	sentLen, err := o.server.Send(to.ServerIdentity, final)
 	totSentLen += sentLen
-	return totSentLen, err
+	if err != nil {
+		return totSentLen, xerrors.Errorf("sending: %v", err)
+	}
+	return totSentLen, nil
 }
 
 // nodeDone is called by node to signify that its work is finished and its
@@ -618,10 +517,6 @@ func (o *Overlay) cleanTreeStorage(token *Token) {
 	}
 }
 
-func (o *Overlay) suite() network.Suite {
-	return o.server.Suite()
-}
-
 // Close calls all nodes, deletes them from the list and closes them
 func (o *Overlay) Close() {
 	o.instancesLock.Lock()
@@ -644,22 +539,23 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 	tni := o.NewTreeNodeInstanceFromService(t, t.Root, ProtocolNameToID(name), sid, io)
 	pi, err := o.server.protocolInstantiate(tni.token.ProtoID, tni)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("instantiating protocol: %v", err)
 	}
 	if err = o.RegisterProtocolInstance(pi); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("registering protocol instance: %v", err)
 	}
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Errorf("Panic in %s.Dispatch(): %v", name, r)
+				log.Errorf("Panic in %s.Dispatch(): %+v", name, r)
 			}
 		}()
 
 		err := pi.Dispatch()
 		if err != nil {
+			_, svn := tni.Service()
 			log.Errorf("%s.Dispatch() created in service %s returned error %s",
-				name, ServiceFactory.Name(sid), err)
+				name, svn, err)
 		}
 	}()
 	return pi, err
@@ -669,7 +565,7 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolInstance, error) {
 	pi, err := o.CreateProtocol(name, t, sid)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("creating protocol: %v", err)
 	}
 	go func() {
 		defer func() {
@@ -683,7 +579,7 @@ func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolIn
 			log.Error("Error while starting:", err)
 		}
 	}()
-	return pi, err
+	return pi, nil
 }
 
 // NewTreeNodeInstanceFromProtoName takes a protocol name and a tree and
@@ -699,7 +595,7 @@ func (o *Overlay) NewTreeNodeInstanceFromProtocol(t *Tree, tn *TreeNode, protoID
 	tok := &Token{
 		TreeNodeID: tn.ID,
 		TreeID:     t.ID,
-		RosterID:   t.Roster.ID,
+		RosterID:   t.Roster.GetID(),
 		ProtoID:    protoID,
 		RoundID:    RoundID(uuid.NewV4()),
 	}
@@ -714,7 +610,7 @@ func (o *Overlay) NewTreeNodeInstanceFromService(t *Tree, tn *TreeNode, protoID 
 	tok := &Token{
 		TreeNodeID: tn.ID,
 		TreeID:     t.ID,
-		RosterID:   t.Roster.ID,
+		RosterID:   t.Roster.GetID(),
 		ProtoID:    protoID,
 		ServiceID:  servID,
 		RoundID:    RoundID(uuid.NewV4()),
@@ -741,11 +637,11 @@ func (o *Overlay) newTreeNodeInstanceFromToken(tn *TreeNode, tok *Token, io Mess
 }
 
 // ErrWrongTreeNodeInstance is returned when you already binded a TNI with a PI.
-var ErrWrongTreeNodeInstance = errors.New("This TreeNodeInstance doesn't exist")
+var ErrWrongTreeNodeInstance = xerrors.New("This TreeNodeInstance doesn't exist")
 
 // ErrProtocolRegistered is when the protocolinstance is already registered to
 // the overlay
-var ErrProtocolRegistered = errors.New("a ProtocolInstance already has been registered using this TreeNodeInstance")
+var ErrProtocolRegistered = xerrors.New("a ProtocolInstance already has been registered using this TreeNodeInstance")
 
 // RegisterProtocolInstance takes a PI and stores it for dispatching the message
 // to it.
@@ -786,16 +682,14 @@ type pendingMsg struct {
 
 // defaultProtoIO implements the ProtocoIO interface but using the "regular/old"
 // wire format protocol,i.e. it wraps a message into a ProtocolMessage
-type defaultProtoIO struct {
-	suite network.Suite
-}
+type defaultProtoIO struct{}
 
 // Wrap implements the MessageProxy interface for the Overlay.
 func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, error) {
 	if msg != nil {
 		buff, err := network.Marshal(msg)
 		if err != nil {
-			return nil, err
+			return nil, xerrors.Errorf("marshaling: %v", err)
 		}
 		typ := network.MessageType(msg)
 		protoMsg := &ProtocolMsg{
@@ -834,9 +728,9 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	case *ProtocolMsg:
 		onetMsg := inner
 		var err error
-		_, protoMsg, err := network.Unmarshal(onetMsg.MsgSlice, d.suite)
+		_, protoMsg, err := network.Unmarshal(onetMsg.MsgSlice)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("unmarshaling: %v", err)
 		}
 		// Put the msg into ProtocolMsg
 		returnOverlay.TreeNodeInfo = &TreeNodeInfo{
@@ -855,7 +749,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 	case *Roster:
 		returnOverlay.Roster = inner
 	default:
-		err = errors.New("default protoIO: unwraping an unknown message type")
+		err = xerrors.New("default protoIO: unwraping an unknown message type")
 	}
 	return returnMsg, returnOverlay, err
 }

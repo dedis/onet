@@ -4,18 +4,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 )
 
 func TestServerIdentity(t *testing.T) {
 	log.OutputToBuf()
 	defer log.OutputToOs()
-	kp1 := key.NewKeyPair(tSuite)
-	kp2 := key.NewKeyPair(tSuite)
+	pk1, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
+	pk2, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
 
-	si1 := NewServerIdentity(kp1.Public, NewLocalAddress("1"))
-	si2 := NewServerIdentity(kp2.Public, NewLocalAddress("2"))
+	si1 := NewServerIdentity(pk1.Raw(), NewLocalAddress("1"))
+	si2 := NewServerIdentity(pk2.Raw(), NewLocalAddress("2"))
 
 	if si1.Equal(si2) || !si1.Equal(si1) {
 		t.Error("Stg's wrong with ServerIdentity")
@@ -25,18 +26,18 @@ func TestServerIdentity(t *testing.T) {
 		t.Error("Stg's wrong with ServerIdentityID")
 	}
 
-	t1 := si1.Toml(tSuite)
+	t1 := si1.Toml()
 	if t1.Address != si1.Address || t1.Address == "" {
 		t.Error("stg wrong with Toml()")
 	}
 
-	si11 := t1.ServerIdentity(tSuite)
-	if si11.Address != si1.Address || !si11.Public.Equal(si1.Public) {
+	si11 := t1.ServerIdentity()
+	if si11.Address != si1.Address || !si11.PublicKey.Equal(si1.PublicKey) {
 		t.Error("Stg wrong with toml -> Si")
 	}
-	t1.Public = ""
-	si12 := t1.ServerIdentity(tSuite)
-	if si12.Public != nil && si12.Public.Equal(si1.Public) {
+	t1.PublicKey.Data = []byte{}
+	si12 := t1.ServerIdentity()
+	if si12.PublicKey != nil && si12.PublicKey.Equal(si1.PublicKey) {
 		t.Error("stg wrong with wrong toml -> wrong si")
 	}
 
@@ -69,29 +70,25 @@ func TestGlobalBind(t *testing.T) {
 // TestServiceIdentity checks that service identities are instantiated
 // correctly and that we can access the keys
 func TestServiceIdentity(t *testing.T) {
-	kp := key.NewKeyPair(tSuite)
-	si := NewServerIdentity(kp.Public, NewLocalAddress("1"))
-	si.SetPrivate(kp.Private)
+	pk, sk, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
+	si := NewServerIdentity(pk.Raw(), NewLocalAddress("1"))
+	si.SetPrivate(sk.Raw())
 
-	pub := tSuite.Point()
-	priv := tSuite.Scalar()
-	kp2 := key.NewKeyPair(tSuite)
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", tSuite, pub, priv))
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentityFromPair("b", tSuite, kp2))
-	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", tSuite, pub, nil))
+	spk, sks, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("a", spk.Raw(), sks.Raw()))
+	si.ServiceIdentities = append(si.ServiceIdentities, NewServiceIdentity("d", spk.Raw(), nil))
 
-	require.Equal(t, pub, si.ServicePublic("a"))
-	require.Equal(t, priv, si.ServicePrivate("a"))
-	require.Equal(t, kp2.Public, si.ServicePublic("b"))
-	require.Equal(t, kp2.Private, si.ServicePrivate("b"))
-	require.Equal(t, kp.Public, si.ServicePublic("c"))
-	require.Equal(t, kp.Private, si.ServicePrivate("c"))
+	require.Equal(t, spk.Raw(), si.ServicePublic("a"))
+	require.Equal(t, sks.Raw(), si.ServicePrivate("a"))
+	require.Equal(t, pk.Raw(), si.ServicePublic("c"))
+	require.Equal(t, sk.Raw(), si.ServicePrivate("c"))
 	require.True(t, si.HasServiceKeyPair("a"))
-	require.True(t, si.HasServiceKeyPair("b"))
+	require.False(t, si.HasServiceKeyPair("b"))
 	require.False(t, si.HasServiceKeyPair("c"))
 
 	require.True(t, si.HasServicePublic("a"))
-	require.True(t, si.HasServicePublic("b"))
 	require.False(t, si.HasServicePublic("c"))
 	require.True(t, si.HasServicePublic("d"))
 }

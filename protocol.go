@@ -1,12 +1,12 @@
 package onet
 
 import (
-	"fmt"
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // ProtocolID uniquely identifies a protocol
@@ -105,7 +105,7 @@ func (ps *protocolStorage) Register(name string, protocol NewProtocol) (Protocol
 	id := ProtocolNameToID(name)
 	if _, exists := ps.instantiators[name]; exists {
 		return ProtocolID(uuid.Nil),
-			fmt.Errorf("Protocol -%s- already exists - not overwriting", name)
+			xerrors.Errorf("Protocol -%s- already exists - not overwriting", name)
 	}
 	ps.instantiators[name] = protocol
 	log.Lvl4("Registered", name, "to", id)
@@ -130,7 +130,11 @@ func GlobalProtocolRegister(name string, protocol NewProtocol) (ProtocolID, erro
 		panic("Cannot call 'GlobalProtocolRegister' when a server has already started.")
 	}
 	protocols.Unlock()
-	return protocols.Register(name, protocol)
+	id, err := protocols.Register(name, protocol)
+	if err != nil {
+		return id, xerrors.Errorf("registering protocol: %v", err)
+	}
+	return id, nil
 }
 
 // InformServerStarted allows to set the 'serverStarted' flag to true.
@@ -241,10 +245,10 @@ func (p *messageProxyStore) getByPacketType(mid network.MessageTypeID) MessagePr
 	return p.defaultIO
 }
 
-func newMessageProxyStore(s network.Suite, disp network.Dispatcher, proc network.Processor) *messageProxyStore {
+func newMessageProxyStore(disp network.Dispatcher, proc network.Processor) *messageProxyStore {
 	pstore := &messageProxyStore{
 		// also add the default one
-		defaultIO: &defaultProtoIO{s},
+		defaultIO: &defaultProtoIO{},
 	}
 	for name, newIO := range messageProxyFactory.factories {
 		io := newIO()

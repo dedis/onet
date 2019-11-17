@@ -10,29 +10,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/pairing"
-	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 )
 
 var o bytes.Buffer
 
+var testSuite = ciphersuite.NewEd25519CipherSuite()
+var testBuilder = onet.NewDefaultBuilder()
+
 const testServiceName = "OnetConfigTestService"
-
-func registerService() {
-	onet.RegisterNewServiceWithSuite(testServiceName, pairing.NewSuiteBn256(), func(c *onet.Context) (onet.Service, error) {
-		return nil, nil
-	})
-}
-
-func unregisterService() {
-	onet.UnregisterService(testServiceName)
-}
 
 func TestMain(m *testing.M) {
 	out = &o
+	testBuilder.SetSuite(testSuite)
+	testBuilder.SetService(testServiceName, testSuite, func(c *onet.Context, suite ciphersuite.CipherSuite) (onet.Service, error) {
+		return nil, nil
+	})
 	log.MainTest(m)
 }
 
@@ -40,28 +36,22 @@ var serverGroup = `Description = "Default Dedis Cothority"
 
 [[servers]]
   Address = "tcp://5.135.161.91:2000"
-  Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
+  Public = "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
   Description = "Nikkolasg's server: spreading the love of singing"
   [servers.Services]
 	[servers.Services.OnetConfigTestService]
-	Suite = "bn256.adapter"
-	Public = "593c700babf825b6056a2339ce437f73f717226a77d618a5e8f0251c00273b38557c3cda8dbde5431d062804275f8757a2c942d888ac09f2df34f806e35e660a3c6f13dc64a7cf112865807450ccbd9f75bb3aadb98599f7034cf377a9b976045df374f840e9ee617631257fc9611def6c7c2e5cf23f5ab36cf72f68f14b6686"
+	Public = "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
 	[servers.Services.abc]
-	Suite = "Ed25519"
-	Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
+	Public = "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
 
 [[servers]]
   Address = "tcp://185.26.156.40:61117"
-  Suite = "Ed25519"
-  Public = "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
+  Public = "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
   Description = "Ismail's server"
   URL = "https://ismail.example.com/conode"
 `
 
 func TestReadGroupDescToml(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	if err != nil {
 		t.Fatal(err)
@@ -84,35 +74,11 @@ func TestReadGroupDescToml(t *testing.T) {
 		t.Fatal("Did not find expected URL.")
 	}
 
-	require.Equal(t, 1, len(group.Roster.List[0].ServiceIdentities))
-	require.Equal(t, "bn256.adapter", group.Roster.List[0].ServiceIdentities[0].Suite)
-}
-
-// TestReadGroupWithWrongSuite checks if an error is returned when the wrong suite
-// is used in the service configuration
-func TestReadGroupWithWrongSuite(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
-	const group = `
-	[[servers]]
-	Address = "tcp://5.135.161.91:2000"
-	Public = "94b8255379e11df5167b8a7ae3b85f7e7eb5f13894abee85bd31b3270f1e4c65"
-	Description = "Nikkolasg's server: spreading the love of singing"
-	[servers.Services]
-	  [servers.Services.OnetConfigTestService]
-	  Suite = "fake_name"
-	  Public = ""
-	`
-
-	require.Panics(t, func() { ReadGroupDescToml(strings.NewReader(group)) })
+	require.Equal(t, 2, len(group.Roster.List[0].ServiceIdentities))
 }
 
 // TestSaveGroup checks that the group is correctly written into the file
 func TestSaveGroup(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
 	group, err := ReadGroupDescToml(strings.NewReader(serverGroup))
 	require.NoError(t, err)
 
@@ -122,8 +88,7 @@ func TestSaveGroup(t *testing.T) {
 
 	filename := path.Join(tmp, "public.toml")
 
-	suite := suites.MustFind("ed25519")
-	err = group.Save(suite, filename)
+	err = group.Save(filename)
 	require.NoError(t, err)
 
 	data, err := ioutil.ReadFile(filename)
@@ -133,33 +98,25 @@ func TestSaveGroup(t *testing.T) {
 }
 
 func TestParseCothority(t *testing.T) {
-	registerService()
-	defer unregisterService()
-
-	suite := "Ed25519"
-	public := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
-	private := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
+	public := "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
+	private := "14000000454432323531395f4349504845525f5355495445b4bf9bbd7ed5840d5fbb2ca398b6f16f0e400f4243f849ce23d7be600c9e601a7e7655135d01f0e5cf348c788449531f65c9fd2ddedfbe2f47f6333bc60b9f5d"
 	address := "tcp://1.2.3.4:1234"
-	listenAddr := "127.0.0.1:0"
 	description := "This is a description."
-	scPublic := "593c700babf825b6056a2339ce437f73f717226a77d618a5e8f0251c00273b38557c3cda8dbde5431d062804275f8757a2c942d888ac09f2df34f806e35e660a3c6f13dc64a7cf112865807450ccbd9f75bb3aadb98599f7034cf377a9b976045df374f840e9ee617631257fc9611def6c7c2e5cf23f5ab36cf72f68f14b6686"
-	scPrivate := "622f20fbc7995dd48bab00b0f3d7d13220a9d71716c6be7a45b4b284836041a8"
+	scPublic := "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
+	scPrivate := "14000000454432323531395f4349504845525f5355495445b4bf9bbd7ed5840d5fbb2ca398b6f16f0e400f4243f849ce23d7be600c9e601a7e7655135d01f0e5cf348c788449531f65c9fd2ddedfbe2f47f6333bc60b9f5d"
 
-	privateInfo := fmt.Sprintf(`Suite = "%s"
+	privateInfo := fmt.Sprintf(`
         Public = "%s"
         Private = "%s"
         Address = "%s"
-        ListenAddress = "%s"
-		    Description = "%s"
+		Description = "%s"
 		[services]
 			[services.%s]
-			suite = "bn256.adapter"
 			public = "%s"
 			private = "%s"
 			[services.abc]
-			suite = "Ed25519"
-			public = "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"`,
-		suite, public, private, address, listenAddr,
+			public = "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"`,
+		public, private, address,
 		description, testServiceName, scPublic, scPrivate)
 
 	privateToml, err := ioutil.TempFile("", "temp_private.toml")
@@ -168,30 +125,36 @@ func TestParseCothority(t *testing.T) {
 	privateToml.WriteString(privateInfo)
 	privateToml.Close()
 
-	cothConfig, srv, err := ParseCothority(privateToml.Name())
+	builder := onet.NewDefaultBuilder()
+	builder.SetSuite(testSuite)
+
+	cothConfig, srv, err := ParseCothority(builder, privateToml.Name())
 	require.Nil(t, err)
 
 	// Check basic information
-	require.Equal(t, suite, cothConfig.Suite)
-	require.Equal(t, public, cothConfig.Public)
-	require.Equal(t, private, cothConfig.Private)
+	publicStr, err := cothConfig.Public.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, public, string(publicStr))
+	privateStr, err := cothConfig.Private.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, private, string(privateStr))
 	require.Equal(t, address, cothConfig.Address.String())
-	require.Equal(t, listenAddr, cothConfig.ListenAddress)
 	require.Equal(t, description, cothConfig.Description)
-	require.Equal(t, 1, len(srv.ServerIdentity.ServiceIdentities))
-	require.Equal(t, "bn256.adapter", cothConfig.Services[testServiceName].Suite)
-	require.Equal(t, scPublic, cothConfig.Services[testServiceName].Public)
-	require.Equal(t, scPrivate, cothConfig.Services[testServiceName].Private)
+	require.Equal(t, 2, len(srv.ServerIdentity.ServiceIdentities))
+	publicStr, err = cothConfig.Services[testServiceName].Public.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, scPublic, string(publicStr))
+	privateStr, err = cothConfig.Services[testServiceName].Private.MarshalText()
+	require.NoError(t, err)
+	require.Equal(t, scPrivate, string(privateStr))
 
 	srv.Close()
 }
 
 func TestParseCothorityWithTLSWebSocket(t *testing.T) {
-	suite := "Ed25519"
-	public := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
-	private := "6a921638a4ade8970ebcd9e371570f08d71a24987f90f12391b9f6c525be5be4"
+	public := "14000000454432323531395f4349504845525f5355495445feb9a8d00f51d9f955cd412e0c58866469eb625cc9c10ce92b784ff755734ae4"
+	private := "14000000454432323531395f4349504845525f5355495445b4bf9bbd7ed5840d5fbb2ca398b6f16f0e400f4243f849ce23d7be600c9e601a7e7655135d01f0e5cf348c788449531f65c9fd2ddedfbe2f47f6333bc60b9f5d"
 	address := "tcp://1.2.3.4:1234"
-	listenAddr := "127.0.0.1:0"
 	description := "This is a description."
 
 	// Certificate and key examples taken from
@@ -247,54 +210,56 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 
 	// Testing different ways of putting TLS info.
 	privateInfos := []string{
-		fmt.Sprintf(`Suite = "%s"
+		fmt.Sprintf(`
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = """string://%s"""
             WebSocketTLSCertificateKey = """string://%s"""`,
-			suite, public, private, address, listenAddr,
+			public, private, address,
 			description, wsTLSCert, wsTLSCertKey),
-		fmt.Sprintf(`Suite = "%s"
+		fmt.Sprintf(`
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = "file://%s"
             WebSocketTLSCertificateKey = "file://%s"`,
-			suite, public, private, address, listenAddr,
+			public, private, address,
 			description, certFile.Name(), keyFile.Name()),
-		fmt.Sprintf(`Suite = "%s"
+		fmt.Sprintf(`
             Public = "%s"
             Private = "%s"
             Address = "%s"
-            ListenAddress = "%s"
             Description = "%s"
             WebSocketTLSCertificate = "%s"
             WebSocketTLSCertificateKey = "%s"`,
-			suite, public, private, address, listenAddr,
+			public, private, address,
 			description, certFile.Name(), keyFile.Name()),
 	}
 
-	for _, privateInfo := range privateInfos {
+	for i, privateInfo := range privateInfos {
 		privateToml, err := ioutil.TempFile("", "temp_private.toml")
 		require.Nil(t, err)
 
 		privateToml.WriteString(privateInfo)
 		privateToml.Close()
 
-		cothConfig, srv, err := ParseCothority(privateToml.Name())
+		builder := onet.NewDefaultBuilder()
+		builder.SetSuite(testSuite)
+
+		cothConfig, srv, err := ParseCothority(builder, privateToml.Name())
 		require.Nil(t, err)
 
 		// Check basic information
-		require.Equal(t, suite, cothConfig.Suite)
-		require.Equal(t, public, cothConfig.Public)
-		require.Equal(t, private, cothConfig.Private)
+		publicStr, err := cothConfig.Public.MarshalText()
+		require.NoError(t, err)
+		require.Equal(t, public, string(publicStr))
+		privateStr, err := cothConfig.Private.MarshalText()
+		require.NoError(t, err)
+		require.Equal(t, private, string(privateStr))
 		require.Equal(t, address, cothConfig.Address.String())
-		require.Equal(t, listenAddr, cothConfig.ListenAddress)
 		require.Equal(t, description, cothConfig.Description)
 
 		// Check content of certificate and key
@@ -305,6 +270,15 @@ f9Oeos0UUothgiDktdQHxdNEwLjQf7lJJBzV+5OtwswCWA==
 		keyContent, err := cothConfig.WebSocketTLSCertificateKey.Content()
 		require.Nil(t, err)
 		require.Equal(t, wsTLSCertKey, string(keyContent))
+
+		if i != 0 {
+			// Check when the certificate is a file.
+			require.NotNil(t, srv.WebSocket.TLSConfig.GetCertificate)
+
+			cert, err := srv.WebSocket.TLSConfig.GetCertificate(nil)
+			require.NoError(t, err)
+			require.NotNil(t, cert)
+		}
 
 		srv.Close()
 

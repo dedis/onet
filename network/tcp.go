@@ -3,15 +3,15 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"io"
 	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // a connection will return an io.EOF after networkTimeout if nothing has been
@@ -38,17 +38,10 @@ func NewTCPAddress(addr string) Address {
 }
 
 // NewTCPRouter returns a new Router using TCPHost as the underlying Host.
-func NewTCPRouter(sid *ServerIdentity, suite Suite) (*Router, error) {
-	return NewTCPRouterWithListenAddr(sid, suite, "")
-}
-
-// NewTCPRouterWithListenAddr returns a new Router using TCPHost with the
-// given listen address as the underlying Host.
-func NewTCPRouterWithListenAddr(sid *ServerIdentity, suite Suite,
-	listenAddr string) (*Router, error) {
-	h, err := NewTCPHostWithListenAddr(sid, suite, listenAddr)
+func NewTCPRouter(cr *ciphersuite.Registry, sid *ServerIdentity) (*Router, error) {
+	h, err := NewTCPHost(cr, sid)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("tcp router: %v", err)
 	}
 	r := NewRouter(sid, h)
 	return r, nil
@@ -64,9 +57,6 @@ func SetTCPDialTimeout(dur time.Duration) {
 type TCPConn struct {
 	// The connection used
 	conn net.Conn
-
-	// the suite used to unmarshal messages
-	suite Suite
 
 	// closed indicator
 	closed    bool
@@ -84,24 +74,24 @@ type TCPConn struct {
 
 // NewTCPConn will open a TCPConn to the given address.
 // In case of an error it returns a nil TCPConn and the error.
-func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
+func NewTCPConn(addr Address) (conn *TCPConn, err error) {
 	netAddr := addr.NetworkAddress()
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
 		c, err = net.DialTimeout("tcp", netAddr, dialTimeout)
 		if err == nil {
 			conn = &TCPConn{
-				conn:  c,
-				suite: suite,
+				conn: c,
 			}
 			return
 		}
+		err = xerrors.Errorf("dial: %v", err)
 		if i < MaxRetryConnect {
 			time.Sleep(WaitRetry)
 		}
 	}
 	if err == nil {
-		err = ErrTimeout
+		err = xerrors.Errorf("timeout: %w", ErrTimeout)
 	}
 	return
 }
@@ -112,15 +102,18 @@ func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
 func (c *TCPConn) Receive() (env *Envelope, e error) {
 	buff, err := c.receiveRaw()
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("receiving: %w", err)
 	}
 
-	id, body, err := Unmarshal(buff, c.suite)
+	id, body, err := Unmarshal(buff)
+	if err != nil {
+		return nil, xerrors.Errorf("unmarshaling: %v")
+	}
 	return &Envelope{
 		MsgType: id,
 		Msg:     body,
 		Size:    Size(len(buff)),
-	}, err
+	}, nil
 }
 
 func (c *TCPConn) receiveRaw() ([]byte, error) {
@@ -144,10 +137,10 @@ func (c *TCPConn) receiveRawProd() ([]byte, error) {
 	// First read the size
 	var total Size
 	if err := binary.Read(c.conn, globalOrder, &total); err != nil {
-		return nil, handleError(err)
+		return nil, xerrors.Errorf("buffer read: %w", handleError(err))
 	}
 	if total > MaxPacketSize {
-		return nil, fmt.Errorf("%v sends too big packet: %v>%v",
+		return nil, xerrors.Errorf("%v sends too big packet: %v>%v",
 			c.conn.RemoteAddr().String(), total, MaxPacketSize)
 	}
 
@@ -163,7 +156,7 @@ func (c *TCPConn) receiveRawProd() ([]byte, error) {
 		// Quit if there is an error.
 		if err != nil {
 			c.updateRx(4 + uint64(read))
-			return nil, handleError(err)
+			return nil, xerrors.Errorf("reading: %w", handleError(err))
 		}
 		// Append the read bytes into the buffer.
 		if _, err := buffer.Write(b[:n]); err != nil {
@@ -188,9 +181,13 @@ func (c *TCPConn) Send(msg Message) (uint64, error) {
 
 	b, err := Marshal(msg)
 	if err != nil {
-		return 0, fmt.Errorf("Error marshaling  message: %s", err.Error())
+		return 0, xerrors.Errorf("Error marshaling  message: %s", err.Error())
 	}
-	return c.sendRaw(b)
+	len, err := c.sendRaw(b)
+	if err != nil {
+		return len, xerrors.Errorf("sending: %w", err)
+	}
+	return len, nil
 }
 
 // sendRaw writes the number of bytes of the message to the network then the
@@ -204,7 +201,7 @@ func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
 	// First write the size
 	packetSize := Size(len(b))
 	if err := binary.Write(c.conn, globalOrder, packetSize); err != nil {
-		return 0, err
+		return 0, xerrors.Errorf("buffer write: %v", err)
 	}
 	// Then send everything through the connection
 	// Send chunk by chunk
@@ -215,7 +212,7 @@ func (c *TCPConn) sendRaw(b []byte) (uint64, error) {
 		if err != nil {
 			sentLen := 4 + uint64(sent)
 			c.updateTx(sentLen)
-			return sentLen, handleError(err)
+			return sentLen, xerrors.Errorf("sending: %w", handleError(err))
 		}
 		sent += Size(n)
 	}
@@ -247,12 +244,12 @@ func (c *TCPConn) Close() error {
 	c.closedMut.Lock()
 	defer c.closedMut.Unlock()
 	if c.closed == true {
-		return ErrClosed
+		return xerrors.Errorf("closing: %w", ErrClosed)
 	}
 	err := c.conn.Close()
 	c.closed = true
 	if err != nil {
-		handleError(err)
+		return xerrors.Errorf("closing: %w", handleError(err))
 	}
 	return nil
 }
@@ -270,13 +267,14 @@ func handleError(err error) error {
 
 	netErr, ok := err.(net.Error)
 	if !ok {
+		log.Errorf("Unknown error caught: %+v", err.Error())
 		return ErrUnknown
 	}
 	if netErr.Timeout() {
 		return ErrTimeout
 	}
 
-	log.Errorf("Unknown error caught: %s", err.Error())
+	log.Errorf("Unknown error caught: %+v", err.Error())
 	return ErrUnknown
 }
 
@@ -303,9 +301,6 @@ type TCPListener struct {
 
 	// Is this a TCP or a TLS listener?
 	conntype ConnType
-
-	// suite that is given to each incoming connection
-	suite Suite
 }
 
 // NewTCPListener returns a TCPListener. This function binds globally using
@@ -314,31 +309,18 @@ type TCPListener struct {
 // the binding.
 // A subsequent call to Address() gives the actual listening
 // address which is different if you gave it a ":0"-address.
-func NewTCPListener(addr Address, s Suite) (*TCPListener, error) {
-	return NewTCPListenerWithListenAddr(addr, s, "")
-}
-
-// NewTCPListenerWithListenAddr returns a TCPListener. This function binds to the
-// given 'listenAddr'. If it is empty, the function binds globally using
-// the port of 'addr'.
-// It returns the listener and an error if one occurred during
-// the binding.
-// A subsequent call to Address() gives the actual listening
-// address which is different if you gave it a ":0"-address.
-func NewTCPListenerWithListenAddr(addr Address,
-	s Suite, listenAddr string) (*TCPListener, error) {
+func NewTCPListener(addr Address) (*TCPListener, error) {
 	if addr.ConnType() != PlainTCP && addr.ConnType() != TLS {
-		return nil, errors.New("TCPListener can only listen on TCP and TLS addresses")
+		return nil, xerrors.New("TCPListener can only listen on TCP and TLS addresses")
 	}
 	t := &TCPListener{
 		conntype:     addr.ConnType(),
 		quit:         make(chan bool),
 		quitListener: make(chan bool),
-		suite:        s,
 	}
-	listenOn, err := getListenAddress(addr, listenAddr)
+	listenOn, err := getListenAddress(addr)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("listener: %v", err)
 	}
 	for i := 0; i < MaxRetryConnect; i++ {
 		ln, err := net.Listen("tcp", listenOn)
@@ -346,7 +328,7 @@ func NewTCPListenerWithListenAddr(addr Address,
 			t.listener = ln
 			break
 		} else if i == MaxRetryConnect-1 {
-			return nil, errors.New("Error opening listener: " + err.Error())
+			return nil, xerrors.New("Error opening listener: " + err.Error())
 		}
 		time.Sleep(WaitRetry)
 	}
@@ -361,7 +343,11 @@ func (t *TCPListener) Listen(fn func(Conn)) error {
 	receiver := func(tc Conn) {
 		go fn(tc)
 	}
-	return t.listen(receiver)
+	err := t.listen(receiver)
+	if err != nil {
+		return xerrors.Errorf("listening: %v", err)
+	}
+	return nil
 }
 
 // listen is the private function that takes a function that takes a TCPConn.
@@ -387,8 +373,7 @@ func (t *TCPListener) listen(fn func(Conn)) error {
 			continue
 		}
 		c := TCPConn{
-			conn:  conn,
-			suite: t.suite,
+			conn: conn,
 		}
 		fn(&c)
 	}
@@ -407,7 +392,7 @@ func (t *TCPListener) Stop() error {
 	if t.listener != nil {
 		if err := t.listener.Close(); err != nil {
 			if handleError(err) != ErrClosed {
-				return err
+				return xerrors.Errorf("closing: %w", handleError(err))
 			}
 		}
 	}
@@ -443,70 +428,33 @@ func (t *TCPListener) Listening() bool {
 	return t.listening
 }
 
-// getListenAddress returns the address the listener should listen
-// on given the server's address (addr) and the address it was told to listen
-// on (listenAddr), which could be empty.
-// Rules:
-// 1. If there is no listenAddr, bind globally with addr.
-// 2. If there is only an IP in listenAddr, take the port from addr.
-// 3. If there is an IP:Port in listenAddr, take only listenAddr.
-// Otherwise return an error.
-func getListenAddress(addr Address, listenAddr string) (string, error) {
-	// If no `listenAddr`, bind globally.
-	if listenAddr == "" {
-		return GlobalBind(addr.NetworkAddress())
-	}
-	_, port, err := net.SplitHostPort(addr.NetworkAddress())
-	if err != nil {
-		return "", err
-	}
-
-	// If 'listenAddr' only contains the host, combine it with the port
-	// of 'addr'.
-	splitted := strings.Split(listenAddr, ":")
-	if len(splitted) == 1 && port != "" {
-		return splitted[0] + ":" + port, nil
-	}
-
-	// If host and port in `listenAddr`, choose this one.
-	hostListen, portListen, err := net.SplitHostPort(listenAddr)
-	if err != nil {
-		return "", err
-	}
-	if hostListen != "" && portListen != "" {
-		return listenAddr, nil
-	}
-
-	return "", fmt.Errorf("Invalid combination of 'addr' (%s) and 'listenAddr' (%s)", addr.NetworkAddress(), listenAddr)
+func getListenAddress(addr Address) (string, error) {
+	return GlobalBind(addr.NetworkAddress())
 }
 
 // TCPHost implements the Host interface using TCP connections.
 type TCPHost struct {
-	suite Suite
-	sid   *ServerIdentity
+	sid *ServerIdentity
+	cr  *ciphersuite.Registry
 	*TCPListener
 }
 
 // NewTCPHost returns a new Host using TCP connection based type.
-func NewTCPHost(sid *ServerIdentity, s Suite) (*TCPHost, error) {
-	return NewTCPHostWithListenAddr(sid, s, "")
-}
-
-// NewTCPHostWithListenAddr returns a new Host using TCP connection based type
-// listening on the given address.
-func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
-	listenAddr string) (*TCPHost, error) {
+func NewTCPHost(cr *ciphersuite.Registry, sid *ServerIdentity) (*TCPHost, error) {
 	h := &TCPHost{
-		suite: s,
-		sid:   sid,
+		sid: sid,
+		cr:  cr,
 	}
 	var err error
 	if sid.Address.ConnType() == TLS {
-		h.TCPListener, err = NewTLSListenerWithListenAddr(sid, s, listenAddr)
+		h.TCPListener, err = NewTLSListener(cr, sid)
 	} else {
-		h.TCPListener, err = NewTCPListenerWithListenAddr(sid.Address, s, listenAddr)
+		h.TCPListener, err = NewTCPListener(sid.Address)
 	}
-	return h, err
+	if err != nil {
+		return nil, xerrors.Errorf("tcp host: %v", err)
+	}
+	return h, nil
 }
 
 // Connect can only connect to PlainTCP connections.
@@ -514,12 +462,19 @@ func NewTCPHostWithListenAddr(sid *ServerIdentity, s Suite,
 func (t *TCPHost) Connect(si *ServerIdentity) (Conn, error) {
 	switch si.Address.ConnType() {
 	case PlainTCP:
-		c, err := NewTCPConn(si.Address, t.suite)
-		return c, err
+		c, err := NewTCPConn(si.Address)
+		if err != nil {
+			return nil, xerrors.Errorf("tcp connection: %v", err)
+		}
+		return c, nil
 	case TLS:
-		return NewTLSConn(t.sid, si, t.suite)
+		c, err := NewTLSConn(t.cr, t.sid, si)
+		if err != nil {
+			return nil, xerrors.Errorf("tcp connection: %v", err)
+		}
+		return c, nil
 	case InvalidConnType:
-		return nil, errors.New("This address is not correctly formatted: " + si.Address.String())
+		return nil, xerrors.New("This address is not correctly formatted: " + si.Address.String())
 	}
-	return nil, fmt.Errorf("TCPHost %s can't handle this type of connection: %s", si.Address, si.Address.ConnType())
+	return nil, xerrors.Errorf("TCPHost %s can't handle this type of connection: %s", si.Address, si.Address.ConnType())
 }

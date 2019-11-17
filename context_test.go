@@ -11,10 +11,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	bbolt "go.etcd.io/bbolt"
 )
 
 type ContextData struct {
@@ -120,9 +119,9 @@ func TestContext_Path(t *testing.T) {
 	defer os.RemoveAll(tmp)
 
 	c := createContext(t, tmp)
-	pub, _ := c.ServerIdentity().Public.MarshalBinary()
 	h := sha256.New()
-	h.Write(pub)
+	_, err = c.ServerIdentity().PublicKey.WriteTo(h)
+	require.NoError(t, err)
 	dbPath := path.Join(tmp, fmt.Sprintf("%x.db", h.Sum(nil)))
 	_, err = os.Stat(dbPath)
 	if err != nil {
@@ -131,50 +130,49 @@ func TestContext_Path(t *testing.T) {
 	os.Remove(dbPath)
 
 	tmp, err = ioutil.TempDir("", "conode")
-	log.ErrFatal(err)
+	require.NoError(t, err)
 	defer os.RemoveAll(tmp)
 
 	c = createContext(t, tmp)
 
 	_, err = os.Stat(tmp)
-	log.ErrFatal(err)
-	pub, _ = c.ServerIdentity().Public.MarshalBinary()
+	require.NoError(t, err)
 	h = sha256.New()
-	h.Write(pub)
+	_, err = c.ServerIdentity().PublicKey.WriteTo(h)
+	require.NoError(t, err)
 	_, err = os.Stat(path.Join(tmp, fmt.Sprintf("%x.db", h.Sum(nil))))
-	log.ErrFatal(err)
+	require.NoError(t, err)
 }
 
 // createContext creates the minimum number of things required for the test
 func createContext(t *testing.T, dbPath string) *Context {
-	kp := key.NewKeyPair(tSuite)
-	si := network.NewServerIdentity(kp.Public,
+	pk, _, err := testSuite.GenerateKeyPair(nil)
+	require.NoError(t, err)
+	si := network.NewServerIdentity(pk.Raw(),
 		network.NewAddress(network.Local, "localhost:0"))
 	cn := &Server{
 		Router: &network.Router{
 			ServerIdentity: si,
 		},
+		WebSocket: NewWebSocket(si),
 	}
 
 	name := "testService"
-	RegisterNewService(name, func(c *Context) (Service, error) {
-		return nil, nil
-	})
 
 	sm := &serviceManager{
-		server: cn,
-		dbPath: dbPath,
+		services: make(map[string]Service),
+		server:   cn,
+		dbPath:   dbPath,
 	}
-
 	db, err := openDb(sm.dbFileName())
-	require.Nil(t, err)
-
-	err = db.Update(func(tx *bbolt.Tx) error {
-		_, err := tx.CreateBucket([]byte(name))
-		return err
-	})
 	require.Nil(t, err)
 	sm.db = db
 
-	return newContext(cn, nil, ServiceFactory.ServiceID(name), sm)
+	sm.register(nil, name, func(c *Context, suite ciphersuite.CipherSuite) (Service, error) {
+		return nil, nil
+	})
+
+	sm.db = db
+
+	return newContext(name, sm)
 }

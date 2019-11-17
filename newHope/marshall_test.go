@@ -38,7 +38,6 @@ func TestSecretMarshall(t *testing.T) {
 	z2 := sk.GetE()
 	m, e2 := sk.Marshall()
 	if e2 != nil {
-		fmt.Println("Bjorninn")
 		t.FailNow()
 	}
 	sk2, e3 := checkPrivateKey(m, ctx)

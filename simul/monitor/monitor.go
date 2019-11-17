@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // This file handles the collection of measurements, aggregates them and
@@ -88,7 +89,7 @@ func (m *Monitor) InsertBucket(index int, rules []string, stats *Stats) {
 func (m *Monitor) Listen() error {
 	ln, err := net.Listen("tcp", Sink+":"+strconv.Itoa(int(m.SinkPort)))
 	if err != nil {
-		return fmt.Errorf("Error while monitor is binding address: %v", err)
+		return xerrors.Errorf("Error while monitor is binding address: %v", err)
 	}
 	if m.SinkPort == 0 {
 		_, p, _ := net.SplitHostPort(ln.Addr().String())

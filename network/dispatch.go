@@ -1,10 +1,10 @@
 package network
 
 import (
-	"errors"
 	"sync"
 
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Dispatcher is an interface whose sole role is to distribute messages to the
@@ -89,7 +89,7 @@ func (d *BlockingDispatcher) Dispatch(packet *Envelope) error {
 	var p Processor
 	if p = d.procs[packet.MsgType]; p == nil {
 		d.Unlock()
-		return errors.New("No Processor attached to this message type " + packet.MsgType.String())
+		return xerrors.New("No Processor attached to this message type " + packet.MsgType.String())
 	}
 	d.Unlock()
 	p.Process(packet)
@@ -120,7 +120,7 @@ func (d *RoutineDispatcher) Dispatch(packet *Envelope) error {
 	defer d.Unlock()
 	var p = d.procs[packet.MsgType]
 	if p == nil {
-		return errors.New("no Processor attached to this message type")
+		return xerrors.New("no Processor attached to this message type")
 	}
 	go func() {
 		d.routinesMutex.Lock()
@@ -148,6 +148,6 @@ type defaultProcessor struct {
 func (dp *defaultProcessor) Process(msg *Envelope) {
 	err := dp.fn(msg)
 	if err != nil {
-		log.Errorf("error while processing msg type %v from %v: %v", msg.MsgType, msg.ServerIdentity, err)
+		log.Errorf("error while processing msg type %v from %v: %+v", msg.MsgType, msg.ServerIdentity, err)
 	}
 }

@@ -3,8 +3,6 @@ package network
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"testing"
@@ -12,8 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 func init() {
@@ -196,7 +195,7 @@ func TestTCPConnReceiveRaw(t *testing.T) {
 
 	// get addr
 	listeningAddr := <-addr
-	c, err := NewTCPConn(NewTCPAddress(listeningAddr), tSuite)
+	c, err := NewTCPConn(NewTCPAddress(listeningAddr))
 	require.Nil(t, err)
 
 	buffRaw, err := c.receiveRaw()
@@ -215,7 +214,7 @@ func TestTCPConnReceiveRaw(t *testing.T) {
 	go listen(fnBad)
 
 	listeningAddr = <-addr
-	c, err = NewTCPConn(NewTCPAddress(listeningAddr), tSuite)
+	c, err = NewTCPConn(NewTCPAddress(listeningAddr))
 	require.Nil(t, err)
 
 	_, err = c.receiveRaw()
@@ -235,7 +234,7 @@ func TestTCPConn(t *testing.T) {
 	addr := make(chan string)
 	done := make(chan bool)
 
-	_, err := NewTCPConn(NewTCPAddress("127.0.0.1:7878"), tSuite)
+	_, err := NewTCPConn(NewTCPAddress("127.0.0.1:7878"))
 	if err == nil {
 		t.Fatal("Should not be able to connect here")
 	}
@@ -253,7 +252,7 @@ func TestTCPConn(t *testing.T) {
 
 	// get addr
 	listeningAddr := <-addr
-	c, err := NewTCPConn(NewTCPAddress(listeningAddr), tSuite)
+	c, err := NewTCPConn(NewTCPAddress(listeningAddr))
 	require.Nil(t, err)
 	require.Equal(t, c.Local().NetworkAddress(), c.conn.LocalAddr().String())
 	require.Equal(t, c.Type(), PlainTCP)
@@ -281,7 +280,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	}()
 
 	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite)
+	ln, err := NewTCPListener(addr)
 	if err != nil {
 		t.Fatal("error setup listener", err)
 	}
@@ -319,7 +318,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	}()
 
 	<-ready
-	c, err := NewTCPConn(addr, tSuite)
+	c, err := NewTCPConn(addr)
 	require.Nil(t, err, "Could not open connection")
 	// Test bandwitdth measurements also
 	sentLen, err := c.Send(&SimpleMessage{3})
@@ -343,7 +342,7 @@ func TestTCPConnTimeout(t *testing.T) {
 	// the timeout from send too
 	select {
 	case err := <-connStat:
-		assert.Equal(t, ErrTimeout, err)
+		assert.True(t, xerrors.Is(err, ErrTimeout))
 	case <-time.After(10 * timeoutForTest):
 		t.Error("Did not received message after timeout...")
 	}
@@ -362,7 +361,7 @@ func TestTCPDialTimeout(t *testing.T) {
 	addr := NewAddress(PlainTCP, "1.1.1.2:1234")
 	done := make(chan struct{}, 1)
 	go func() {
-		_, err := NewTCPConn(addr, tSuite)
+		_, err := NewTCPConn(addr)
 		require.Contains(t, err.Error(), "timeout")
 		done <- struct{}{}
 	}()
@@ -376,7 +375,7 @@ func TestTCPDialTimeout(t *testing.T) {
 
 func TestTCPConnWithListener(t *testing.T) {
 	addr := NewAddress(PlainTCP, "127.0.0.1:5678")
-	ln, err := NewTCPListener(addr, tSuite)
+	ln, err := NewTCPListener(addr)
 	if err != nil {
 		t.Fatal("error setup listener", err)
 	}
@@ -397,7 +396,7 @@ func TestTCPConnWithListener(t *testing.T) {
 	}()
 
 	<-ready
-	c, err := NewTCPConn(addr, tSuite)
+	c, err := NewTCPConn(addr)
 	require.Nil(t, err, "Could not open connection")
 	// Test bandwitdth measurements also
 	rx1 := <-connStat
@@ -421,93 +420,10 @@ func TestTCPConnWithListener(t *testing.T) {
 	}
 }
 
-// will create a TCPListener with a specific address to listen on and
-// open a golang net.TCPConn to it
-func TestTCPListenerWithListenAddr(t *testing.T) {
-	// Testing different wrong configurations.
-	testVectorWrong := []struct {
-		addr   Address
-		listen string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:0"), ":0"},
-	}
-	for _, tv := range testVectorWrong {
-		_, err := NewTCPListenerWithListenAddr(tv.addr, tSuite, tv.listen)
-		require.NotNil(t, err, fmt.Sprintf(`Should fail: invalid combination of 
-			'addr' (%s) and 'listenAddr' (%s)`, tv.addr, tv.listen))
-	}
-
-	// Testing different working configurations.
-	testVector := []struct {
-		addr         Address
-		listen       string
-		expectedHost string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1", "127.0.0.1"},
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "127.0.0.1:0", "127.0.0.1"},
-		{NewAddress(PlainTCP, "1.2.3.4:0"), "", "::"},
-	}
-	for _, tv := range testVector {
-		ln, err := NewTCPListenerWithListenAddr(tv.addr, tSuite, tv.listen)
-		require.Nil(t, err, "Error setup listener")
-		host, _, err := net.SplitHostPort(ln.Address().NetworkAddress())
-		require.Nil(t, err, "Error splitting address of listener")
-		require.Equal(t, tv.expectedHost, host)
-
-		ready := make(chan bool)
-		stop := make(chan bool)
-		connReceived := make(chan bool)
-
-		connFn := func(c Conn) {
-			connReceived <- true
-			c.Close()
-		}
-		go func() {
-			ready <- true
-			err := ln.Listen(connFn)
-			require.Nil(t, err, "Listener stop incorrectly")
-			stop <- true
-		}()
-
-		<-ready
-		_, err = net.Dial("tcp", ln.Address().NetworkAddress())
-		require.Nil(t, err, "Could not open connection")
-		<-connReceived
-		require.Nil(t, ln.Stop(), "Error stopping listener")
-		select {
-		case <-stop:
-		case <-time.After(100 * time.Millisecond):
-			t.Fatal("Could not stop listener")
-		}
-
-		require.Nil(t, ln.listen(nil))
-	}
-
-	// Testing different working configurations using static ports (but not
-	// listening because we don't want to risk any error).
-	testVectorStaticPort := []struct {
-		addr            Address
-		listen          string
-		expectedAddress string
-	}{
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1", "4.3.2.1:1234"},
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "4.3.2.1:4321", "4.3.2.1:4321"},
-		{NewAddress(PlainTCP, "1.2.3.4:1234"), "", ":1234"},
-	}
-	for _, tv := range testVectorStaticPort {
-		// using directly 'getListenAddress' which is used by
-		// 'NewTCPListenerWithListenAddr' to figure out the address to listen
-		// to given the server address and listen address from 'private.toml'
-		listenAddr, err := getListenAddress(tv.addr, tv.listen)
-		require.Nil(t, err, "Error getting the listen address")
-		require.Equal(t, tv.expectedAddress, listenAddr)
-	}
-}
-
 // will create a TCPListener globally binding & open a golang net.TCPConn to it
 func TestTCPListener(t *testing.T) {
 	addr := NewAddress(PlainTCP, "127.0.0.1:0")
-	ln, err := NewTCPListener(addr, tSuite)
+	ln, err := NewTCPListener(addr)
 	require.Nil(t, err, "Error setup listener")
 
 	// Making sure the listener is globally binding
@@ -546,18 +462,18 @@ func TestTCPListener(t *testing.T) {
 
 func TestTCPRouter(t *testing.T) {
 	wrongAddr := &ServerIdentity{Address: NewLocalAddress("127.0.0.1:2000")}
-	_, err := NewTCPRouter(wrongAddr, tSuite)
+	_, err := NewTCPRouter(testRegistry, wrongAddr)
 	if err == nil {
 		t.Fatal("Should not setup Router with local address")
 	}
 
 	addr := &ServerIdentity{Address: NewAddress(PlainTCP, "127.0.0.1:2000")}
-	h1, err := NewTCPRouter(addr, tSuite)
+	h1, err := NewTCPRouter(testRegistry, addr)
 	if err != nil {
 		t.Fatal("Could not setup host")
 	}
 	defer h1.Stop()
-	_, err = NewTCPRouter(addr, tSuite)
+	_, err = NewTCPRouter(testRegistry, addr)
 	if err == nil {
 		t.Fatal("Should not succeed with same port")
 	}
@@ -565,20 +481,23 @@ func TestTCPRouter(t *testing.T) {
 
 // Test closing and opening of Host on same address
 func TestTCPHostClose(t *testing.T) {
-	h1, err := NewTestTCPHost(2001)
+	h1, err := NewTestTCPHost(testRegistry, 2001)
 	if err != nil {
 		t.Fatal("Error setup TestTCPHost")
 	}
-	h2, err2 := NewTestTCPHost(2002)
+	h2, err2 := NewTestTCPHost(testRegistry, 2002)
 	if err2 != nil {
 		t.Fatal("Error setup TestTCPHost2")
 	}
 	go h1.Listen(acceptAndClose)
-	si := NewTestServerIdentity(NewLocalAddress("127.0.0.1:7878"))
+	si, err := NewTestServerIdentity(NewLocalAddress("127.0.0.1:7878"))
+	require.NoError(t, err)
 	if _, err := h2.Connect(si); err == nil {
 		t.Fatal("Should not connect to dummy address or different type")
 	}
-	_, err = h2.Connect(NewTestServerIdentity(h1.TCPListener.Address()))
+	si2, err := NewTestServerIdentity(h1.TCPListener.Address())
+	require.NoError(t, err)
+	_, err = h2.Connect(si2)
 	if err != nil {
 		t.Fatal("Couldn't Connect()", err)
 	}
@@ -592,12 +511,14 @@ func TestTCPHostClose(t *testing.T) {
 		t.Fatal("Couldn't close:", err)
 	}
 	log.Lvl3("Finished first connection, starting 2nd")
-	h3, err3 := NewTestTCPHost(2003)
+	h3, err3 := NewTestTCPHost(testRegistry, 2003)
 	if err3 != nil {
 		t.Fatal("Could not setup host", err)
 	}
 	go h3.Listen(acceptAndClose)
-	_, err = h2.Connect(NewTestServerIdentity(h3.TCPListener.Address()))
+	si3, err := NewTestServerIdentity(h3.TCPListener.Address())
+	require.NoError(t, err)
+	_, err = h2.Connect(si3)
 	if err != nil {
 		t.Fatal(h2, "Couldn Connect() to", h3)
 	}
@@ -627,11 +548,11 @@ func (d *dummyErr) Error() string {
 }
 
 func TestHandleError(t *testing.T) {
-	require.Equal(t, ErrClosed, handleError(errors.New("use of closed")))
-	require.Equal(t, ErrCanceled, handleError(errors.New("canceled")))
-	require.Equal(t, ErrEOF, handleError(errors.New("EOF")))
+	require.Equal(t, ErrClosed, handleError(xerrors.New("use of closed")))
+	require.Equal(t, ErrCanceled, handleError(xerrors.New("canceled")))
+	require.Equal(t, ErrEOF, handleError(xerrors.New("EOF")))
 
-	require.Equal(t, ErrUnknown, handleError(errors.New("random error")))
+	require.Equal(t, ErrUnknown, handleError(xerrors.New("random error")))
 
 	de := dummyErr{true, true}
 	de.temporary = false
@@ -640,19 +561,26 @@ func TestHandleError(t *testing.T) {
 	require.Equal(t, ErrUnknown, handleError(&de))
 }
 
-func NewTestTCPHost(port int) (*TCPHost, error) {
+func NewTestTCPHost(cr *ciphersuite.Registry, port int) (*TCPHost, error) {
 	addr := NewTCPAddress("127.0.0.1:" + strconv.Itoa(port))
-	kp := key.NewKeyPair(tSuite)
-	e := NewServerIdentity(kp.Public, addr)
-	e.SetPrivate(kp.Private)
-	return NewTCPHost(e, tSuite)
+	pk, sk, err := testSuite.GenerateKeyPair(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	e := NewServerIdentity(pk.Raw(), addr)
+	e.SetPrivate(sk.Raw())
+	return NewTCPHost(cr, e)
 }
 
 // Returns a ServerIdentity out of the address
-func NewTestServerIdentity(address Address) *ServerIdentity {
-	kp := key.NewKeyPair(tSuite)
-	e := NewServerIdentity(kp.Public, address)
-	return e
+func NewTestServerIdentity(address Address) (*ServerIdentity, error) {
+	pk, _, err := testSuite.GenerateKeyPair(nil)
+	if err != nil {
+		return nil, err
+	}
+	e := NewServerIdentity(pk.Raw(), address)
+	return e, nil
 }
 
 // SimpleMessage is just used to transfer one integer
@@ -717,14 +645,14 @@ func sendrcvProc(from, to *Router) error {
 		return err
 	}
 	if sentLen == 0 {
-		return errors.New("sentLen is zero")
+		return xerrors.New("sentLen is zero")
 	}
 
 	select {
 	case <-sp.relay:
 		err = nil
 	case <-time.After(1 * time.Second):
-		err = errors.New("timeout")
+		err = xerrors.New("timeout")
 	}
 	// delete the processing
 	to.RegisterProcessor(nil, statusMsgID)
@@ -739,7 +667,7 @@ func waitConnections(r *Router, sid *ServerIdentity) error {
 		}
 		time.Sleep(WaitRetry)
 	}
-	return fmt.Errorf("Didn't see connection to %s in router", sid.Address)
+	return xerrors.Errorf("Didn't see connection to %s in router", sid.Address)
 }
 
 func acceptAndClose(c Conn) {

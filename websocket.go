@@ -2,7 +2,7 @@ package onet
 
 import (
 	"crypto/tls"
-	"errors"
+	"crypto/x509"
 	"fmt"
 	"math/rand"
 	"net"
@@ -18,8 +18,83 @@ import (
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
+	"golang.org/x/xerrors"
 	graceful "gopkg.in/tylerb/graceful.v1"
 )
+
+const certificateReloaderLeeway = 1 * time.Hour
+
+// CertificateReloader takes care of reloading a TLS certificate when
+// requested.
+type CertificateReloader struct {
+	sync.RWMutex
+	cert     *tls.Certificate
+	certPath string
+	keyPath  string
+}
+
+// NewCertificateReloader takes two file paths as parameter that contain
+// the certificate and the key data to create an automatic reloader. It will
+// try to read again the files when the certificate is almost expired.
+func NewCertificateReloader(certPath, keyPath string) (*CertificateReloader, error) {
+	loader := &CertificateReloader{
+		certPath: certPath,
+		keyPath:  keyPath,
+	}
+
+	err := loader.reload()
+	if err != nil {
+		return nil, xerrors.Errorf("reloading certificate: %v", err)
+	}
+
+	return loader, nil
+}
+
+func (cr *CertificateReloader) reload() error {
+	newCert, err := tls.LoadX509KeyPair(cr.certPath, cr.keyPath)
+	if err != nil {
+		return xerrors.Errorf("load x509: %v", err)
+	}
+
+	cr.Lock()
+	cr.cert = &newCert
+	// Successful parse means at least one certificate.
+	cr.cert.Leaf, err = x509.ParseCertificate(newCert.Certificate[0])
+	cr.Unlock()
+
+	if err != nil {
+		return xerrors.Errorf("parse x509: %v", err)
+	}
+	return nil
+}
+
+// GetCertificateFunc makes a function that can be passed to the TLSConfig
+// so that it resolves the most up-to-date one.
+func (cr *CertificateReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		cr.RLock()
+
+		exp := time.Now().Add(certificateReloaderLeeway)
+
+		// Here we know the leaf has been parsed successfully as an error
+		// would have been thrown otherwise.
+		if cr.cert == nil || exp.After(cr.cert.Leaf.NotAfter) {
+			// Certificate has expired so we try to load the new one.
+
+			// Free the read lock to be able to reload.
+			cr.RUnlock()
+			err := cr.reload()
+			if err != nil {
+				return nil, xerrors.Errorf("reload certificate: %v", err)
+			}
+
+			cr.RLock()
+		}
+
+		defer cr.RUnlock()
+		return cr.cert, nil
+	}
+}
 
 // WebSocket handles incoming client-requests using the websocket
 // protocol. When making a new WebSocket, it will listen one port above the
@@ -51,6 +126,11 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 		ok := []byte("ok\n")
 		w.Write(ok)
 	})
+
+	if allowPprof() {
+		log.Warn("HTTP pprof profiling is enabled")
+		initPprof(w.mux)
+	}
 
 	// Add a catch-all handler (longest paths take precedence, so "/" takes
 	// all non-registered paths) and correctly upgrade to a websocket and
@@ -108,7 +188,7 @@ func (w *WebSocket) start() {
 	go func() {
 		// Check if server is configured for TLS
 		started <- true
-		if w.server.Server.TLSConfig != nil && len(w.server.Server.TLSConfig.Certificates) >= 1 {
+		if w.server.Server.TLSConfig != nil && (w.server.TLSConfig.GetCertificate != nil || len(w.server.Server.TLSConfig.Certificates) >= 1) {
 			w.server.ListenAndServeTLS("", "")
 		} else {
 			w.server.ListenAndServe()
@@ -123,7 +203,7 @@ func (w *WebSocket) start() {
 // path and it's sub-endpoints will be forwarded to ProcessClientRequest.
 func (w *WebSocket) registerService(service string, s Service) error {
 	if service == "ok" {
-		return errors.New("service name \"ok\" is not allowed")
+		return xerrors.New("service name \"ok\" is not allowed")
 	}
 
 	w.services[service] = s
@@ -231,7 +311,7 @@ outerReadLoop:
 						return
 					case reply, ok := <-tun.out:
 						if !ok {
-							err = errors.New("service finished streaming")
+							err = xerrors.New("service finished streaming")
 							close(tun.close)
 							break outerReadLoop
 						}
@@ -250,7 +330,7 @@ outerReadLoop:
 				}
 			}
 		} else {
-			log.Errorf("Got an error while executing %s/%s: %s", t.serviceName, path, err.Error())
+			log.Errorf("Got an error while executing %s/%s: %+v", t.serviceName, path, err)
 		}
 	}
 
@@ -276,7 +356,6 @@ type Client struct {
 	service         string
 	connections     map[destination]*websocket.Conn
 	connectionsLock map[destination]*sync.Mutex
-	suite           network.Suite
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
@@ -288,26 +367,20 @@ type Client struct {
 
 // NewClient returns a client using the service s. On the first Send, the
 // connection will be started, until Close is called.
-func NewClient(suite network.Suite, s string) *Client {
+func NewClient(s string) *Client {
 	return &Client{
 		service:         s,
 		connections:     make(map[destination]*websocket.Conn),
 		connectionsLock: make(map[destination]*sync.Mutex),
-		suite:           suite,
 	}
 }
 
 // NewClientKeep returns a Client that doesn't close the connection between
 // two messages if it's the same server.
-func NewClientKeep(suite network.Suite, s string) *Client {
-	cl := NewClient(suite, s)
+func NewClientKeep(s string) *Client {
+	cl := NewClient(s)
 	cl.keep = true
 	return cl
-}
-
-// Suite returns the cryptographic suite in use on this connection.
-func (c *Client) Suite() network.Suite {
-	return c.suite
 }
 
 func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
@@ -353,7 +426,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			u, err := url.Parse(dst.URL)
 			if err != nil {
 				connLock.Unlock()
-				return nil, nil, err
+				return nil, nil, xerrors.Errorf("parsing url: %v", err)
 			}
 			if u.Scheme == "https" {
 				u.Scheme = "wss"
@@ -371,7 +444,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 			hp, err := getWSHostPort(dst, false)
 			if err != nil {
 				connLock.Unlock()
-				return nil, nil, err
+				return nil, nil, xerrors.Errorf("parsing port: %v", err)
 			}
 
 			var wsProtocol string
@@ -401,7 +474,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		}
 		if err != nil {
 			connLock.Unlock()
-			return nil, nil, err
+			return nil, nil, xerrors.Errorf("dial: %v", err)
 		}
 		c.Lock()
 		c.connections[dest] = conn
@@ -417,7 +490,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]byte, error) {
 	conn, connLock, err := c.newConnIfNotExist(dst, path)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("new connection: %v", err)
 	}
 	defer connLock.Unlock()
 
@@ -432,15 +505,15 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 
 	log.Lvlf4("Sending %x to %s/%s", buf, c.service, path)
 	if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("connection write: %v", err)
 	}
 
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("read deadline: %v", err)
 	}
 	_, rcv, err = conn.ReadMessage()
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("connection read: %v", err)
 	}
 	log.Lvlf4("Received %x", rcv)
 	return rcv, nil
@@ -455,16 +528,18 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 func (c *Client) SendProtobuf(dst *network.ServerIdentity, msg interface{}, ret interface{}) error {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
-		return err
+		return xerrors.Errorf("encoding: %v", err)
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 	reply, err := c.Send(dst, path, buf)
 	if err != nil {
-		return err
+		return xerrors.Errorf("sending: %v", err)
 	}
 	if ret != nil {
-		return protobuf.DecodeWithConstructors(reply, ret,
-			network.DefaultConstructors(c.suite))
+		err := protobuf.Decode(reply, ret)
+		if err != nil {
+			return xerrors.Errorf("decoding: %v", err)
+		}
 	}
 	return nil
 }
@@ -570,7 +645,7 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 	opt *ParallelOptions, decoder Decoder) (*network.ServerIdentity, error) {
 	buf, err := protobuf.Encode(msg)
 	if err != nil {
-		return nil, err
+		return nil, xerrors.Errorf("decoding: %v", err)
 	}
 	path := strings.Split(reflect.TypeOf(msg).String(), ".")[1]
 
@@ -639,7 +714,7 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 				close(done)
 				return nil, err
 			}
-			errs = append(errs, err)
+			errs = append(errs, xerrors.Errorf("sending: %v", err))
 		}
 	}
 
@@ -652,30 +727,36 @@ func (c *Client) SendProtobufParallelWithDecoder(nodes []*network.ServerIdentity
 // as a structure for future enhancements. If opt is nil, then standard values will be taken.
 func (c *Client) SendProtobufParallel(nodes []*network.ServerIdentity, msg interface{}, ret interface{},
 	opt *ParallelOptions) (*network.ServerIdentity, error) {
-	return c.SendProtobufParallelWithDecoder(nodes, msg, ret, opt, protobuf.Decode)
+	si, err := c.SendProtobufParallelWithDecoder(nodes, msg, ret, opt, protobuf.Decode)
+	if err != nil {
+		return nil, xerrors.Errorf("sending: %v", err)
+	}
+	return si, nil
 }
 
 // StreamingConn allows clients to read from it without sending additional
 // requests.
 type StreamingConn struct {
-	conn  *websocket.Conn
-	suite network.Suite
+	conn *websocket.Conn
 }
 
 // ReadMessage read more data from the connection, it will block if there are
 // no messages.
 func (c *StreamingConn) ReadMessage(ret interface{}) error {
 	if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-		return err
+		return xerrors.Errorf("read deadline: %v", err)
 	}
 	// No need to add bytes to counter here because this function is only
 	// called by the client.
 	_, buf, err := c.conn.ReadMessage()
 	if err != nil {
-		return err
+		return xerrors.Errorf("connection read: %v", err)
 	}
-	return protobuf.DecodeWithConstructors(buf, ret,
-		network.DefaultConstructors(c.suite))
+	err = protobuf.Decode(buf, ret)
+	if err != nil {
+		return xerrors.Errorf("decoding: %v", err)
+	}
+	return nil
 }
 
 // Stream will send a request to start streaming, it returns a connection where
@@ -699,7 +780,7 @@ func (c *Client) Stream(dst *network.ServerIdentity, msg interface{}) (Streaming
 	c.Lock()
 	c.tx += uint64(len(buf))
 	c.Unlock()
-	return StreamingConn{conn, c.Suite()}, nil
+	return StreamingConn{conn}, nil
 }
 
 // SendToAll sends a message to all ServerIdentities of the Roster and returns
@@ -716,7 +797,7 @@ func (c *Client) SendToAll(dst *Roster, path string, buf []byte) ([][]byte, erro
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return msgs, err
 }
@@ -739,7 +820,7 @@ func (c *Client) Close() error {
 	}
 	var err error
 	if len(errstrs) > 0 {
-		err = errors.New(strings.Join(errstrs, "\n"))
+		err = xerrors.New(strings.Join(errstrs, "\n"))
 	}
 	return err
 }
@@ -781,7 +862,7 @@ func (c *Client) Rx() uint64 {
 func getWSHostPort(si *network.ServerIdentity, global bool) (string, error) {
 	p, err := strconv.Atoi(si.Address.Port())
 	if err != nil {
-		return "", err
+		return "", xerrors.Errorf("atoi: %v", err)
 	}
 	host := si.Address.Host()
 	if global {

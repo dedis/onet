@@ -15,6 +15,7 @@ import (
 	"flag"
 	"os"
 
+	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/simul/platform"
 )
@@ -49,14 +50,14 @@ func init() {
 // simulation to run.
 // If given an array of rcs, each element will be interpreted as a .toml-file
 // to load and simulate.
-func Start(rcs ...string) {
+func Start(builder onet.Builder, rcs ...string) {
 	wd, err := os.Getwd()
 	if len(rcs) > 0 {
 		log.ErrFatal(err)
 		for _, rc := range rcs {
 			log.Lvl1("Running toml-file:", rc)
 			os.Args = []string{os.Args[0], rc}
-			Start()
+			Start(builder)
 		}
 		return
 	}
@@ -64,7 +65,7 @@ func Start(rcs ...string) {
 	if simul == "" {
 		startBuild()
 	} else {
-		err := platform.Simulate(suite, serverAddress, simul, monitorAddress)
+		err := platform.Simulate(builder, serverAddress, simul, monitorAddress)
 		log.ErrFatal(err)
 	}
 	os.Chdir(wd)

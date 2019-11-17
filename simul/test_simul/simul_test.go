@@ -7,5 +7,5 @@ import (
 )
 
 func TestSimulation(t *testing.T) {
-	simul.Start("count.toml")
+	simul.Start(builder, "count.toml")
 }

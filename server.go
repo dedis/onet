@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -11,19 +10,21 @@ import (
 	"sync"
 	"time"
 
-	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/cfgpath"
+	"go.dedis.ch/onet/v3/ciphersuite"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
+	"golang.org/x/xerrors"
 	"rsc.io/goversion/version"
 )
 
 // Server connects the Router, the Overlay, and the Services together. It sets
 // up everything and returns once a working network has been set up.
 type Server struct {
-	// Our private-key
-	private kyber.Scalar
 	*network.Router
+
+	// Our private-key
+	secretKey ciphersuite.SecretKey
 	// Overlay handles the mapping from tree and entityList to ServerIdentity.
 	// It uses tokens to represent an unique ProtocolInstance in the system
 	overlay *Overlay
@@ -41,8 +42,6 @@ type Server struct {
 	// once everything's up and running
 	closeitChannel chan bool
 	IsStarted      bool
-
-	suite network.Suite
 }
 
 func dbPathFromEnv() string {
@@ -57,7 +56,7 @@ func dbPathFromEnv() string {
 // If dbPath is "", the server will write its database to the default
 // location. If dbPath is != "", it is considered a temp dir, and the
 // DB is deleted on close.
-func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Scalar) *Server {
+func newServer(cr *ciphersuite.Registry, dbPath string, r *network.Router, pkey *ciphersuite.RawSecretKey) *Server {
 	delDb := false
 	if dbPath == "" {
 		dbPath = dbPathFromEnv()
@@ -66,43 +65,23 @@ func newServer(s network.Suite, dbPath string, r *network.Router, pkey kyber.Sca
 		delDb = true
 	}
 
-	c := &Server{
-		private:              pkey,
+	sk, err := cr.UnpackSecretKey(pkey)
+	if err != nil {
+		panic(err)
+	}
+
+	srv := &Server{
+		secretKey:            sk,
 		statusReporterStruct: newStatusReporterStruct(),
 		Router:               r,
 		protocols:            newProtocolStorage(),
-		suite:                s,
 		closeitChannel:       make(chan bool),
 	}
-	c.overlay = NewOverlay(c)
-	c.WebSocket = NewWebSocket(r.ServerIdentity)
-	c.serviceManager = newServiceManager(c, c.overlay, dbPath, delDb)
-	c.statusReporterStruct.RegisterStatusReporter("Generic", c)
-	return c
-}
-
-// NewServerTCP returns a new Server out of a private-key and its related
-// public key within the ServerIdentity. The server will use a default
-// TcpRouter as Router.
-func NewServerTCP(e *network.ServerIdentity, suite network.Suite) *Server {
-	return NewServerTCPWithListenAddr(e, suite, "")
-}
-
-// NewServerTCPWithListenAddr returns a new Server out of a private-key and
-// its related public key within the ServerIdentity. The server will use a
-// TcpRouter listening on the given address as Router.
-func NewServerTCPWithListenAddr(e *network.ServerIdentity, suite network.Suite,
-	listenAddr string) *Server {
-	r, err := network.NewTCPRouterWithListenAddr(e, suite, listenAddr)
-	log.ErrFatal(err)
-	return newServer(suite, "", r, e.GetPrivate())
-}
-
-// Suite can (and should) be used to get the underlying Suite.
-// Currently the suite is hardcoded into the network library.
-// Don't use network.Suite but Host's Suite function instead if possible.
-func (c *Server) Suite() network.Suite {
-	return c.suite
+	srv.overlay = NewOverlay(srv, cr)
+	srv.WebSocket = NewWebSocket(r.ServerIdentity)
+	srv.serviceManager = newServiceManager(srv, srv.overlay, dbPath, delDb)
+	srv.statusReporterStruct.RegisterStatusReporter("Generic", srv)
+	return srv
 }
 
 var gover version.Version
@@ -125,6 +104,7 @@ func (c *Server) GetStatus() *Status {
 		"Port":        c.ServerIdentity.Address.Port(),
 		"Description": c.ServerIdentity.Description,
 		"ConnType":    string(c.ServerIdentity.Address.ConnType()),
+		"GoRoutines":  fmt.Sprintf("%v", runtime.NumGoroutine()),
 	}}
 
 	goverOnce.Do(func() {
@@ -154,12 +134,14 @@ func (c *Server) Close() error {
 
 	err := c.Router.Stop()
 	if err != nil {
+		err = xerrors.Errorf("stopping: %v", err)
 		log.Error("While stopping router:", err)
 	}
 	c.WebSocket.stop()
 	c.overlay.Close()
 	err = c.serviceManager.closeDatabase()
 	if err != nil {
+		err = xerrors.Errorf("closing db: %v", err)
 		log.Lvl3("Error closing database: " + err.Error())
 	}
 	log.Lvl3("Host Close", c.ServerIdentity.Address, "listening?", c.Router.Listening())
@@ -185,16 +167,24 @@ func (c *Server) GetService(name string) Service {
 // ProtocolRegister will sign up a new protocol to this Server.
 // It returns the ID of the protocol.
 func (c *Server) ProtocolRegister(name string, protocol NewProtocol) (ProtocolID, error) {
-	return c.protocols.Register(name, protocol)
+	id, err := c.protocols.Register(name, protocol)
+	if err != nil {
+		return id, xerrors.Errorf("registering protocol: %v", err)
+	}
+	return id, nil
 }
 
 // protocolInstantiate instantiate a protocol from its ID
 func (c *Server) protocolInstantiate(protoID ProtocolID, tni *TreeNodeInstance) (ProtocolInstance, error) {
 	fn, ok := c.protocols.instantiators[c.protocols.ProtocolIDToName(protoID)]
 	if !ok {
-		return nil, errors.New("No protocol constructor with this ID")
+		return nil, xerrors.New("No protocol constructor with this ID")
 	}
-	return fn(tni)
+	pi, err := fn(tni)
+	if err != nil {
+		return nil, xerrors.Errorf("creating protocol: %v", err)
+	}
+	return pi, nil
 }
 
 // Start makes the router and the WebSocket listen on their respective
@@ -203,9 +193,9 @@ func (c *Server) Start() {
 	InformServerStarted()
 	c.started = time.Now()
 	if !c.Quiet {
-		log.Lvlf1("Starting server at %s on address %s with public key %s",
+		log.Lvlf1("Starting server at %s on address %s",
 			c.started.Format("2006-01-02 15:04:05"),
-			c.ServerIdentity.Address, c.ServerIdentity.Public)
+			c.ServerIdentity.Address)
 	}
 	go c.Router.Start()
 	go c.WebSocket.start()

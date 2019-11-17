@@ -2,7 +2,7 @@ package onet
 
 import (
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // ProtocolMsgID is to be embedded in every message that is made for a
@@ -14,18 +14,6 @@ var RequestTreeMsgID = network.RegisterMessage(RequestTree{})
 
 // ResponseTreeMsgID of TreeMarshal message as registered in network
 var ResponseTreeMsgID = network.RegisterMessage(ResponseTree{})
-
-// SendTreeMsgID of TreeMarshal message as registered in network
-// Deprecated: use ResponseTreeMsgID
-var SendTreeMsgID = TreeMarshalTypeID
-
-// RequestRosterMsgID of RequestRoster message as registered in network
-// Deprecated: only the tree is sent, not anymore the roster
-var RequestRosterMsgID = network.RegisterMessage(RequestRoster{})
-
-// SendRosterMsgID of Roster message as registered in network
-// Deprecated: only the tree is sent, not anymore the roster
-var SendRosterMsgID = RosterTypeID
 
 // ConfigMsgID of the generic config message
 var ConfigMsgID = network.RegisterMessage(ConfigMsg{})

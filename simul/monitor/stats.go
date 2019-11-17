@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/montanaflynn/stats"
 	"go.dedis.ch/onet/v3/log"
+	"golang.org/x/xerrors"
 )
 
 // Stats contains all structures that are related to the computations of stats
@@ -129,7 +129,7 @@ func (s *Stats) WriteIndividualStats(w io.Writer) error {
 			if n == 1 {
 				n = newN
 			} else if n != newN {
-				return errors.New("Found inconsistencies in values")
+				return xerrors.New("Found inconsistencies in values")
 			}
 		}
 	}
@@ -154,11 +154,11 @@ func (s *Stats) WriteIndividualStats(w io.Writer) error {
 		all := append(static, values...)
 		_, err := fmt.Fprintf(w, "%s", strings.Join(all, ","))
 		if err != nil {
-			return err
+			return xerrors.Errorf("formatting: %v", err)
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
-			return err
+			return xerrors.Errorf("formatting: %v", err)
 		}
 
 	}
