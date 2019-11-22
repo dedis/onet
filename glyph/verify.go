@@ -4,8 +4,8 @@ func (pk *PublicKey) Verify(sig *Signature, msg []byte) bool {
 	ctx := pk.ctx
 	z1 := ctx.NewPoly()
 	z2 := ctx.NewPoly()
-	z1.Copy(sig.z1)
-	z2.Copy(sig.z2)
+	z1.SetCoefficients(sig.z1.GetCoefficients())
+	z2.SetCoefficients(sig.z2.GetCoefficients())
 	a := ctx.NewPoly()
 	a.Copy(GetA(ctx))
 	ctx.NTT(z1, z1)
@@ -21,7 +21,8 @@ func (pk *PublicKey) Verify(sig *Signature, msg []byte) bool {
 	//calculating a * z1 + z2 - tc
 	az1z2tc := ctx.NewPoly()
 	//this is a *s + e the public key
-	t := pk.GetT()
+	t := ctx.NewPoly()
+	t.SetCoefficients(pk.GetT().GetCoefficients())
 	ctx.NTT(t, t)
 	tc := ctx.NewPoly()
 	ctx.MulCoeffs(t, c, tc)
