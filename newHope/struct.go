@@ -1,5 +1,10 @@
 package newHope
 
+import (
+	"go.dedis.ch/onet/v3/glyph"
+	"go.dedis.ch/onet/v3/glyph_small"
+)
+
 const NewHopeName = "New Hope"
 
 const sizeOfCoefficient = 8 //Assuming the coefficients are uint64 so 64 / 8
@@ -43,4 +48,34 @@ func NewSignSuite() NewHope {
 //utilizes smaller coefficients
 func NewSignSuiteSmall() NewHope {
 	return &GlyphSmallSuite{}
+}
+
+func (g *GlyphSuite) SizeOfPolynomial() int {
+	return glyph.PolySize
+}
+
+func (g *GlyphSuite) SizeOfSignature() int {
+	return glyph.SignatureSize
+}
+
+func (g *GlyphSuite) SizeOfPublicKey() int {
+	return glyph.PublicKeySize
+}
+func (g *GlyphSuite) SizeOfPrivateKey() int {
+	return glyph.PrivateKeySize
+}
+
+func (g *GlyphSmallSuite) SizeOfPolynomial() int {
+	return glyph_small.PolySize
+}
+
+func (g *GlyphSmallSuite) SizeOfSignature() int {
+	return glyph_small.SignatureSize
+}
+
+func (g *GlyphSmallSuite) SizeOfPublicKey() int {
+	return glyph_small.PublicKeySize
+}
+func (g *GlyphSmallSuite) SizeOfPrivateKey() int {
+	return glyph_small.PrivateKeySize
 }

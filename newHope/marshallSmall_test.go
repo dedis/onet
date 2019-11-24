@@ -63,7 +63,6 @@ func TestSecretMarshallSmall(t *testing.T) {
 	pk1 := sk.PK()
 	pk2 := sk2.PK()
 	comparePolies(pk1.GetT().Coeffs, pk2.GetT().Coeffs, t)
-	fmt.Println("Bjo")
 }
 
 func TestMarshallSmall(t *testing.T) {

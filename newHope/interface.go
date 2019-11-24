@@ -7,4 +7,8 @@ type NewHope interface {
 	Sign(sk PrivateKey, msg []byte) ([]byte, error)
 	Verify(pk PublicKey, msg, sig []byte) error
 	GenerateKey(rand io.Reader) (PublicKey, PrivateKey, error)
+	SizeOfPolynomial() int
+	SizeOfSignature() int
+	SizeOfPublicKey() int
+	SizeOfPrivateKey() int
 }

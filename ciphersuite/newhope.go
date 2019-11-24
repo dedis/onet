@@ -72,11 +72,12 @@ func (s *NewHopeCipherSuite) Name() string {
 }
 
 func (s *NewHopeCipherSuite) PublicKey(raw *RawPublicKey) (PublicKey, error) {
+	suite := s.suite
 	if raw.Name() != s.Name() {
 		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
-	if len(raw.Data) != newHope.NewHopePublicKeySize {
+	if len(raw.Data) != suite.SizeOfPublicKey() {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 
@@ -84,11 +85,12 @@ func (s *NewHopeCipherSuite) PublicKey(raw *RawPublicKey) (PublicKey, error) {
 }
 
 func (s *NewHopeCipherSuite) PrivateKey(raw *RawSecretKey) (SecretKey, error) {
+	suite := s.suite
 	if raw.Name() != s.Name() {
 		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
-	if len(raw.Data) != newHope.NewHopePrivateKeySize {
+	if len(raw.Data) != suite.SizeOfPrivateKey() {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 
@@ -96,11 +98,12 @@ func (s *NewHopeCipherSuite) PrivateKey(raw *RawSecretKey) (SecretKey, error) {
 }
 
 func (s *NewHopeCipherSuite) Signature(raw *RawSignature) (Signature, error) {
+	suite := s.suite
 	if raw.Name() != s.Name() {
 		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
-	if len(raw.Data) != newHope.NewHopeSignatureSize {
+	if len(raw.Data) != suite.SizeOfSignature() {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 
@@ -117,11 +120,12 @@ func (s *NewHopeCipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, Secre
 }
 
 func (s *NewHopeCipherSuite) SecretKey(raw *RawSecretKey) (SecretKey, error) {
+	suite := s.suite
 	if raw.Name() != s.Name() {
 		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
-	if len(raw.Data) != newHope.NewHopePrivateKeySize {
+	if len(raw.Data) != suite.SizeOfPrivateKey() {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 

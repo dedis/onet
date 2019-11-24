@@ -13,16 +13,13 @@ func TestPolyMarshall(t *testing.T) {
 	pub := glyph.NewPublicKey(p)
 	pd, e := pub.Marshall()
 	if e != nil {
-		fmt.Println("Bjozzi")
 		t.FailNow()
 	}
 	pk, e2 := checkPublicKey(pd, ctx)
 	if e2 != nil {
-		fmt.Println("Bjoggi")
 		t.FailNow()
 	}
 	if !ctx.Equal(pk.GetT(), pub.GetT()) {
-		fmt.Println("WTF")
 		t.FailNow()
 	}
 }
@@ -63,7 +60,6 @@ func TestSecretMarshall(t *testing.T) {
 		t.Log("PK did not equal")
 		t.Fail()
 	}
-	fmt.Println("Bjo")
 }
 
 func TestMarshall(t *testing.T) {
