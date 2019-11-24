@@ -5,6 +5,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/daviddengcn/go-colortext v0.0.0-20180409174941-186a3d44e920
 	github.com/gorilla/websocket v1.4.0
+	github.com/lca1/lattigo v1.0.1-0.20190919152901-2907513302d1
 	github.com/ldsec/lattigo v1.1.0
 	github.com/montanaflynn/stats v0.5.0
 	github.com/stretchr/testify v1.3.0
