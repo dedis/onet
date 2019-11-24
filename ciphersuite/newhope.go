@@ -63,7 +63,7 @@ func (pk *NewHopeSignature) Raw() *RawSignature {
 }
 
 type NewHopeCipherSuite struct {
-	//Nothing
+	suite newHope.NewHope
 }
 
 func (s *NewHopeCipherSuite) Name() string {
@@ -107,7 +107,8 @@ func (s *NewHopeCipherSuite) Signature(raw *RawSignature) (Signature, error) {
 }
 
 func (s *NewHopeCipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, SecretKey, error) {
-	pk, sk, err := newHope.GenerateKey(reader)
+	suite := s.suite
+	pk, sk, err := suite.GenerateKey(reader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,11 +144,12 @@ func (s *NewHopeCipherSuite) unpackSecretKey(sk SecretKey) (*NewHopePrivateKey, 
 }
 
 func (s *NewHopeCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
+	suite := s.suite
 	secretKey, err := s.unpackSecretKey(sk)
 	if err != nil {
 		return nil, err
 	}
-	sigbuf, e := newHope.Sign(secretKey.data, msg)
+	sigbuf, e := suite.Sign(secretKey.data, msg)
 	if e != nil {
 		return nil, e
 	}
@@ -157,6 +159,7 @@ func (s *NewHopeCipherSuite) Sign(sk SecretKey, msg []byte) (Signature, error) {
 // Verify returns nil when the signature of the message can be verified by
 // the public key.
 func (s *NewHopeCipherSuite) Verify(pk PublicKey, sig Signature, msg []byte) error {
+	suite := s.suite
 	publicKey, err := s.unpackPublicKey(pk)
 	if err != nil {
 		return xerrors.Errorf("unpacking public key: %v", err)
@@ -167,7 +170,7 @@ func (s *NewHopeCipherSuite) Verify(pk PublicKey, sig Signature, msg []byte) err
 		return xerrors.Errorf("unpacking signature: %v", err)
 	}
 
-	e := newHope.Verify(publicKey.data, msg, signature.data)
+	e := suite.Verify(publicKey.data, msg, signature.data)
 	if e != nil {
 		return e
 	}
@@ -207,6 +210,17 @@ func (s *NewHopeCipherSuite) unpackSignature(sig Signature) (*NewHopeSignature, 
 	return nil, xerrors.New("wrong type of signature")
 }
 
+//NewNewHopeCipherSuite Returns the default cipher suite
 func NewNewHopeCipherSuite() *NewHopeCipherSuite {
-	return &NewHopeCipherSuite{}
+	return &NewHopeCipherSuite{
+		suite: newHope.NewSignSuite(),
+	}
+}
+
+//NewNewHopeCipherSuiteSmall returns a newhpe cipher suite that
+//utilizes small coefficients
+func NewNewHopeCipherSuiteSmall() *NewHopeCipherSuite {
+	return &NewHopeCipherSuite{
+		suite: newHope.NewSignSuiteSmall(),
+	}
 }

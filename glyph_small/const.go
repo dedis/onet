@@ -105,3 +105,21 @@ var constA = [constN]uint32{
 	2039, 10380, 5697, 12272, 3767, 10001, 2221, 6889, 3319, 5960, 8773, 4514, 1064, 11821, 423, 9100, 11626, 10031, 7542, 1205, 4764, 7570, 6929, 8244, 10526, 9812, 845, 11167, 10257, 7577, 7726, 10540,
 	5260, 2238, 4660, 10997, 12080, 8859, 4584, 633, 8956, 8163, 3077, 7808, 2027, 9012, 7562, 79, 577, 204, 10237, 8295, 4209, 2108, 7257, 12253, 12026, 12024, 7479, 908, 5598, 5150, 1767,
 }
+
+const sizeOfCoefficient = 4 //Assuming the coefficients are uint32 so 32 / 8
+
+//PublicKeySize is the size of a public key in bytes
+const PublicKeySize = 1 + numberOfModulie*numberOfCoefficients*sizeOfCoefficient
+
+const numberOfModulie = 1
+
+const numberOfCoefficients = 1024
+
+//PrivateKeySize is the size of a private key in bytes
+const PrivateKeySize = numberOfModulie * 2 * PolySize
+
+//SignatureSize is the size of a signature in bytes
+const SignatureSize = numberOfModulie * 3 * PolySize
+
+//PolySize is the size of a polynomial in bytes
+const PolySize = 1 + numberOfCoefficients*numberOfModulie*sizeOfCoefficient
