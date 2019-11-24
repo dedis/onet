@@ -45,7 +45,6 @@ func testTLS(t *testing.T, cr *ciphersuite.Registry) {
 	require.Nil(t, err, "new tcp router")
 	r2, err := NewTestRouterTLS(cr, 0)
 	require.Nil(t, err, "new tcp router 2")
-
 	ready := make(chan bool)
 	stop := make(chan bool)
 	rcv := make(chan bool, 1)

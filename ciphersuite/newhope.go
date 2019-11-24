@@ -2,6 +2,7 @@ package ciphersuite
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
 
 	"go.dedis.ch/onet/v3/newHope"
@@ -99,7 +100,7 @@ func (s *NewHopeCipherSuite) Signature(raw *RawSignature) (Signature, error) {
 		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
-	if len(raw.Data) != newHope.NewHopePrivateKeySize {
+	if len(raw.Data) != newHope.NewHopeSignatureSize {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 
@@ -117,14 +118,14 @@ func (s *NewHopeCipherSuite) GenerateKeyPair(reader io.Reader) (PublicKey, Secre
 
 func (s *NewHopeCipherSuite) SecretKey(raw *RawSecretKey) (SecretKey, error) {
 	if raw.Name() != s.Name() {
-		return nil, xerrors.New(errNotEd25519CipherSuite)
+		return nil, xerrors.New(errNotNewHopeCipherSuite)
 	}
 
 	if len(raw.Data) != newHope.NewHopePrivateKeySize {
 		return nil, xerrors.New(errInvalidBufferSize)
 	}
 
-	return &Ed25519SecretKey{data: raw.Data}, nil
+	return &NewHopePrivateKey{data: raw.Data}, nil
 }
 
 func (s *NewHopeCipherSuite) unpackSecretKey(sk SecretKey) (*NewHopePrivateKey, error) {
@@ -199,6 +200,7 @@ func (s *NewHopeCipherSuite) unpackSignature(sig Signature) (*NewHopeSignature, 
 		var err error
 		sig, err = s.Signature(data)
 		if err != nil {
+			fmt.Println("Unpacking")
 			return nil, err
 		}
 	}
