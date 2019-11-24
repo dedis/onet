@@ -19,3 +19,13 @@ const NewHopePolySize = numberOfCoefficients*numberOfModulie*sizeOfCoefficient +
 type PublicKey []byte
 
 type PrivateKey []byte
+
+type GlyphSuite struct {
+	// This struct signs with Glyph
+	// using larger ring elements
+}
+
+type GlyphSmallSuite struct {
+	// This struct signs with Glyph
+	// using smaller ring elements
+}
