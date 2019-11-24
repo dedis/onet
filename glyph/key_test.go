@@ -16,20 +16,10 @@ func TestKey(t *testing.T) {
 	for i := uint64(0); i < 1; i++ {
 		N := uint64(2 << (12 + i))
 		T := uint64(65537)
-		Qi := Qi60[uint64(len(Qi60))-2<<i:]
-		Pi := Pi60[uint64(len(Pi60))-((2<<i)+1):]
 		//sigma := 3.19
 		contextT := ring.NewContext()
 		contextT.SetParameters(N, []uint64{T})
 		contextT.GenNTTParams()
-
-		contextQ := ring.NewContext()
-		contextQ.SetParameters(N, Qi)
-		contextQ.GenNTTParams()
-
-		contextP := ring.NewContext()
-		contextP.SetParameters(N, Pi)
-		contextP.GenNTTParams()
 		pk, e := NewPrivateKey(contextT, contextT.NewPoly())
 		if e != nil {
 			t.Fail()
