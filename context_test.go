@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v4/log"
-	"go.dedis.ch/onet/v4/network"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
 )

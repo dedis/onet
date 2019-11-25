@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v3/log"
 )
 
 var testfile = `Machines = 8

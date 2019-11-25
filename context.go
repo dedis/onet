@@ -5,8 +5,8 @@ import (
 	"encoding/binary"
 	"sync"
 
-	"go.dedis.ch/onet/v4/log"
-	"go.dedis.ch/onet/v4/network"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
 )

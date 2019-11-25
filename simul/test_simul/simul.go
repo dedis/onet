@@ -4,11 +4,11 @@ import (
 	"strconv"
 
 	"github.com/BurntSushi/toml"
-	"go.dedis.ch/onet/v4"
-	"go.dedis.ch/onet/v4/log"
-	"go.dedis.ch/onet/v4/simul"
-	"go.dedis.ch/onet/v4/simul/manage"
-	"go.dedis.ch/onet/v4/simul/monitor"
+	"go.dedis.ch/onet/v3"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/simul"
+	"go.dedis.ch/onet/v3/simul/manage"
+	"go.dedis.ch/onet/v3/simul/monitor"
 	"golang.org/x/xerrors"
 )
 

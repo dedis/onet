@@ -3,7 +3,7 @@ package platform
 import (
 	"syscall"
 
-	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/onet/v3/log"
 	"golang.org/x/sys/unix"
 	"golang.org/x/xerrors"
 )

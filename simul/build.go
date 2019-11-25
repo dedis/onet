@@ -11,9 +11,9 @@ import (
 	"math"
 	"time"
 
-	"go.dedis.ch/onet/v4/log"
-	"go.dedis.ch/onet/v4/simul/monitor"
-	"go.dedis.ch/onet/v4/simul/platform"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/simul/monitor"
+	"go.dedis.ch/onet/v3/simul/platform"
 	"golang.org/x/xerrors"
 )
 

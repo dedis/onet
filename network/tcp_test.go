@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v4/util/key"
-	"go.dedis.ch/onet/v4/log"
+	"go.dedis.ch/kyber/v3/util/key"
+	"go.dedis.ch/onet/v3/log"
 	"golang.org/x/xerrors"
 )
 

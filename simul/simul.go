@@ -15,8 +15,8 @@ import (
 	"flag"
 	"os"
 
-	"go.dedis.ch/onet/v4/log"
-	"go.dedis.ch/onet/v4/simul/platform"
+	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/simul/platform"
 )
 
 // The address of this server - if there is only one server in the config

@@ -1,4 +1,4 @@
-module go.dedis.ch/onet/v4
+module go.dedis.ch/onet/v3
 
 require (
 	github.com/BurntSushi/toml v0.3.1
@@ -11,8 +11,8 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/montanaflynn/stats v0.5.0
 	github.com/stretchr/testify v1.3.0
-	go.dedis.ch/kyber/v4 v4.0.0-pre1
-	go.dedis.ch/protobuf v1.0.8
+	go.dedis.ch/kyber/v3 v3.0.10
+	go.dedis.ch/protobuf v1.0.11
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
 	golang.org/x/sys v0.0.0-20190124100055-b90733256f2e
