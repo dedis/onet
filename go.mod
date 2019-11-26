@@ -11,7 +11,7 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/montanaflynn/stats v0.5.0
 	github.com/stretchr/testify v1.3.0
-	go.dedis.ch/kyber/v3 v3.0.10
+	go.dedis.ch/kyber/v3 v3.0.11
 	go.dedis.ch/protobuf v1.0.11
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
