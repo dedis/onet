@@ -100,7 +100,6 @@ func TestNewHopeCipherSuite_unpacking(t *testing.T) {
 	rawPk.Data = []byte{}
 	_, err = suite.PublicKey(rawPk)
 	require.Error(t, err)
-	//fmt.Println(err.Error())
 	require.Contains(t, err.Error(), errInvalidBufferSize)
 
 	// Secret Keys

@@ -2,7 +2,6 @@ package ciphersuite
 
 import (
 	"encoding/hex"
-	"fmt"
 	"io"
 
 	"go.dedis.ch/onet/v3/newHope"
@@ -204,7 +203,6 @@ func (s *NewHopeCipherSuite) unpackSignature(sig Signature) (*NewHopeSignature, 
 		var err error
 		sig, err = s.Signature(data)
 		if err != nil {
-			fmt.Println("Unpacking")
 			return nil, err
 		}
 	}
