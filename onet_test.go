@@ -9,7 +9,7 @@ import (
 
 //var testSuite = ciphersuite.NewEd25519CipherSuite()
 
-var testSuite = ciphersuite.NewNewHopeCipherSuite()
+var testSuite = ciphersuite.NewHope()
 var testRegistry = ciphersuite.NewRegistry()
 
 // To avoid setting up testing-verbosity in all tests

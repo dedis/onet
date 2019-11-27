@@ -10,7 +10,7 @@ import (
 
 //var testSuite = ciphersuite.NewEd25519CipherSuite()
 
-var testSuite = ciphersuite.NewNewHopeCipherSuite()
+var testSuite = ciphersuite.NewHopeSmall()
 
 //var testSuiteNewHope = ciphersuite.NewNewHopeCipherSuite()
 var testRegistry = ciphersuite.NewRegistry()

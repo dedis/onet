@@ -86,7 +86,6 @@ func TestSign1(t *testing.T) {
 		t.Fail()
 	}
 	if sig == nil {
-		fmt.Println("Bjo")
 		t.Log("Signature failed")
 		t.Fail()
 	}

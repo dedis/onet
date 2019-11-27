@@ -59,7 +59,7 @@ func TestNewHopeSecretKey(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_BasicUsage(t *testing.T) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 
 	pk, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func (br *badReaderNewHope) Read(p []byte) (int, error) {
 }
 
 func TestNewHopeCipherSuite_GenerateKey(t *testing.T) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 
 	_, _, err := suite.GenerateKeyPair(&badReaderNewHope{})
 	require.Error(t, err)
@@ -155,7 +155,7 @@ func TestNewHopeCipherSuite_GenerateKey(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_Sign(t *testing.T) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 
 	_, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestNewHopeCipherSuite_Sign(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_Verify(t *testing.T) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 
 	pk, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
