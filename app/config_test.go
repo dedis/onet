@@ -93,7 +93,6 @@ func TestSaveGroup(t *testing.T) {
 
 	data, err := ioutil.ReadFile(filename)
 	require.NoError(t, err)
-	fmt.Print(string(data))
 	require.Contains(t, string(data), serverGroup[strings.LastIndex(serverGroup, "[[servers]]"):])
 }
 

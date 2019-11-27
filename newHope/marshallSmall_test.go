@@ -1,7 +1,6 @@
 package newHope
 
 import (
-	"fmt"
 	"testing"
 
 	"go.dedis.ch/onet/v3/glyph_small"
@@ -41,7 +40,6 @@ func TestSecretMarshallSmall(t *testing.T) {
 	ctx := glyph_small.GetCtx()
 	sk, e := glyph_small.NewPrivateKey(ctx, glyph_small.GetA(ctx))
 	if e != nil {
-		fmt.Println("Could not generate sk")
 		t.FailNow()
 	}
 	z1 := sk.GetS()
@@ -52,7 +50,6 @@ func TestSecretMarshallSmall(t *testing.T) {
 	}
 	sk2, e3 := checkSmallPrivateKey(m, ctx)
 	if e3 != nil {
-		fmt.Println("Lukas")
 		t.FailNow()
 	}
 	z12 := sk2.GetS()

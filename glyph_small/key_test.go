@@ -1,7 +1,6 @@
 package glyph_small
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -10,7 +9,6 @@ import (
 	working like is expected.
 */
 func TestKey(t *testing.T) {
-	fmt.Println("TestKey")
 	for i := uint64(0); i < 1; i++ {
 		//Qi := Qi60[uint64(len(Qi60))-2<<i:]
 		//Pi := Pi60[uint64(len(Pi60))-((2<<i)+1):]
@@ -71,9 +69,7 @@ func TestSign1(t *testing.T) {
 		t.Log("Failed to make private key")
 		t.Fail()
 	}
-	fmt.Println("Not stuck signing")
 	sig, err := pk.Sign(message)
-	fmt.Println("Stuck signing")
 	if err != nil {
 		t.Fail()
 	}
@@ -87,5 +83,4 @@ func TestSign1(t *testing.T) {
 		t.Log("Signature does not match")
 		t.Fail()
 	}
-	fmt.Println("Sign")
 }

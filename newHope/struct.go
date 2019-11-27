@@ -17,7 +17,7 @@ const numberOfCoefficients = 1024
 
 const NewHopePrivateKeySize = numberOfModulie * 2 * NewHopePolySize
 
-const NewHopeSignatureSize = numberOfModulie * 3 * NewHopePolySize
+const NewHopeSignatureSize = numberOfModulie * (2*NewHopePolySize + int(2*omega))
 
 const NewHopePolySize = numberOfCoefficients*numberOfModulie*sizeOfCoefficient + 2
 
@@ -55,7 +55,7 @@ func (g *GlyphSuite) SizeOfPolynomial() int {
 }
 
 func (g *GlyphSuite) SizeOfSignature() int {
-	return glyph.SignatureSize
+	return int(glyph.SignatureSize)
 }
 
 func (g *GlyphSuite) SizeOfPublicKey() int {

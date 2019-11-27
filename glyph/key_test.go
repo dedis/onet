@@ -1,7 +1,6 @@
 package glyph
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/ldsec/lattigo/ring"
@@ -12,7 +11,6 @@ import (
 	working like is expected.
 */
 func TestKey(t *testing.T) {
-	fmt.Println("TestKey")
 	for i := uint64(0); i < 1; i++ {
 		N := uint64(2 << (12 + i))
 		T := uint64(65537)
@@ -95,5 +93,4 @@ func TestSign1(t *testing.T) {
 		t.Log("Signature does not match")
 		t.Fail()
 	}
-	fmt.Println("Sign")
 }

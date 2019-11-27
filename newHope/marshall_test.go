@@ -1,7 +1,6 @@
 package newHope
 
 import (
-	"fmt"
 	"testing"
 
 	"go.dedis.ch/onet/v3/glyph"
@@ -28,7 +27,6 @@ func TestSecretMarshall(t *testing.T) {
 	ctx := glyph.GetCtx()
 	sk, e := glyph.NewPrivateKey(ctx, glyph.GetA(ctx))
 	if e != nil {
-		fmt.Println("Could not generate sk")
 		t.FailNow()
 	}
 	z1 := sk.GetS()
@@ -39,7 +37,6 @@ func TestSecretMarshall(t *testing.T) {
 	}
 	sk2, e3 := checkPrivateKey(m, ctx)
 	if e3 != nil {
-		fmt.Println("Lukas")
 		t.FailNow()
 	}
 	z12 := sk2.GetS()
@@ -100,7 +97,6 @@ func TestMarshall(t *testing.T) {
 		t.FailNow()
 	}
 	if !ctx.Equal(testPublic.GetT(), publicKey.GetT()) {
-		fmt.Println(testPublic.GetT().GetCoefficients()[0][:20], publicKey.GetT().GetCoefficients()[0][:20])
 		t.Log("Unmarshalled public key is not equal to public key from the unmarshalled private key")
 		t.FailNow()
 	}

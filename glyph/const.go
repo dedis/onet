@@ -76,7 +76,7 @@ const numberOfCoefficients = 1024
 const PrivateKeySize = numberOfModulie * 2 * PolySize
 
 //SignatureSize is the size of a glyph signature in bytes
-const SignatureSize = numberOfModulie * 3 * PolySize
+const SignatureSize = numberOfModulie * (2*PolySize + 2*omega)
 
 //PolySize is the size of a polynomial in bytes
 const PolySize = numberOfCoefficients*numberOfModulie*sizeOfCoefficient + 2

@@ -1,7 +1,6 @@
 package onet
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -106,9 +105,7 @@ func TestDefaultBuilder_RegisterServices(t *testing.T) {
 	b := NewDefaultBuilder()
 	b.SetSuite(testSuite)
 	b.SetService("fakeService1", nil, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
-		fmt.Println(s, testSuite)
 		if s != testSuite {
-			fmt.Println("thing")
 			t.Error("should be the same suite pointer")
 		}
 		return newDummyService2(c, s)
@@ -117,7 +114,6 @@ func TestDefaultBuilder_RegisterServices(t *testing.T) {
 	b.SetService("fakeService2", anotherSuite, func(c *Context, s ciphersuite.CipherSuite) (Service, error) {
 		require.NotNil(t, c.Service("fakeService1"))
 		if s != testSuite {
-			fmt.Println("Stuff")
 			t.Error("should be the same suite pointer")
 		}
 		return newDummyService2(c, s)
