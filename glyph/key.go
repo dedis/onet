@@ -10,6 +10,8 @@ func getSigningPair(ctx *ring.Context) (*ring.Poly, *ring.Poly) {
 	s2 := ctx.NewPoly()
 	sampler.SampleUniform(s1)
 	sampler.SampleUniform(s2)
+	ctx.NTT(s1, s1)
+	ctx.NTT(s2, s2)
 	return s1, s2
 }
 
@@ -39,15 +41,10 @@ func (sk *PrivateKey) PK() *PublicKey {
 	s2 := sk.GetE()
 	s1.Copy(sk.GetS())
 	s2.Copy(sk.GetE())
-	ctx.NTT(s1, s1)
-	ctx.NTT(s2, s2)
 	a := GetA(ctx)
 	pkPol := ctx.NewPoly()
 	ctx.MulCoeffs(a, s1, pkPol)
 	ctx.Add(pkPol, s2, pkPol)
-	ctx.InvNTT(pkPol, pkPol)
-	ctx.InvNTT(s1, s1)
-	ctx.InvNTT(s2, s2)
 	return &PublicKey{
 		t:   pkPol,
 		a:   a,

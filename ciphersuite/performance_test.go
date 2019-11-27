@@ -49,13 +49,13 @@ func BenchmarkSignEd25519(b *testing.B) {
 }
 
 func BenchmarkSignNewHope(b *testing.B) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 	msg := []byte("deadbeef")
 	benchmarkSign(suite, nil, msg, b)
 }
 
 func BenchmarkSignNewHopeSmall(b *testing.B) {
-	suite := NewNewHopeCipherSuiteSmall()
+	suite := NewHopeSmall()
 	msg := []byte("deadbeef")
 	benchmarkSign(suite, nil, msg, b)
 }
@@ -87,13 +87,13 @@ func BenchmarkVerifyEd25519(b *testing.B) {
 }
 
 func BenchmarkVerifyNewHope(b *testing.B) {
-	suite := NewNewHopeCipherSuite()
+	suite := NewHope()
 	msg := []byte("deadbeef")
 	benchmarkVerify(suite, nil, msg, b)
 }
 
 func BenchmarkVerifyNewHopeSmall(b *testing.B) {
-	suite := NewNewHopeCipherSuiteSmall()
+	suite := NewHopeSmall()
 	msg := []byte("deadbeef")
 	benchmarkVerify(suite, nil, msg, b)
 }

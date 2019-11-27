@@ -1,5 +1,7 @@
 package glyph
 
+import "github.com/ldsec/lattigo/ring"
+
 func (pk *PublicKey) Marshall() ([]byte, error) {
 	t := pk.GetT()
 	return t.MarshalBinary()
@@ -48,4 +50,10 @@ func (sig *Signature) Marshall() ([]byte, error) {
 	copy(data[l1:l1+l2], d2)
 	copy(data[l1+l2:l1+l2+l3], d3)
 	return data, nil
+}
+
+func UnmarshallSignature(data []byte) (*ring.Poly, error) {
+	ctx := GetCtx()
+	c := ctx.NewPoly()
+	return c.UnMarshalBinary(data)
 }

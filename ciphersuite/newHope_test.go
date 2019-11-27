@@ -9,6 +9,8 @@ import (
 	"go.dedis.ch/onet/v3/newHope"
 )
 
+var suite = NewHope()
+
 func TestNewHopePublicKey(t *testing.T) {
 	pk, _, e := newHope.GenerateKey(nil)
 	require.NoError(t, e)
@@ -17,7 +19,6 @@ func TestNewHopePublicKey(t *testing.T) {
 	require.Equal(t, newHope.NewHopeName, publicKey.Name())
 	require.NotNil(t, publicKey.Raw())
 	require.Equal(t, newHope.NewHopePublicKeySize, len(publicKey.String())/2)
-	suite := NewNewHopeCipherSuite()
 	publicKey2, err := suite.PublicKey(publicKey.Raw())
 	require.Nil(t, err)
 	require.Equal(t, publicKey, publicKey2)
@@ -59,7 +60,6 @@ func TestNewHopeSecretKey(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_BasicUsage(t *testing.T) {
-	suite := NewHope()
 
 	pk, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
@@ -143,7 +143,6 @@ func (br *badReaderNewHope) Read(p []byte) (int, error) {
 }
 
 func TestNewHopeCipherSuite_GenerateKey(t *testing.T) {
-	suite := NewHope()
 
 	_, _, err := suite.GenerateKeyPair(&badReaderNewHope{})
 	require.Error(t, err)
@@ -155,7 +154,6 @@ func TestNewHopeCipherSuite_GenerateKey(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_Sign(t *testing.T) {
-	suite := NewHope()
 
 	_, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
@@ -172,8 +170,6 @@ func TestNewHopeCipherSuite_Sign(t *testing.T) {
 }
 
 func TestNewHopeCipherSuite_Verify(t *testing.T) {
-	suite := NewHope()
-
 	pk, sk, err := suite.GenerateKeyPair(nil)
 	require.NoError(t, err)
 

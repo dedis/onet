@@ -81,9 +81,6 @@ func checkSmallSignature(sig []byte, ctx *newhope.Context) (*glyph_small.Signatu
 		return nil, xerrors.New("Invalid signature length")
 	}
 	polySize := glyph_small.PolySize
-	if l != polySize*3 {
-		return nil, xerrors.New("Signature has to be the size of three polynomials")
-	}
 	z1, z2, c := ctx.NewPoly(), ctx.NewPoly(), ctx.NewPoly()
 	var e1, e2, e3 error
 	z1, e1 = z1.UnMarshalBinary(sig[0:polySize])
@@ -94,9 +91,9 @@ func checkSmallSignature(sig []byte, ctx *newhope.Context) (*glyph_small.Signatu
 	if e2 != nil {
 		return nil, xerrors.New(InvalidPolynomialError)
 	}
-	c, e3 = c.UnMarshalBinary(sig[2*polySize : l])
+	c, e3 = glyph_small.UnmarshallSignature(sig[2*polySize : l])
 	if e3 != nil {
-		return nil, xerrors.New(InvalidPolynomialError)
+		return nil, e3
 	}
 	return glyph_small.NewSignature(z1, z2, c), nil
 }

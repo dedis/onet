@@ -85,15 +85,12 @@ func (pk *PrivateKey) Sign(m []byte) (*Signature, error) {
 func (pk *PrivateKey) deterministicSign(y1, y2 *newhope.Poly, message []byte) (*Signature, error) {
 	ctx := GetCtx()
 	a := GetA(ctx)
-	y1fft := ctx.NewPoly()
-	y2fft := ctx.NewPoly()
-	ctx.NTT(y1, y1fft)
-	ctx.NTT(y2, y2fft)
+	ctx.NTT(y1, y1)
+	ctx.NTT(y2, y2)
 	//a * y1 + y2
 	t := ctx.NewPoly()
-	mul := ctx.NewPoly()
-	ctx.MulCoeffs(a, y1fft, mul)
-	ctx.Add(mul, y2fft, t)
+	ctx.MulCoeffs(a, y1, t)
+	ctx.Add(t, y2, t)
 	ctx.InvNTT(t, t)
 	//done making t
 	//floored coefficients
@@ -106,15 +103,14 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *newhope.Poly, message []byte) (*
 	c := encodeSparsePolynomial(ctx, omega, h)
 	ctx.NTT(c, c)
 	//making z1 = s*c + y1
-	sc := ctx.NewPoly()
 	s := ctx.NewPoly()
 	z1 := ctx.NewPoly()
 	//s.Copy(pk.GetS())
 	copy(s.Coeffs, pk.GetS().Coeffs)
 	//fmt.Println(s.Coeffs)
-	ctx.NTT(s, s)
-	ctx.MulCoeffs(s, c, sc)
-	ctx.Add(sc, y1fft, z1)
+	//ctx.NTT(s, s)
+	ctx.MulCoeffs(s, c, z1)
+	ctx.Add(z1, y1, z1)
 	ctx.InvNTT(z1, z1)
 	//done
 	Q := constQ
@@ -124,22 +120,17 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *newhope.Poly, message []byte) (*
 			return nil, errors.New("Rejected")
 		}
 	}
-	//making z2 = e*c + y2
-	ec := ctx.NewPoly()
+
 	e := ctx.NewPoly()
 	z2 := ctx.NewPoly()
-	//e.Copy(pk.GetE())
 	copy(e.Coeffs, pk.GetE().Coeffs)
-	//e.Copy(pk.GetE())
-	ctx.NTT(e, e)
-	ctx.MulCoeffs(e, c, ec)
-	ctx.Add(ec, y2fft, z2)
+	ctx.MulCoeffs(e, c, z2)
+	ctx.Add(z2, y2, z2)
 	ctx.InvNTT(z2, z2)
 	for _, coeff := range z2.Coeffs {
 		if abs(coeff, Q) > (constB - omega) {
 			return nil, errors.New("Rejected")
 		}
-
 	}
 
 	/*z2compressed := make([][]uint64, len(ctx.Modulus))
@@ -156,7 +147,6 @@ func (pk *PrivateKey) deterministicSign(y1, y2 *newhope.Poly, message []byte) (*
 
 	z2.SetCoefficients(z2compressed)*/
 	ctx.InvNTT(c, c)
-	//fmt.Println("C: ", c)
 	sig := &Signature{
 		z1: z1,
 		z2: z2,

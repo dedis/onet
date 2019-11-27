@@ -71,7 +71,9 @@ func TestSign1(t *testing.T) {
 		t.Log("Failed to make private key")
 		t.Fail()
 	}
+	fmt.Println("Not stuck signing")
 	sig, err := pk.Sign(message)
+	fmt.Println("Stuck signing")
 	if err != nil {
 		t.Fail()
 	}
