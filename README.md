@@ -94,7 +94,7 @@ All repositories for the cothority-project
 [cothority](https://github.com/dedis/cothority),
 [cothority_template](https://github.com/dedis/cothority_template))
 are double-licensed under a
-GNU/AGPL 3.0 and a commercial license. If you want to have more information,
+GNU/LGPL 3.0 and a commercial license. If you want to have more information,
 contact us at dedis@epfl.ch.
 
 ## Contribution
