@@ -67,7 +67,7 @@ func NewRouter(own *ServerIdentity, h Host) *Router {
 		ServerIdentity:          own,
 		connections:             make(map[ServerIdentityID][]Conn),
 		host:                    h,
-		Dispatcher:              NewRoutineDispatcher(),
+		Dispatcher:              NewBlockingDispatcher(),
 		connectionErrorHandlers: make([]func(*ServerIdentity), 0),
 	}
 	r.address = h.Address()
