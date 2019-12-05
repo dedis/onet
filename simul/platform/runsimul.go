@@ -85,19 +85,23 @@ func Simulate(suite, serverAddress, simul, monitorAddress string) error {
 		// to the Register-functions.
 		scTmp := sc
 		server.RegisterProcessorFunc(simulInitID, func(env *network.Envelope) error {
-			defer func() {
-				if measure != nil {
-					measuresLock.Lock()
-					// Remove the initialization of the simulation from this statistic
-					measure.Reset()
-					measuresLock.Unlock()
-				}
-			}()
+			// The node setup must be done in a goroutine to prevent the connection
+			// from the root to this node to stale forever.
+			go func() {
+				defer func() {
+					if measure != nil {
+						measuresLock.Lock()
+						// Remove the initialization of the simulation from this statistic
+						measure.Reset()
+						measuresLock.Unlock()
+					}
+				}()
 
-			err = sim.Node(scTmp)
-			log.ErrFatal(err)
-			_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
-			log.ErrFatal(err)
+				err = sim.Node(scTmp)
+				log.ErrFatal(err)
+				_, err := scTmp.Server.Send(env.ServerIdentity, &simulInitDone{})
+				log.ErrFatal(err)
+			}()
 			return nil
 		})
 		server.RegisterProcessorFunc(simulInitDoneID, func(env *network.Envelope) error {

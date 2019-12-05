@@ -2,15 +2,22 @@ package main
 
 import (
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"go.dedis.ch/onet/v3"
 	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/onet/v3/simul"
 	"go.dedis.ch/onet/v3/simul/manage"
 	"go.dedis.ch/onet/v3/simul/monitor"
 	"golang.org/x/xerrors"
 )
+
+type testInit struct{}
+
+var testInitID network.MessageTypeID
 
 /*
 Defines the simulation for the count-protocol
@@ -18,6 +25,8 @@ Defines the simulation for the count-protocol
 
 func init() {
 	onet.SimulationRegister("CountTest", NewSimulation)
+
+	testInitID = network.RegisterMessage(&testInit{})
 }
 
 // Simulation only holds the BFTree simulation
@@ -48,6 +57,25 @@ func (e *simulation) Setup(dir string, hosts []string) (
 		return nil, xerrors.Errorf("creating tree: %v", err)
 	}
 	return sc, nil
+}
+
+func (e *simulation) Node(config *onet.SimulationConfig) error {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	config.Server.RegisterProcessorFunc(testInitID, func(*network.Envelope) error {
+		wg.Done()
+		return nil
+	})
+
+	if config.Server.ServerIdentity.Equal(config.Tree.Root.ServerIdentity) {
+		time.Sleep(1 * time.Second)
+		for _, tn := range config.Tree.List() {
+			config.Server.Send(tn.ServerIdentity, &testInit{})
+		}
+	}
+
+	wg.Wait()
+	return nil
 }
 
 // Run is used on the destination machines and runs a number of
