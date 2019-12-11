@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"go.dedis.ch/kyber/v3/pairing"
 	"go.dedis.ch/kyber/v3/pairing/bn256"
+	"gopkg.in/satori/go.uuid.v1"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,4 +116,24 @@ func testMKT(t *testing.T, s kyber.Group) {
 	require.Equal(t, obj2.P1.String(), obj.P1.String())
 	require.Equal(t, obj2.P2.String(), obj.P2.String())
 	require.Equal(t, obj2.C2.P.String(), obj.C2.P.String())
+}
+
+func TestMarshalServerIdentity_IDGetsRecreated(t *testing.T) {
+	const address = Address("somewhere")
+	suite := suites.MustFind("Ed25519")
+	public := Suite.Point(suite).Pick(suite.RandomStream())
+
+	sent := NewServerIdentity(public, address)
+	sent.ID = ServerIdentityID(uuid.Nil) // incoherent with Public
+
+	marshaled, err := Marshal(sent)
+	require.Nil(t, err)
+
+	_, unmarshaled, err := Unmarshal(marshaled, suite)
+	require.Nil(t, err)
+	recv := unmarshaled.(*ServerIdentity)
+
+	require.Equal(t, address, recv.Address)
+	require.True(t, public.Equal(recv.Public))
+	require.NotEqual(t, ServerIdentityID(uuid.Nil), recv.ID)
 }
