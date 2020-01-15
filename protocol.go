@@ -160,7 +160,7 @@ func InformAllServersStopped() {
 // the dynamic cothority-messages. Implementations must provide methods to
 // pass from the 'union-types' to 'cothority-dynamic-messages' with the Wrap
 // and Unwrap method.
-// A default one is provided with defaultMessageProxy so the regular wire-format
+// A default one is provided with defaultProtoIO so the regular wire-format
 // protocol can still be used.
 type MessageProxy interface {
 	// Wrap takes a message and the overlay information and returns the message

@@ -111,6 +111,10 @@ func (o *Overlay) Process(env *network.Envelope) {
 			MsgType:        typ,
 			Size:           env.Size,
 		}
+		log.Print(o.ServerIdentity(), "config is", info.Config)
+		if config := info.Config; config != nil {
+			o.pendingConfigs[config.Dest] = &config.Config
+		}
 		err = o.TransmitMsg(protoMsg, io)
 		if err != nil {
 			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
@@ -551,14 +555,14 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	var totSentLen uint64
 
 	// first send the config if present
-	if c != nil {
-		sentLen, err := o.server.Send(to.ServerIdentity, &ConfigMsg{*c, tokenTo.ID()})
-		totSentLen += sentLen
-		if err != nil {
-			log.Error("sending config failed:", err)
-			return totSentLen, xerrors.Errorf("sending: %v", err)
-		}
-	}
+	//if c != nil {
+	//	sentLen, err := o.server.Send(to.ServerIdentity, &ConfigMsg{*c, tokenTo.ID()})
+	//	totSentLen += sentLen
+	//	if err != nil {
+	//		log.Error("sending config failed:", err)
+	//		return totSentLen, xerrors.Errorf("sending: %v", err)
+	//	}
+	//}
 	// then send the message
 	var final interface{}
 	info := &OverlayMsg{
@@ -566,6 +570,10 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 			From: from,
 			To:   tokenTo,
 		},
+	}
+	if c != nil {
+		log.Print(o.ServerIdentity(), "sending config")
+		info.Config = &ConfigMsg{*c, tokenTo.ID()}
 	}
 	final, err := io.Wrap(msg, info)
 	if err != nil {
@@ -813,6 +821,7 @@ func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, e
 			To:       info.TreeNodeInfo.To,
 			MsgSlice: buff,
 			MsgType:  typ,
+			Config:   info.Config,
 		}
 		return protoMsg, nil
 	}
@@ -853,6 +862,7 @@ func (d *defaultProtoIO) Unwrap(msg interface{}) (interface{}, *OverlayMsg, erro
 			To:   onetMsg.To,
 			From: onetMsg.From,
 		}
+		returnOverlay.Config = onetMsg.Config
 		returnMsg = protoMsg
 	case *RequestTree:
 		returnOverlay.RequestTree = inner

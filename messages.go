@@ -47,6 +47,8 @@ type ProtocolMsg struct {
 	MsgSlice []byte
 	// The size of the data
 	Size network.Size
+	// The configuration of the protocol - might be empty
+	Config *ConfigMsg
 }
 
 // ConfigMsg is sent by the overlay containing a generic slice of bytes to
@@ -154,6 +156,8 @@ type OverlayMsg struct {
 	ResponseTree *ResponseTree
 	// Deprecated: use ResponseTree to send the tree and the roster
 	TreeMarshal *TreeMarshal
+
+	Config *ConfigMsg
 }
 
 // RequestRoster is used to ask the parent for a given Roster
