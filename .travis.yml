@@ -6,7 +6,7 @@ go:
 go_import_path: go.dedis.ch/onet/v3
 
 script:
-  - env GO111MODULE=on make test
+  - env GO111MODULE=on make test_playground
 
 matrix:
   include:

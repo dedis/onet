@@ -416,7 +416,46 @@ func TestServiceGenericConfig(t *testing.T) {
 	waitOrFatalValue(link, true, t)
 	// wait for the service 2 say there is no config
 	waitOrFatalValue(link, true, t)
+}
 
+func TestServiceConfigRace(t *testing.T) {
+	nbrNodes := 10
+	log.SetDebugVisible(2)
+	for i := 0; i < 1; i++ {
+		local := NewLocalTest(tSuite)
+		trees := make([]*Tree, nbrNodes)
+		servers := local.GenServers(nbrNodes)
+		roster := local.GenRosterFromHost(servers...)
+
+		dummyServices := make([]*dummyService2, nbrNodes)
+		msgs := make(chan bool)
+		for node := 0; node < nbrNodes; node++ {
+			trees[node] = roster.GenerateNaryTreeWithRoot(2,
+				servers[node].ServerIdentity)
+			s := servers[node].serviceManager.service(dummyService2Name)
+			dummyServices[node] = s.(*dummyService2)
+			dummyServices[node].link = msgs
+		}
+
+		// Launch n parallel protocols to check races in setting up the
+		// connections
+		wg := sync.WaitGroup{}
+		wg.Add(nbrNodes)
+		for node := 0; node < nbrNodes; node++ {
+			go func(n int) {
+				log.Print("launching", n)
+				go dummyServices[n].launchProto(trees[n], true)
+				// wait for the service's protocol creation
+				for newProto := 0; newProto < nbrNodes; newProto++ {
+					waitOrFatalValue(msgs, true, t)
+					log.Print(n * 10 + newProto)
+				}
+				wg.Done()
+			}(node)
+		}
+		wg.Wait()
+		local.CloseAll()
+	}
 }
 
 // BackForthProtocolForth & Back are messages that go down and up the tree.
@@ -716,9 +755,18 @@ func (ds *dummyService2) ProcessClientRequest(req *http.Request, path string, bu
 var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
 
 func (ds *dummyService2) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
+	if conf != nil {
+		log.Print(ds.ServerIdentity(), conf.Data)
+	} else {
+		log.Print(ds.ServerIdentity(), "has no configuration-data")
+	}
+	if tn.Parent() != nil{
+		log.Print(ds.ServerIdentity(), "has parent", tn.Parent().Name())
+	}
 	ds.link <- conf != nil && bytes.Equal(conf.Data, serviceConfig)
 	pi, err := newDummyProtocol2(tn)
-	pi.(*DummyProtocol2).finishEarly = true
+	//pi.(*DummyProtocol2).finishEarly = true
+	tn.SetConfig(conf)
 	return pi, err
 }
 
@@ -773,6 +821,11 @@ func (dp2 *DummyProtocol2) Start() error {
 		}
 		go pi.Start()
 	}
+	var children []string
+	for _, child := range dp2.Children(){
+		children = append(children, child.Name())
+	}
+	log.Print(dp2.ServerIdentity(), "sending to children", children)
 	err := dp2.SendToChildren(&DummyMsg{20})
 	dp2.Done()
 	return err
@@ -782,6 +835,14 @@ func (dp2 *DummyProtocol2) Dispatch() error {
 	if dp2.finishEarly {
 		dp2.Done()
 	}
+	dm := <-dp2.c
+	if len(dp2.Children()) > 0{
+		log.Print(dp2.ServerIdentity(), "sending to children")
+		if err := dp2.SendToChildren(&dm.DummyMsg); err != nil{
+			return xerrors.Errorf("couldn't send to children: %+v", err)
+		}
+	}
+	dp2.Done()
 	return nil
 }
 
@@ -791,7 +852,7 @@ func waitOrFatalValue(ch chan bool, v bool, t *testing.T) {
 		if v != b {
 			log.Fatal("Wrong value returned on channel")
 		}
-	case <-time.After(time.Second):
+	case <-time.After(time.Second*10):
 		log.Fatal("Waited too long")
 	}
 

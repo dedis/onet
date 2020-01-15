@@ -380,7 +380,8 @@ func (r *Router) registerConnection(remote *ServerIdentity, c Conn) error {
 	}
 	_, okc := r.connections[remote.ID]
 	if okc {
-		log.Lvl5("Connection already registered. Appending new connection to same identity.")
+		log.LLvl5("Connection already registered. " +
+			"Appending new connection to same identity.")
 	}
 	r.connections[remote.ID] = append(r.connections[remote.ID], c)
 	return nil
