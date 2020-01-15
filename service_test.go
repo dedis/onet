@@ -419,7 +419,7 @@ func TestServiceGenericConfig(t *testing.T) {
 }
 
 func TestServiceConfigRace(t *testing.T) {
-	nbrNodes := 10
+	nbrNodes := 4
 	log.SetDebugVisible(2)
 	for i := 0; i < 1; i++ {
 		local := NewLocalTest(tSuite)
@@ -430,7 +430,7 @@ func TestServiceConfigRace(t *testing.T) {
 		dummyServices := make([]*dummyService2, nbrNodes)
 		msgs := make(chan bool)
 		for node := 0; node < nbrNodes; node++ {
-			trees[node] = roster.GenerateNaryTreeWithRoot(2,
+			trees[node] = roster.GenerateNaryTreeWithRoot(nbrNodes,
 				servers[node].ServerIdentity)
 			s := servers[node].serviceManager.service(dummyService2Name)
 			dummyServices[node] = s.(*dummyService2)
@@ -765,8 +765,8 @@ func (ds *dummyService2) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) 
 	}
 	ds.link <- conf != nil && bytes.Equal(conf.Data, serviceConfig)
 	pi, err := newDummyProtocol2(tn)
-	//pi.(*DummyProtocol2).finishEarly = true
-	tn.SetConfig(conf)
+	pi.(*DummyProtocol2).finishEarly = true
+	//tn.SetConfig(conf)
 	return pi, err
 }
 
@@ -835,14 +835,14 @@ func (dp2 *DummyProtocol2) Dispatch() error {
 	if dp2.finishEarly {
 		dp2.Done()
 	}
-	dm := <-dp2.c
-	if len(dp2.Children()) > 0{
-		log.Print(dp2.ServerIdentity(), "sending to children")
-		if err := dp2.SendToChildren(&dm.DummyMsg); err != nil{
-			return xerrors.Errorf("couldn't send to children: %+v", err)
-		}
-	}
-	dp2.Done()
+	//dm := <-dp2.c
+	//if len(dp2.Children()) > 0{
+	//	log.Print(dp2.ServerIdentity(), "sending to children")
+	//	if err := dp2.SendToChildren(&dm.DummyMsg); err != nil{
+	//		return xerrors.Errorf("couldn't send to children: %+v", err)
+	//	}
+	//}
+	//dp2.Done()
 	return nil
 }
 
@@ -852,7 +852,7 @@ func waitOrFatalValue(ch chan bool, v bool, t *testing.T) {
 		if v != b {
 			log.Fatal("Wrong value returned on channel")
 		}
-	case <-time.After(time.Second*10):
+	case <-time.After(time.Second):
 		log.Fatal("Waited too long")
 	}
 
