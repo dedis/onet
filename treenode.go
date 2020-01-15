@@ -358,7 +358,8 @@ func (n *TreeNodeInstance) Shutdown() error {
 func (n *TreeNodeInstance) closeDispatch() error {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error("Recovered panic:", r)
+			log.Errorf("Recovered panic while closing protocol: %v", r)
+			log.Error(log.Stack())
 		}
 	}()
 	log.Lvl3("Closing node", n.Info())
@@ -449,7 +450,9 @@ func (n *TreeNodeInstance) dispatchChannel(msgSlice []*ProtocolMsg) error {
 		// In rare occasions we write to a closed channel which throws a panic.
 		// Catch it here so we can find out better why this happens.
 		if r := recover(); r != nil {
-			log.Error("Shouldn't happen, please report an issue:", n.Info(), mt, r)
+			log.Errorf("Couldn't dispatch protocol-message %s in %s: %v",
+				mt, n.Info(), r)
+			log.Error(log.Stack())
 		}
 	}()
 	to := reflect.TypeOf(n.channels[mt])

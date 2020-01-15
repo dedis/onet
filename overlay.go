@@ -113,8 +113,8 @@ func (o *Overlay) Process(env *network.Envelope) {
 		}
 		err = o.TransmitMsg(protoMsg, io)
 		if err != nil {
-			log.Errorf("Msg %s from %s produced error: %s", protoMsg.MsgType,
-				protoMsg.ServerIdentity, err.Error())
+			log.Errorf("Msg %s from %s produced error: %+v", protoMsg.MsgType,
+				protoMsg.ServerIdentity, err)
 		}
 	}
 }
@@ -178,7 +178,8 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			defer func() {
 				if r := recover(); r != nil {
 					svc := ServiceFactory.Name(tni.Token().ServiceID)
-					log.Errorf("Panic in call to protocol <%s>.Dispatch() from service <%s> at address %s: %v",
+					log.Errorf("Panic in call to protocol <%s>.Dispatch("+
+						") from service <%s> at address %s: %v",
 						tni.ProtocolName(), svc, o.server.ServerIdentity, r)
 					log.Error(log.Stack())
 				}
@@ -187,7 +188,8 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			err := pi.Dispatch()
 			if err != nil {
 				svc := ServiceFactory.Name(tni.Token().ServiceID)
-				log.Errorf("%v %s.Dispatch() returned error %s", o.server.ServerIdentity, svc, err)
+				log.Errorf("%v %s.Dispatch() returned error %+v",
+					o.server.ServerIdentity, svc, err)
 			}
 		}()
 		if err := o.RegisterProtocolInstance(pi); err != nil {
@@ -662,6 +664,7 @@ func (o *Overlay) CreateProtocol(name string, t *Tree, sid ServiceID) (ProtocolI
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorf("Panic in %s.Dispatch(): %v", name, r)
+				log.Error(log.Stack())
 			}
 		}()
 
@@ -684,6 +687,7 @@ func (o *Overlay) StartProtocol(name string, t *Tree, sid ServiceID) (ProtocolIn
 		defer func() {
 			if r := recover(); r != nil {
 				log.Errorf("Panic in %s.Start(): %v", name, r)
+				log.Error(log.Stack())
 			}
 		}()
 

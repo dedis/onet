@@ -435,7 +435,8 @@ func (c *Client) closeSingleUseConn(dst *network.ServerIdentity, path string) {
 	dest := destination{dst, path}
 	if !c.keep {
 		if err := c.closeConn(dest); err != nil {
-			log.Errorf("error while closing the connection to %v : %v\n", dest, err)
+			log.Errorf("error while closing the connection to %v : %+v\n",
+				dest, err)
 		}
 	}
 }
