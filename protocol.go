@@ -35,15 +35,15 @@ type NewProtocol func(*TreeNodeInstance) (ProtocolInstance, error)
 type ProtocolInstance interface {
 	// Start is called when a leader has created its tree configuration and
 	// wants to start a protocol, it calls host.StartProtocol(protocolID), that
-	// in turns instantiate a new protocol (with a fresh token), and then call
+	// in turn instantiates a new protocol (with a fresh token), and then calls
 	// Start on it.
 	Start() error
 	// Dispatch is called at the beginning by onet for listening on the channels
 	Dispatch() error
 
-	// DispatchMsg is a method that is called each time a message arrives for
-	// this protocolInstance. TreeNodeInstance implements that method for you
-	// using channels or handlers.
+	// ProcessProtocolMsg is a method that is called each time a message
+	// arrives for this protocolInstance. TreeNodeInstance implements that
+	// method for you using channels or handlers.
 	ProcessProtocolMsg(*ProtocolMsg)
 	// The token representing this ProtocolInstance
 	Token() *Token
