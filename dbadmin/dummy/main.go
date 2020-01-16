@@ -60,14 +60,14 @@ const (
 )
 
 func newService(name string, a action) onet.NewServiceFunc {
-	network.RegisterMessage(&Data{})
+	network.RegisterMessage(&data{})
 	name1 := []byte(name + "1")
 	nameDB := []byte(name + "DB")
 	return func(c *onet.Context) (onet.Service, error) {
 		s := onet.NewServiceProcessor(c)
 		switch a {
 		case actionSave:
-			err := s.Save(name1, &Data{name, 22})
+			err := s.Save(name1, &data{name, 22})
 			if err != nil {
 				return nil, xerrors.Errorf("couldn't save data: %+v", err)
 			}
@@ -92,11 +92,12 @@ func newService(name string, a action) onet.NewServiceFunc {
 			if err != nil {
 				return nil, err
 			}
-			if data, ok := d.(*Data); !ok {
+			var da *data
+			var ok bool
+			if da, ok = d.(*data); !ok {
 				return nil, xerrors.Errorf("couldn't convert to data: %+v", err)
-			} else {
-				log.Infof("KV: Data_%s is: %+v", name, data)
 			}
+			log.Infof("KV: Data_%s is: %+v", name, da)
 
 			db, bName := c.GetAdditionalBucket(nameDB)
 			err = db.View(func(tx *bbolt.Tx) error {
@@ -113,11 +114,11 @@ func newService(name string, a action) onet.NewServiceFunc {
 	}
 }
 
-type ServiceBar struct {
+type serviceBar struct {
 	onet.Context
 }
 
-type Data struct {
+type data struct {
 	One string
 	Two int
 }

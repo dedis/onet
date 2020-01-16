@@ -22,26 +22,53 @@ You can get more information by using the `-v` flag:
 dbadmin inspect -v xxxx.db
 ```
 
-## Store Service
+## Backup service
 
-In order to migrate data from one service to a new conode, you first need to 
-store the data:
-
-```bash
-dbadmin store xxxx.db ServiceName
-```
-
-This will output all data of the given service to a file called `ServiceName
-.db`.
-
-## Merge Service
-
-Merging a service file into an existing DB overwrites the data of this 
-service with the data given in the file:
+You can backup the data of a service like this:
 
 ```bash
-dbadmin merge yyyy.db ServiceName.db
+dbadmin extract --source xxxx.db --destination backup.db ServiceName.*
 ```
 
-This will take all the data stored in `ServiceName.db` and use it to 
+This will output all data of the given service to a file called `backup.db`.
+The servicename(s) given as arguments can contain regular expressions.
+A service like `skipchain` has at least 3 buckets:
+- `Skipchain`
+- `Skipchain_skipblocks`
+- `Skipchainversion`
+
+The `dbadmin` tool doesn't know about any relationship.
+It is up to the caller to make sure that all buckets are copied correctly.
+Onet usually puts all databases belonging to a service in buckets that all
+ start with the name of the service, followed by `_` and the name of the
+  additional bucket required by the service.
+
+## Restore Service
+
+Merging a service file into an existing DB copies the data of this 
+service to the destination DB.
+If the destination DB or the service in the destination DB already exists
+, the call must include `--overwrite`
+
+```bash
+dbadmin extxract --source backup.db --destination xxxx.db
+```
+
+This will take all the data stored in `back.db` and use it to 
 overwrite the data of the service in `yyyy.db`.
+
+## Copy Service From One Conode to Another
+
+If you have two conodes with databases `xxxx.db` and `yyyy.db`, you can copy
+ the services from one conode to another with the following command:
+ 
+```bash
+dbadmin extract --source xxxx.db --destination yyyy.db --overwrite
+```
+
+This will copy _all_ services from `xxxx.d` to `yyyy.db`. If you only want to
+ copy one service, you can do:
+ 
+```bash
+dbadmin extract --source xxxx.db --destination yyyy.db --overwrite ServiceName.*
+```
