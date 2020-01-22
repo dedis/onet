@@ -29,8 +29,8 @@ func Warn(args ...interface{}) {
 	lvlUI(lvlWarning, args...)
 }
 
-// Error prints out the error message and quits. If the
-// argument is an error, it will print the stack trace.
+// Error prints out the error message. If the
+// argument is an error, it will print it using "%+v".
 func Error(args ...interface{}) {
 	last := len(args) - 1
 	if last >= 0 {
@@ -49,7 +49,7 @@ func Panic(args ...interface{}) {
 	panic(fmt.Sprint(args...))
 }
 
-// Fatal prints out the fatal message and quits
+// Fatal prints out the fatal message and quits with os.Exit(1)
 func Fatal(args ...interface{}) {
 	lvlUI(lvlFatal, args...)
 	os.Exit(1)
