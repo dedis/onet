@@ -442,6 +442,125 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	return
 }
 
+// ProcessClientRequest2 implements the Service interface, see the interface
+// documentation.
+func (p *ServiceProcessor) ProcessClientRequest2(req *http.Request, path string, buf2 []byte, furtherInputs chan []byte) ([]byte, *StreamingTunnel, error) {
+	outChan := make(chan []byte, 100)
+	buf := <-furtherInputs
+	mh, ok := p.handlers[path]
+	reply, stopServiceChan, err := func() (interface{}, chan bool, error) {
+		if !ok {
+			err := xerrors.New("The requested message hasn't been " +
+				"registered: " + path)
+			log.Error(err)
+			return nil, nil, err
+		}
+		msg := reflect.New(mh.msgType).Interface()
+		err := protobuf.DecodeWithConstructors(buf, msg,
+			network.DefaultConstructors(p.Context.server.Suite()))
+		if err != nil {
+			return nil, nil, xerrors.Errorf("decoding: %v", err)
+		}
+
+		return callInterfaceFunc(mh.handler, msg, mh.streaming)
+	}()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// This goroutine is responsible for listening on the service channel,
+	// decoding the messages and then forwarding them to the streaming tunnel,
+	// which should then forward the message to the client.
+	go func() {
+		inChan := reflect.ValueOf(reply)
+		cases := []reflect.SelectCase{
+			reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
+		}
+		for {
+			chosen, v, ok := reflect.Select(cases)
+			if !ok {
+				log.Lvlf4("publisher is closed for %s, closing "+
+					"outgoing channel", path)
+				close(outChan)
+				return
+			}
+			if chosen == 0 {
+				// Send information down to the client.
+				buf, err = protobuf.Encode(v.Interface())
+				if err != nil {
+					log.Error(err)
+					close(outChan)
+					return
+				}
+				outChan <- buf
+			} else {
+				panic("no such channel index")
+			}
+			// We don't add a way to explicitly stop the
+			// go-routine, otherwise the service will
+			// block. The service should close the channel
+			// when it has nothing else to say because it
+			// is the producer. Then this go-routine will
+			// be stopped as well.
+		}
+		log.LLvl1(">>>>>> return from the first go routine")
+	}()
+
+	// This goroutine listens on any new messages from the client and executes
+	// the request. Executing the request should fill the service's channel.
+	go func() {
+		for {
+			select {
+			case buf := <-furtherInputs:
+				go func() {
+					_, _, err := func() (interface{}, chan bool, error) {
+						if !ok {
+							err := xerrors.New("The requested message hasn't " +
+								"been registered: " + path)
+							log.Error(err)
+							return nil, nil, err
+						}
+						msg := reflect.New(mh.msgType).Interface()
+
+						err := protobuf.DecodeWithConstructors(buf, msg,
+							network.DefaultConstructors(p.Context.server.Suite()))
+						if err != nil {
+							return nil, nil, xerrors.Errorf("decoding: %v", err)
+						}
+
+						return callInterfaceFunc(mh.handler, msg, mh.streaming)
+					}()
+					if err != nil {
+						log.Error(err)
+					}
+
+				}()
+			}
+		}
+	}()
+
+	return nil, &StreamingTunnel{outChan, stopServiceChan}, nil
+
+	buf, err = protobuf.Encode(reply)
+	if err != nil {
+		log.Error(err)
+		return nil, nil, xerrors.Errorf("encoding: %v", err)
+	}
+	return buf, nil, nil
+}
+
+// IsStreaming tell if the service registered at the given path is a streaming
+// service or not. Return an error if the service is not registered.
+func (p *ServiceProcessor) IsStreaming(path string) (bool, error) {
+	mh, ok := p.handlers[path]
+	if !ok {
+		err := xerrors.New("The requested message hasn't been registered: " + path)
+		log.Error(err)
+		return false, err
+	}
+	return mh.streaming, nil
+}
+
 // ProcessClientRequest implements the Service interface, see the interface
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {

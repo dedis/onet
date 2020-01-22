@@ -47,6 +47,8 @@ type Service interface {
 	// should be used. The returned error will be formatted as a websocket
 	// error code 4000, using the string form of the error as the message.
 	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, tunnel *StreamingTunnel, err error)
+	ProcessClientRequest2(req *http.Request, path string, buf []byte, furtherInputs chan []byte) ([]byte, *StreamingTunnel, error)
+	IsStreaming(path string) (bool, error)
 	// Processor makes a Service being able to handle any kind of packets
 	// directly from the network. It is used for inter service communications,
 	// which are mostly single packets with no or little interactions needed. If
