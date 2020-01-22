@@ -317,7 +317,8 @@ outerReadLoop:
 				}
 				reply, tun, err = s.ProcessClientRequest(r, path, buf)
 				if err != nil {
-					continue
+					log.Error(xerrors.Errorf("failed to process additional "+
+						"request from the client: %v", err))
 				}
 			}
 		}()
