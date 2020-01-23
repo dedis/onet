@@ -279,40 +279,51 @@ outerReadLoop:
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
 		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
 
-		// Processing the request if it is not a streaming request
-		isStreaming, err := s.IsStreaming(path)
-		if err != nil {
-			log.Error("failed to check if it is a streaming request: ", err)
-			continue
+		isStreaming := false
+		bidirectionalStreamer, ok := s.(BidirectionalStreamer)
+		if ok {
+			// Processing the request if it is not a streaming request
+			isStreaming, err = bidirectionalStreamer.IsStreaming(path)
+			if err != nil {
+				log.Errorf("failed to check if it is a streaming "+
+					"request %s/%s: %+v", t.serviceName, path, err)
+				continue
+			}
 		}
 		if !isStreaming {
+
 			reply, tun, err = s.ProcessClientRequest(r, path, buf)
 			if err != nil {
-				log.Errorf("Got an error while executing %s/%s: %+v", t.serviceName, path, err)
+				log.Errorf("Got an error while executing %s/%s: %+v",
+					t.serviceName, path, err)
 				continue
 			}
 
 			tx += len(reply)
 			err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute))
 			if err != nil {
-				log.Error(xerrors.Errorf("failed to set the write deadline: %v", err))
+				log.Error(xerrors.Errorf("failed to set the write deadline "+
+					"with request request %s/%s: %v", t.serviceName, path, err))
 				break
 			}
 
 			err = ws.WriteMessage(mt, reply)
 			if err != nil {
-				log.Error(xerrors.Errorf("failed to write message: %v", err))
+				log.Error(xerrors.Errorf("failed to write message with "+
+					"request %s/%s: %v", t.serviceName, path, err))
 				break
 			}
 
 			continue
 		}
 
-		furtherInputs := make(chan []byte, 10)
-		furtherInputs <- buf
-		reply, tun, err = s.ProcessClientRequest2(r, path, buf, furtherInputs)
+		clientInputs := make(chan []byte, 10)
+		clientInputs <- buf
+		reply, tun, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
+			path, clientInputs)
 		if err != nil {
-			log.Errorf("Got an error while executing %s/%s: %+v", t.serviceName, path, err)
+			log.Errorf("got an error while processing streaming "+
+				"request %s/%s: %+v", t.serviceName, path, err)
 			continue
 		}
 
@@ -328,18 +339,16 @@ outerReadLoop:
 					close(closing)
 					return
 				}
-				furtherInputs <- buf
+				clientInputs <- buf
 			}
 		}()
 
 		for {
 			select {
 			case <-closing:
-				log.LLvl1("ONET >>>>>> closing")
 				close(tun.close)
 				return
 			case reply, closeChan := <-tun.out:
-				log.LLvl1("ONET >>>>>> got a reply")
 				if !closeChan {
 					err = xerrors.New("service finished streaming")
 					close(tun.close)
@@ -350,7 +359,7 @@ outerReadLoop:
 				err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute))
 				if err != nil {
 					log.Error(xerrors.Errorf("failed to set the write "+
-						"deadline: %v", err))
+						"deadline in the streaming loop: %v", err))
 					close(tun.close)
 					break outerReadLoop
 				}

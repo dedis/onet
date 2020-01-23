@@ -47,8 +47,6 @@ type Service interface {
 	// should be used. The returned error will be formatted as a websocket
 	// error code 4000, using the string form of the error as the message.
 	ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, tunnel *StreamingTunnel, err error)
-	ProcessClientRequest2(req *http.Request, path string, buf []byte, furtherInputs chan []byte) ([]byte, *StreamingTunnel, error)
-	IsStreaming(path string) (bool, error)
 	// Processor makes a Service being able to handle any kind of packets
 	// directly from the network. It is used for inter service communications,
 	// which are mostly single packets with no or little interactions needed. If
@@ -56,6 +54,20 @@ type Service interface {
 	// into a ProtocolInstance that the Service will launch, since there's nicer
 	// utilities for ProtocolInstance.
 	network.Processor
+}
+
+// BidirectionalStreamer specifies the functions needed to handle a
+// bi-directional streamer, where the client is able to use the same chanel in
+// order to send multiple requests.
+type BidirectionalStreamer interface {
+	// ProcessClientStreamRequest is different from ProcessClientRequest in that
+	// it takes a chanel of inputs and watches for additional inputs. Additional
+	// inputs are then forwarded to the service.
+	ProcessClientStreamRequest(req *http.Request, path string, clientInputs chan []byte) ([]byte, *StreamingTunnel, error)
+	// IsStreaming checks if the handler registered at the given path is a
+	// streaming handler or not. It returns an error in the case the handler is
+	// not found.
+	IsStreaming(path string) (bool, error)
 }
 
 // NewServiceFunc is the type of a function that is used to instantiate a given Service
