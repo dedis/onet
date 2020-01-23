@@ -568,7 +568,7 @@ func TestWebSocketTLS_Error(t *testing.T) {
 // (1) happy-path, where client reads all messages from the service
 // (2) unhappy-path, where client closes early
 // (3) unhappy-path, where service closes early
-func TestWebSocket_Streaming(t *testing.T) {
+func TestWebSocket_Streaming_normal(t *testing.T) {
 	local := NewTCPTest(tSuite)
 	defer local.CloseAll()
 
@@ -624,6 +624,7 @@ func TestWebSocket_Streaming(t *testing.T) {
 
 	// (3) Finally, have the service terminate early. The client should
 	// stop receiving messages.
+	log.Lvl1("Service terminate early")
 	stopAt := 1
 	serviceRoot.stopAt = stopAt
 	client = local.NewClientKeep(serName)

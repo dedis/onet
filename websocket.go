@@ -346,7 +346,7 @@ outerReadLoop:
 			select {
 			case <-closing:
 				close(tun.close)
-				return
+				break outerReadLoop
 			case reply, closeChan := <-tun.out:
 				if !closeChan {
 					err = xerrors.New("service finished streaming")

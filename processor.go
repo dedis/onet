@@ -513,27 +513,31 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 	// the service will use the same chanel for further requests.
 	go func() {
 		for {
-			buf := <-clientInputs
+			select {
+			case buf := <-clientInputs:
 
-			_, _, err := func() (interface{}, chan bool, error) {
-				if !ok {
-					err := xerrors.New("The requested message hasn't " +
-						"been registered: " + path)
-					log.Error(err)
-					return nil, nil, err
-				}
-				msg := reflect.New(mh.msgType).Interface()
+				_, _, err := func() (interface{}, chan bool, error) {
+					if !ok {
+						err := xerrors.New("The requested message hasn't " +
+							"been registered: " + path)
+						log.Error(err)
+						return nil, nil, err
+					}
+					msg := reflect.New(mh.msgType).Interface()
 
-				err := protobuf.DecodeWithConstructors(buf, msg,
-					network.DefaultConstructors(p.Context.server.Suite()))
+					err := protobuf.DecodeWithConstructors(buf, msg,
+						network.DefaultConstructors(p.Context.server.Suite()))
+					if err != nil {
+						return nil, nil, xerrors.Errorf("decoding: %v", err)
+					}
+
+					return callInterfaceFunc(mh.handler, msg, mh.streaming)
+				}()
 				if err != nil {
-					return nil, nil, xerrors.Errorf("decoding: %v", err)
+					log.Error(err)
 				}
-
-				return callInterfaceFunc(mh.handler, msg, mh.streaming)
-			}()
-			if err != nil {
-				log.Error(err)
+			case <-stopServiceChan:
+				return
 			}
 		}
 	}()
