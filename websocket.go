@@ -282,7 +282,6 @@ outerReadLoop:
 		isStreaming := false
 		bidirectionalStreamer, ok := s.(BidirectionalStreamer)
 		if ok {
-			// Processing the request if it is not a streaming request
 			isStreaming, err = bidirectionalStreamer.IsStreaming(path)
 			if err != nil {
 				log.Errorf("failed to check if it is a streaming "+
@@ -290,8 +289,8 @@ outerReadLoop:
 				continue
 			}
 		}
-		if !isStreaming {
 
+		if !isStreaming {
 			reply, tun, err = s.ProcessClientRequest(r, path, buf)
 			if err != nil {
 				log.Errorf("Got an error while executing %s/%s: %+v",
