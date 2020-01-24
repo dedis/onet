@@ -548,16 +548,11 @@ func (o *Overlay) getConfig(id TokenID) *GenericConfig {
 // config with `SetConfig`. It can be nil.
 func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message, io MessageProxy, c *GenericConfig) (uint64, error) {
 	tokenTo := from.ChangeTreeNodeID(to.ID)
-	var totSentLen uint64
 
 	// first send the config if present
+	var confMsg *ConfigMsg
 	if c != nil {
-		sentLen, err := o.server.Send(to.ServerIdentity, &ConfigMsg{*c, tokenTo.ID()})
-		totSentLen += sentLen
-		if err != nil {
-			log.Error("sending config failed:", err)
-			return totSentLen, xerrors.Errorf("sending: %v", err)
-		}
+		confMsg = &ConfigMsg{*c, tokenTo.ID()}
 	}
 	// then send the message
 	var final interface{}
@@ -569,15 +564,19 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	}
 	final, err := io.Wrap(msg, info)
 	if err != nil {
-		return totSentLen, xerrors.Errorf("wrapping message: %v", err)
+		return 0, xerrors.Errorf("wrapping message: %v", err)
 	}
 
-	sentLen, err := o.server.Send(to.ServerIdentity, final)
-	totSentLen += sentLen
-	if err != nil {
-		return totSentLen, xerrors.Errorf("sending: %v", err)
+	var sentLen uint64
+	if confMsg != nil {
+		sentLen, err = o.server.Send(to.ServerIdentity, confMsg, final)
+	} else {
+		sentLen, err = o.server.Send(to.ServerIdentity, final)
 	}
-	return totSentLen, nil
+	if err != nil {
+		err = xerrors.Errorf("sending: %v", err)
+	}
+	return sentLen, err
 }
 
 // nodeDone is called by node to signify that its work is finished and its
