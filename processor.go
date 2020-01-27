@@ -442,8 +442,10 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 	return
 }
 
-// ProcessClientStreamRequest implements the Service interface, see the interface
-// documentation.
+// ProcessClientStreamRequest allows clients to push multiple messages
+// asynchronously to the same service with the same connection. Unlike in
+// ProcessClientRequest, we take a channel of inputs that can be filled and will
+// subsequently call the service with any new messages received in the channel.
 func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path string,
 	clientInputs chan []byte) ([]byte, *StreamingTunnel, error) {
 

@@ -195,6 +195,70 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	}
 }
 
+func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+	defer h1.Close()
+
+	p := NewServiceProcessor(&Context{server: h1})
+	// The function need to use the same outChan and closeChan if a request is
+	// coming from the same client that expects the same outChan to be used.
+	outChan := make(chan network.Message, 10)
+	closeChan := make(chan bool)
+	h := func(m *testMsg) (chan network.Message, chan bool, error) {
+		go func() {
+			for i := 0; i < int(m.I); i++ {
+				outChan <- m
+			}
+			// In the case a client make multiple call, this will end in
+			// multiple go routine that want to close the chan. This is why
+			// each goroutine should check if the chan is already closed, but
+			// for simplicity we will do that outside.
+			// <-closeChan
+			// close(outChan)
+		}()
+		return outChan, closeChan, nil
+	}
+	require.Nil(t, p.RegisterStreamingHandler(h))
+
+	// Sending a first message from the client to the service.
+	n := 5
+	clientInputs := make(chan []byte, 10)
+	buf, err := protobuf.Encode(&testMsg{int64(n)})
+	require.NoError(t, err)
+	clientInputs <- buf
+	rep, tun, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
+	require.Nil(t, rep)
+	require.NoError(t, err)
+
+	for i := 0; i < n; i++ {
+		buf := <-tun.out
+		val := &testMsg{}
+		require.Nil(t, protobuf.Decode(buf, val))
+		require.Equal(t, val.I, int64(n))
+	}
+
+	// Sending an additional message from the client to the service using the
+	// same channel.
+	n = 2
+	buf, err = protobuf.Encode(&testMsg{int64(n)})
+	require.NoError(t, err)
+	clientInputs <- buf
+
+	for i := 0; i < n; i++ {
+		buf := <-tun.out
+		val := &testMsg{}
+		require.Nil(t, protobuf.Decode(buf, val))
+		require.Equal(t, val.I, int64(n))
+	}
+
+	close(tun.close)
+
+	// Would normall be done inside the service, but we would then need to be
+	// sure it is done once. So we do it here for simplicity.
+	<-closeChan
+	close(outChan)
+}
+
 func TestProcessor_ProcessClientRequest(t *testing.T) {
 	local := NewTCPTest(tSuite)
 

@@ -564,7 +564,7 @@ func TestWebSocketTLS_Error(t *testing.T) {
 	require.NotEqual(t, "", log.GetStdErr())
 }
 
-// TestWebSocket_Streaming performs 3 test cases.
+// TestWebSocket_Streaming_normal performs 3 test cases.
 // (1) happy-path, where client reads all messages from the service
 // (2) unhappy-path, where client closes early
 // (3) unhappy-path, where service closes early
