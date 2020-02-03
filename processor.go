@@ -563,7 +563,7 @@ func (p *ServiceProcessor) IsStreaming(path string) (bool, error) {
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	mh, ok := p.handlers[path]
-	reply, stopServiceChan, err := func() (interface{}, chan bool, error) {
+	reply, _, err := func() (interface{}, chan bool, error) {
 		if !ok {
 			err := xerrors.New("The requested message hasn't been registered: " + path)
 			log.Error(err)
@@ -578,47 +578,6 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 	}()
 	if err != nil {
 		return nil, nil, err
-	}
-
-	if mh.streaming {
-		// We need some buffer space for the intermediate channel that
-		// is responsible for forwarding messages from the service to
-		// the client because we need to keep the select-loop running
-		// to handle channel closures.
-		outChan := make(chan []byte, 100)
-		go func() {
-			inChan := reflect.ValueOf(reply)
-			cases := []reflect.SelectCase{
-				reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
-			}
-			for {
-				chosen, v, ok := reflect.Select(cases)
-				if !ok {
-					log.Lvlf4("publisher is closed for %s, closing outgoing channel", path)
-					close(outChan)
-					return
-				}
-				if chosen == 0 {
-					// Send information down to the client.
-					buf, err = protobuf.Encode(v.Interface())
-					if err != nil {
-						log.Error(err)
-						close(outChan)
-						return
-					}
-					outChan <- buf
-				} else {
-					panic("no such channel index")
-				}
-				// We don't add a way to explicitly stop the
-				// go-routine, otherwise the service will
-				// block. The service should close the channel
-				// when it has nothing else to say because it
-				// is the producer. Then this go-routine will
-				// be stopped as well.
-			}
-		}()
-		return nil, &StreamingTunnel{outChan, stopServiceChan}, nil
 	}
 
 	buf, err = protobuf.Encode(reply)
