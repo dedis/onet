@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -202,21 +203,26 @@ func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
 	p := NewServiceProcessor(&Context{server: h1})
 	// The function need to use the same outChan and closeChan if a request is
 	// coming from the same client that expects the same outChan to be used.
-	outChan := make(chan network.Message, 10)
-	closeChan := make(chan bool)
+	serviceStruct := struct {
+		once      sync.Once
+		outChan   chan network.Message
+		closeChan chan bool
+	}{
+		outChan:   make(chan network.Message, 10),
+		closeChan: make(chan bool),
+	}
+
 	h := func(m *testMsg) (chan network.Message, chan bool, error) {
 		go func() {
 			for i := 0; i < int(m.I); i++ {
-				outChan <- m
+				serviceStruct.outChan <- m
 			}
-			// In the case a client make multiple call, this will end in
-			// multiple go routine that want to close the chan. This is why
-			// each goroutine should check if the chan is already closed, but
-			// for simplicity we will do that outside.
-			// <-closeChan
-			// close(outChan)
+			<-serviceStruct.closeChan
+			serviceStruct.once.Do(func() {
+				close(serviceStruct.outChan)
+			})
 		}()
-		return outChan, closeChan, nil
+		return serviceStruct.outChan, serviceStruct.closeChan, nil
 	}
 	require.Nil(t, p.RegisterStreamingHandler(h))
 
@@ -252,11 +258,6 @@ func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
 	}
 
 	close(tun.close)
-
-	// Would normall be done inside the service, but we would then need to be
-	// sure it is done once. So we do it here for simplicity.
-	<-closeChan
-	close(outChan)
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {
