@@ -63,7 +63,7 @@ type BidirectionalStreamer interface {
 	// ProcessClientStreamRequest is different from ProcessClientRequest in that
 	// it takes a chanel of inputs and watches for additional inputs. Additional
 	// inputs are then forwarded to the service.
-	ProcessClientStreamRequest(req *http.Request, path string, clientInputs chan []byte) ([]byte, *StreamingTunnel, error)
+	ProcessClientStreamRequest(req *http.Request, path string, clientInputs chan []byte) ([]byte, chan []byte, error)
 	// IsStreaming checks if the handler registered at the given path is a
 	// streaming handler or not. It returns an error in the case the handler is
 	// not found.

@@ -181,17 +181,25 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	n := 5
 	buf, err := protobuf.Encode(&testMsg{int64(n)})
 	require.NoError(t, err)
-	rep, tun, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	rep, _, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	// Using ProcessClientRequest with a streaming request should yield an error
+	require.Nil(t, rep)
+	require.Error(t, err)
+
+	inputChan := make(chan []byte, 1)
+	inputChan <- buf
+	rep, outChan, err := p.ProcessClientStreamRequest(nil, "testMsg", inputChan)
+
 	require.Nil(t, rep)
 	require.NoError(t, err)
 
 	for i := 0; i < n; i++ {
-		buf := <-tun.out
+		buf := <-outChan
 		val := &testMsg{}
 		require.Nil(t, protobuf.Decode(buf, val))
 		require.Equal(t, val.I, int64(n))
 	}
-	close(tun.close)
+	close(inputChan)
 }
 
 func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
@@ -230,12 +238,12 @@ func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
 	buf, err := protobuf.Encode(&testMsg{int64(n)})
 	require.NoError(t, err)
 	clientInputs <- buf
-	rep, tun, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
+	rep, outVals, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
 	require.Nil(t, rep)
 	require.NoError(t, err)
 
 	for i := 0; i < n; i++ {
-		buf := <-tun.out
+		buf := <-outVals
 		val := &testMsg{}
 		require.Nil(t, protobuf.Decode(buf, val))
 		require.Equal(t, val.I, int64(n))
@@ -249,13 +257,54 @@ func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
 	clientInputs <- buf
 
 	for i := 0; i < n; i++ {
-		buf := <-tun.out
+		buf := <-outVals
 		val := &testMsg{}
 		require.Nil(t, protobuf.Decode(buf, val))
 		require.Equal(t, val.I, int64(n))
 	}
 
-	close(tun.close)
+	close(clientInputs)
+}
+
+// If the caller closes early the client input chans then the
+// ProcessClientStreamRequest should not try to decode an empty buffer
+func TestServiceProcessor_ProcessClientStreamRequest_close_early(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+	defer h1.Close()
+
+	p := NewServiceProcessor(&Context{server: h1})
+	// The function need to use the same outChan and closeChan if a request is
+	// coming from the same client that expects the same outChan to be used.
+	serviceStruct := struct {
+		once      sync.Once
+		outChan   chan network.Message
+		closeChan chan bool
+	}{
+		outChan:   make(chan network.Message, 10),
+		closeChan: make(chan bool),
+	}
+
+	h := func(m *testMsg) (chan network.Message, chan bool, error) {
+		go func() {
+			for i := 0; i < int(m.I); i++ {
+				serviceStruct.outChan <- m
+			}
+			<-serviceStruct.closeChan
+			serviceStruct.once.Do(func() {
+				close(serviceStruct.outChan)
+			})
+		}()
+		return serviceStruct.outChan, serviceStruct.closeChan, nil
+	}
+	require.Nil(t, p.RegisterStreamingHandler(h))
+
+	// Sending a first message from the client to the service.
+	clientInputs := make(chan []byte, 10)
+	// early close by the caller
+	close(clientInputs)
+	rep, _, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
+	require.Nil(t, rep)
+	require.NoError(t, err)
 }
 
 func TestProcessor_ProcessClientRequest(t *testing.T) {

@@ -275,7 +275,7 @@ outerReadLoop:
 
 		s := t.service
 		var reply []byte
-		var tun *StreamingTunnel
+		var outChan chan []byte
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
 		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
 
@@ -291,7 +291,7 @@ outerReadLoop:
 		}
 
 		if !isStreaming {
-			reply, tun, err = s.ProcessClientRequest(r, path, buf)
+			reply, _, err = s.ProcessClientRequest(r, path, buf)
 			if err != nil {
 				log.Errorf("Got an error while executing %s/%s: %+v",
 					t.serviceName, path, err)
@@ -318,7 +318,7 @@ outerReadLoop:
 
 		clientInputs := make(chan []byte, 10)
 		clientInputs <- buf
-		reply, tun, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
+		reply, outChan, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
 			path, clientInputs)
 		if err != nil {
 			log.Errorf("got an error while processing streaming "+
@@ -345,12 +345,12 @@ outerReadLoop:
 		for {
 			select {
 			case <-closing:
-				close(tun.close)
+				close(clientInputs)
 				break outerReadLoop
-			case reply, closeChan := <-tun.out:
-				if !closeChan {
+			case reply, ok := <-outChan:
+				if !ok {
 					err = xerrors.New("service finished streaming")
-					close(tun.close)
+					close(clientInputs)
 					break outerReadLoop
 				}
 				tx += len(reply)
@@ -359,7 +359,7 @@ outerReadLoop:
 				if err != nil {
 					log.Error(xerrors.Errorf("failed to set the write "+
 						"deadline in the streaming loop: %v", err))
-					close(tun.close)
+					close(clientInputs)
 					break outerReadLoop
 				}
 
@@ -367,7 +367,7 @@ outerReadLoop:
 				if err != nil {
 					log.Error(xerrors.Errorf("failed to write next message "+
 						"in the streaming loop: %v", err))
-					close(tun.close)
+					close(clientInputs)
 					break outerReadLoop
 				}
 			}

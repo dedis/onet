@@ -444,10 +444,12 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 
 // ProcessClientStreamRequest allows clients to push multiple messages
 // asynchronously to the same service with the same connection. Unlike in
-// ProcessClientRequest, we take a channel of inputs that can be filled and will
-// subsequently call the service with any new messages received in the channel.
+// ProcessClientRequest, we take a channel of inputs that can be filled and
+// will subsequently call the service with any new messages received in the
+// channel. The caller is responsible for closing the client input channel when
+// it is done.
 func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path string,
-	clientInputs chan []byte) ([]byte, *StreamingTunnel, error) {
+	clientInputs chan []byte) ([]byte, chan []byte, error) {
 
 	outChan := make(chan []byte, 100)
 	buf := <-clientInputs
@@ -516,7 +518,11 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 	go func() {
 		for {
 			select {
-			case buf := <-clientInputs:
+			case buf, ok := <-clientInputs:
+				if !ok {
+					close(stopServiceChan)
+					return
+				}
 
 				_, _, err := func() (interface{}, chan bool, error) {
 					if !ok {
@@ -538,13 +544,11 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 				if err != nil {
 					log.Error(err)
 				}
-			case <-stopServiceChan:
-				return
 			}
 		}
 	}()
 
-	return nil, &StreamingTunnel{outChan, stopServiceChan}, nil
+	return nil, outChan, nil
 }
 
 // IsStreaming tell if the service registered at the given path is a streaming
@@ -565,9 +569,8 @@ func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, 
 	mh, ok := p.handlers[path]
 
 	if mh.streaming {
-		clientInputs := make(chan []byte, 1)
-		clientInputs <- buf
-		return p.ProcessClientStreamRequest(req, path, clientInputs)
+		return nil, nil, xerrors.Errorf("using a streaming request with " +
+			"ProcessClientRequest: Please use instead ProcessClientStreamRequest")
 	}
 
 	reply, _, err := func() (interface{}, chan bool, error) {
