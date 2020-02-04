@@ -165,10 +165,18 @@ func (r *Router) Stop() error {
 	return nil
 }
 
-// Send sends to an ServerIdentity without wrapping the msg into a ProtocolMsg
-func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
-	if msg == nil {
-		return 0, xerrors.New("Can't send nil-packet")
+// Send sends to an ServerIdentity without wrapping the msg into a
+// ProtocolMsg. It can take more than one message at once to be sure that all
+// the messages are sent through the same connection and thus are correctly
+// ordered.
+func (r *Router) Send(e *ServerIdentity, msgs ...Message) (uint64, error) {
+	for _, msg := range msgs {
+		if msg == nil {
+			return 0, xerrors.New("cannot send nil-packets")
+		}
+	}
+	if len(msgs) == 0 {
+		return 0, xerrors.New("need to send at least one message")
 	}
 
 	// Update the message counter with the new message about to be sent.
@@ -176,23 +184,26 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 
 	// If sending to ourself, directly dispatch it
 	if e.ID.Equal(r.ServerIdentity.ID) {
-		log.Lvlf4("Sending to ourself (%s) msg: %+v", e, msg)
-		packet := &Envelope{
-			ServerIdentity: e,
-			MsgType:        MessageType(msg),
-			Msg:            msg,
+		var sent uint64
+		for _, msg := range msgs {
+			log.Lvlf4("Sending to ourself (%s) msg: %+v", e, msg)
+			packet := &Envelope{
+				ServerIdentity: e,
+				MsgType:        MessageType(msg),
+				Msg:            msg,
+			}
+			if err := r.Dispatch(packet); err != nil {
+				return 0, xerrors.Errorf("Error dispatching: %s", err)
+			}
+			// Marshal the message to get its length
+			b, err := Marshal(msg)
+			if err != nil {
+				return 0, xerrors.Errorf("marshaling: %v", err)
+			}
+			log.Lvl5("Message sent")
+			sent += uint64(len(b))
 		}
-		if err := r.Dispatch(packet); err != nil {
-			return 0, xerrors.Errorf("Error dispatching: %s", err)
-		}
-		// Marshal the message to get its length
-		b, err := Marshal(msg)
-		if err != nil {
-			return 0, xerrors.Errorf("marshaling: %v", err)
-		}
-		log.Lvl5("Message sent")
-
-		return uint64(len(b)), nil
+		return sent, nil
 	}
 
 	var totSentLen uint64
@@ -207,20 +218,22 @@ func (r *Router) Send(e *ServerIdentity, msg Message) (uint64, error) {
 		}
 	}
 
-	log.Lvlf4("%s sends to %s msg: %+v", r.address, e, msg)
-	sentLen, err := c.Send(msg)
-	totSentLen += sentLen
-	if err != nil {
-		log.Lvl2(r.address, "Couldn't send to", e, ":", err, "trying again")
-		c, sentLen, err := r.connect(e)
+	for _, msg := range msgs {
+		log.Lvlf4("%s sends to %s msg: %+v", r.address, e, msg)
+		sentLen, err := c.Send(msg)
 		totSentLen += sentLen
 		if err != nil {
-			return totSentLen, xerrors.Errorf("connecting: %v", err)
-		}
-		sentLen, err = c.Send(msg)
-		totSentLen += sentLen
-		if err != nil {
-			return totSentLen, xerrors.Errorf("connecting: %v", err)
+			log.Lvl2(r.address, "Couldn't send to", e, ":", err, "trying again")
+			c, sentLen, err := r.connect(e)
+			totSentLen += sentLen
+			if err != nil {
+				return totSentLen, xerrors.Errorf("connecting: %v", err)
+			}
+			sentLen, err = c.Send(msg)
+			totSentLen += sentLen
+			if err != nil {
+				return totSentLen, xerrors.Errorf("connecting: %v", err)
+			}
 		}
 	}
 	log.Lvl5("Message sent")
