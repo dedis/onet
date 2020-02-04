@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -449,66 +450,21 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 // channel. The caller is responsible for closing the client input channel when
 // it is done.
 func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path string,
-	clientInputs chan []byte) ([]byte, chan []byte, error) {
+	clientInputs chan []byte) (chan []byte, error) {
 
 	outChan := make(chan []byte, 100)
-	buf := <-clientInputs
+	var closeOutOnce sync.Once
 	mh, ok := p.handlers[path]
 
 	if !ok {
 		err := xerrors.New("the requested message hasn't been " +
 			"registered: " + path)
 		log.Error(err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	msg := reflect.New(mh.msgType).Interface()
-	err := protobuf.DecodeWithConstructors(buf, msg,
-		network.DefaultConstructors(p.Context.server.Suite()))
-	if err != nil {
-		return nil, nil, xerrors.Errorf("failed to decode message: %v", err)
-	}
-
-	reply, stopServiceChan, err := callInterfaceFunc(mh.handler, msg, mh.streaming)
-	if err != nil {
-		return nil, nil, xerrors.Errorf("failed to get function: %v", err)
-	}
-
-	// This goroutine is responsible for listening on the service channel,
-	// decoding the messages and then forwarding them to the streaming tunnel,
-	// which should then forward the message to the client.
-	go func() {
-		inChan := reflect.ValueOf(reply)
-		cases := []reflect.SelectCase{
-			reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
-		}
-
-		for {
-			chosen, v, ok := reflect.Select(cases)
-			if !ok {
-				log.Lvlf4("publisher is closed for %s, closing "+
-					"outgoing channel", path)
-				close(outChan)
-				return
-			}
-			if chosen == 0 {
-				// Send information down to the client.
-				buf, err = protobuf.Encode(v.Interface())
-				if err != nil {
-					log.Error(err)
-					close(outChan)
-					return
-				}
-				outChan <- buf
-			} else {
-				panic("no such channel index")
-			}
-			// We don't add a way to explicitly stop the go-routine, otherwise
-			// the service will block. The service should close the channel when
-			// it has nothing else to say because it is the producer. Then this
-			// go-routine will be stopped as well.
-		}
-	}()
+	var stopServiceChan chan bool
+	var reply interface{}
 
 	// This goroutine listens on any new messages from the client and executes
 	// the request. Executing the request should fill the service's channel, as
@@ -518,35 +474,77 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 			select {
 			case buf, ok := <-clientInputs:
 				if !ok {
-					close(stopServiceChan)
+					if stopServiceChan != nil {
+						close(stopServiceChan)
+					}
 					return
 				}
 
-				_, _, err := func() (interface{}, chan bool, error) {
-					if !ok {
-						err := xerrors.New("The requested message hasn't " +
-							"been registered: " + path)
-						log.Error(err)
-						return nil, nil, err
-					}
-					msg := reflect.New(mh.msgType).Interface()
+				msg := reflect.New(mh.msgType).Interface()
 
-					err := protobuf.DecodeWithConstructors(buf, msg,
-						network.DefaultConstructors(p.Context.server.Suite()))
-					if err != nil {
-						return nil, nil, xerrors.Errorf("decoding: %v", err)
-					}
+				err := protobuf.DecodeWithConstructors(buf, msg,
+					network.DefaultConstructors(p.Context.server.Suite()))
+				if err != nil {
+					log.Error(xerrors.Errorf("decoding: %v", err))
+					return
+				}
 
-					return callInterfaceFunc(mh.handler, msg, mh.streaming)
-				}()
+				reply, stopServiceChan, err = callInterfaceFunc(mh.handler, msg, mh.streaming)
 				if err != nil {
 					log.Error(err)
+					if stopServiceChan != nil {
+						close(stopServiceChan)
+					}
 				}
+
+				// This goroutine is responsible for listening on the service channel,
+				// decoding the messages and then forwarding them to the streaming
+				// tunnel, which should then forward the message to the client. A new
+				// routine is created each time the client makes a request.
+				go func() {
+					inChan := reflect.ValueOf(reply)
+					cases := []reflect.SelectCase{
+						reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
+					}
+
+					// Since this goroutine is created each time the client sends a
+					// request, we then must ensure the outChan is closed only once.
+					defer func() {
+						closeOutOnce.Do(func() {
+							close(outChan)
+						})
+					}()
+
+					for {
+						chosen, v, ok := reflect.Select(cases)
+						if !ok {
+							log.Lvlf4("publisher is closed for %s, closing "+
+								"outgoing channel", path)
+							return
+						}
+						if chosen == 0 {
+							// Send information down to the client.
+							buf, err = protobuf.Encode(v.Interface())
+							if err != nil {
+								log.Error(err)
+								return
+							}
+							outChan <- buf
+						} else {
+							panic("no such channel index")
+						}
+						// We don't add a way to explicitly stop the go-routine, otherwise
+						// the service will block. The service should close the channel when
+						// it has nothing else to say because it is the producer. Then this
+						// go-routine will be stopped as well.
+					}
+				}()
+
 			}
 		}
 	}()
 
-	return nil, outChan, nil
+	return outChan, nil
 }
 
 // IsStreaming tell if the service registered at the given path is a streaming

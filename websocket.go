@@ -318,7 +318,7 @@ outerReadLoop:
 
 		clientInputs := make(chan []byte, 10)
 		clientInputs <- buf
-		reply, outChan, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
+		outChan, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
 			path, clientInputs)
 		if err != nil {
 			log.Errorf("got an error while processing streaming "+

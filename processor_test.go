@@ -188,9 +188,8 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 
 	inputChan := make(chan []byte, 1)
 	inputChan <- buf
-	rep, outChan, err := p.ProcessClientStreamRequest(nil, "testMsg", inputChan)
+	outChan, err := p.ProcessClientStreamRequest(nil, "testMsg", inputChan)
 
-	require.Nil(t, rep)
 	require.NoError(t, err)
 
 	for i := 0; i < n; i++ {
@@ -238,8 +237,7 @@ func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
 	buf, err := protobuf.Encode(&testMsg{int64(n)})
 	require.NoError(t, err)
 	clientInputs <- buf
-	rep, outVals, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
-	require.Nil(t, rep)
+	outVals, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
 	require.NoError(t, err)
 
 	for i := 0; i < n; i++ {
@@ -302,8 +300,7 @@ func TestServiceProcessor_ProcessClientStreamRequest_close_early(t *testing.T) {
 	clientInputs := make(chan []byte, 10)
 	// early close by the caller
 	close(clientInputs)
-	rep, _, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
-	require.Nil(t, rep)
+	_, err := p.ProcessClientStreamRequest(nil, "testMsg", clientInputs)
 	require.NoError(t, err)
 }
 
