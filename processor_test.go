@@ -166,13 +166,15 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	p := NewServiceProcessor(&Context{server: h1})
 	h := func(m *testMsg) (chan network.Message, chan bool, error) {
 		outChan := make(chan network.Message)
+		closeChan := make(chan bool)
 		go func() {
 			for i := 0; i < int(m.I); i++ {
 				outChan <- m
 			}
+			<-closeChan
 			close(outChan)
 		}()
-		return outChan, nil, nil
+		return outChan, closeChan, nil
 	}
 	require.Nil(t, p.RegisterStreamingHandler(h))
 
@@ -183,17 +185,13 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 	require.Nil(t, rep)
 	require.NoError(t, err)
 
-	for i := 0; i < n+1; i++ {
-		if i >= n {
-			_, ok := <-tun.out
-			require.False(t, ok)
-		} else {
-			buf := <-tun.out
-			val := &testMsg{}
-			require.Nil(t, protobuf.Decode(buf, val))
-			require.Equal(t, val.I, int64(n))
-		}
+	for i := 0; i < n; i++ {
+		buf := <-tun.out
+		val := &testMsg{}
+		require.Nil(t, protobuf.Decode(buf, val))
+		require.Equal(t, val.I, int64(n))
 	}
+	close(tun.close)
 }
 
 func TestServiceProcessor_ProcessClientStreamRequest(t *testing.T) {
