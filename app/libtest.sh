@@ -16,8 +16,22 @@ APPDIR=${APPDIR:-$(pwd)}
 APP=${APP:-$(basename $APPDIR)}
 # Name of conode-log
 COLOG=conode
+# Base port when generating the configurations
+BASE_PORT=2000
 
 RUNOUT=$( mktemp )
+
+for i in . .. ../.. ../../.. ../../../.. $( go env GOPATH )/src/go.dedis.ch/cothority
+do
+	if [ -f $i/conode/conode.go ]; then
+		root=$( cd -P $i; pwd )
+		break
+	fi
+done
+if [ -z "$root" ]; then
+	echo "Cannot find conode/connode.go"
+	exit 1
+fi
 
 # cleans the test-directory and builds the CLI binary
 # Globals:
@@ -35,12 +49,12 @@ startTest(){
 # Prints `Name`, cleans up build-directory, deletes all databases from services
 # in previous run, and calls `testName`.
 # Arguments:
-#   `Name` - name of the test to run
-test(){
+#   `Name` - name of the testing function to run
+run(){
   cleanup
   echo -e "\n* Testing $1"
   sleep .5
-  test$1
+  $1
 }
 
 # Asserts that the exit-code of running `$@` using `dbgRun` is `0`.
@@ -96,6 +110,28 @@ testFileGrep(){
   fi
 }
 
+# Asserts that `String` matches `Target`.
+# Arguments:
+#   `String` - element to compare
+#   `Target` - what should match
+matchOK(){
+  testOut "Match OK between '$1' and '$2'"
+  if ! [[ $1 =~ $2 ]]; then
+    fail "'$1' does not match '$2'"
+  fi
+}
+
+# Asserts that `String` does NOT match `Target`.
+# Arguments:
+#   `String` - element to compare
+#   `Target` - what should not match
+matchNOK(){
+  testOut "Match NOT OK between '$1' and '$2'"
+  if [[ $1 =~ $2 ]]; then
+    fail "'$1' does match '$2'"
+  fi
+}
+
 # Asserts that `String` is in the output of the command being run by `dbgRun`
 # and all but the first input argument. Ignores the exit-code of the command.
 # Arguments:
@@ -109,6 +145,39 @@ testGrep(){
   doGrep "$S"
   if [ ! "$EGREP" ]; then
     fail "Didn't find '$S' in output of '$@': $GREP"
+  fi
+}
+
+# Asserts that `String` is in the output of the command being run by `dbgRun`
+# and all but the first input argument. Ignores the exit-code of the command.
+# Uses fgrep, which interprets pattern as a set of fixed string.
+# Arguments:
+#   `String` - what to search for
+#   `$@[1..]` - command to run
+testFGrep(){
+  S="$1"
+  shift
+  testOut "Assert fgrepping '$S' in '$@'"
+  runOutFile "$@"
+  doFGrep "$S"
+  if [ ! "$EGREP" ]; then
+    fail "Didn't find '$S' in output of '$@': $GREP"
+  fi
+}
+
+# Asserts the output of the command being run by `dbgRun` and all but the first
+# input argument is N lines long. Ignores the exit-code of the command.
+# Arguments:
+#   `N` - how many lines should be output
+#   `$@[1..]` - command to run
+testCountLines(){
+  N="$1"
+  shift
+  testOut "Assert wc -l is $N lines in '$@'"
+  runOutFile "$@"
+  lines=`wc -l < $RUNOUT`
+  if [ $lines != $N ]; then
+    fail "Found $lines lines in output of '$@'"
   fi
 }
 
@@ -160,6 +229,14 @@ doGrep(){
   # cat $RUNOUT
   WC=$( cat $RUNOUT | egrep "$1" | wc -l )
   EGREP=$( cat $RUNOUT | egrep "$1" )
+}
+
+# used in test*FGrep methods.
+doFGrep(){
+  # echo "grepping in $RUNOUT"
+  # cat $RUNOUT
+  WC=$( cat $RUNOUT | fgrep "$1" | wc -l )
+  EGREP=$( cat $RUNOUT | fgrep "$1" )
 }
 
 # Asserts that `String` exists exactly `Count` times in the output of the
@@ -253,65 +330,51 @@ backg(){
 build(){
   local builddir=$1
   local app=$( basename $builddir )
+  local out=$( pwd )/$app
   if [ ! -e $app -o "$CLEANBUILD" ]; then
     testOut "Building $app"
-    if ! go build -o $app $TAGS $builddir/*.go; then
-      fail "Couldn't build $builddir"
-    fi
+    ( 
+      cd $builddir
+      if ! go build -o $out $TAGS *.go; then
+        fail "Couldn't build $builddir"
+      fi
+    )
   else
     dbgOut "Not building $app because it's here"
   fi
 }
 
 buildDir(){
-  BUILDDIR=${BUILDDIR:-$(mktemp -d)}
+  BUILDDIR=./build
   mkdir -p $BUILDDIR
   testOut "Working in $BUILDDIR"
   cd $BUILDDIR
 }
 
-# Magical method that tries very hard to build a conode. If no arguments given,
-# it will search for a service first in the `./service` directory, and if not
-# found, in the `../service` directory.
 # If a directory is given as an argument, the service will be taken from that
 # directory.
 # Globals:
 #   APPDIR - where the app is stored
 # Arguments:
-#   [serviceDir, ...] - if given, used as directory to be included. More than one
-#                       argument can be given.
+#   [serviceDir, ...] - if given, used as directory to be included. At least one
+#                       argument must be given.
 buildConode(){
   local incl="$@"
-  gopath=`go env GOPATH`
   if [ -z "$incl" ]; then
-    echo "buildConode: No import paths provided. Searching."
-    for i in service ../service
-    do
-      if [ -d $APPDIR/$i ]; then
-        local pkg=$( realpath $APPDIR/$i | sed -e "s:$gopath/src/::" )
-        incl="$incl $pkg"
-      fi
-    done
-    echo "Found: $incl"
+      echo "buildConode: No import paths provided."
+      exit 1
   fi
 
-  local cotdir=$( mktemp -d )/conode
-  mkdir -p $cotdir
-
+  echo "Building conode"
+  mkdir -p conode_
   ( echo -e "package main\nimport ("
     for i in $incl; do
       echo -e "\t_ \"$i\""
     done
-  echo ")" ) > $cotdir/import.go
+  echo ")" ) > conode_/import.go
 
-  if [ ! -f "$gopath/src/github.com/dedis/cothority/conode/conode.go" ]; then
-    echo "Cannot find package github.com/dedis/cothority."
-    exit 1
-  fi
-  cp "$gopath/src/github.com/dedis/cothority/conode/conode.go" $cotdir/conode.go
-
-  build $cotdir
-  rm -rf $cotdir
+  cp "$root/conode/conode.go" conode_/conode.go
+  go build -o conode ./conode_
   setupConode
 }
 
@@ -324,7 +387,8 @@ setupConode(){
     co=co$n
     rm -f $co/*
     mkdir -p $co
-    echo -e "localhost:200$(( 2 * $n ))\nCot-$n\n$co\n" | dbgRun runCo $n setup
+    local port="$(( $BASE_PORT + 2 * $n ))"
+    echo -e "localhost:$port\nCot-$n\n$co\n" | dbgRun runCo $n setup
     if [ ! -f $co/public.toml ]; then
       echo "Setup failed: file $co/public.toml is missing."
       exit
@@ -336,30 +400,51 @@ setupConode(){
   DBG_TEST=$DBG_OLD
 }
 
+# runCoBG: Run a conode in the background. It runs a conode under a subshell so
+# that when it exits, it can make the .dead file once the conode dies. It then
+# checks that they started listening on the expected port, and finally reports
+# if one did not start as expected.
 runCoBG(){
   for nb in "$@"; do
     dbgOut "starting conode-server #$nb"
     (
       # Always redirect output of server in log-file, but
-      # only output to stdout if DBG_SRV > 0.
+      # only output to stdout if DBG_TEST > 1.
       rm -f "$COLOG$nb.log.dead"
-      if [ "$DBG_SRV" = 0 ]; then
-        ./conode -d $DBG_SRV -c co$nb/private.toml server > "$COLOG$nb.log" | cat
-      else
+      if [ $DBG_TEST -ge 2 ]; then
         ./conode -d $DBG_SRV -c co$nb/private.toml server 2>&1 | tee "$COLOG$nb.log"
+      else
+        ./conode -d $DBG_SRV -c co$nb/private.toml server >& "$COLOG$nb.log"
       fi
       touch "$COLOG$nb.log.dead"
-    ) &
+    ) 2>/dev/null &
+    # This makes `pkill conode` not outputting errors here
+    disown
   done
-  sleep 1
-  for nb in "$@"; do
-    dbgOut "checking conode-server #$nb"
-    if [ -f "$COLOG$nb.log.dead" ]; then
-      echo "Server $nb failed to start:"
-      cat "$COLOG$nb.log"
-      exit 1
-    fi
+  
+  local allStarted=0
+  # wait for conodes to start but maximum 10 seconds
+  for (( k=0; k < 20 && allStarted == 0; k++ )) do
+    sleep .5
+    allStarted=1
+
+    for nb in "$@"; do
+      local port="$(( $BASE_PORT + $nb * 2 + 1 ))"
+      
+      if ! (echo >"/dev/tcp/localhost/$port") &>/dev/null; then
+        allStarted=0
+      fi
+    done
   done
+
+  if [ "$allStarted" -ne "1" ]; then
+    echo "Servers failed to start"
+    cat *.log
+    cat *.log.dead
+    exit 1
+  fi
+
+  dbgOut "All conodes have started"
 }
 
 runCo(){
@@ -371,19 +456,17 @@ runCo(){
 
 cleanup(){
   pkill -9 conode 2> /dev/null
-  pkill -9 $APP 2> /dev/null
+  pkill -9 ^${APP}$ 2> /dev/null
   sleep .5
   rm -f co*/*bin
   rm -f cl*/*bin
-  rm -rf $CONODE_SERVICE_PATH
+  if [ -z "$KEEP_DB" ]; then
+    rm -rf $CONODE_SERVICE_PATH
+  fi
 }
 
 stopTest(){
   cleanup
-  if [ $( basename $BUILDDIR ) != build ]; then
-    dbgOut "removing $BUILDDIR"
-    rm -rf $BUILDDIR
-  fi
   echo "Success"
 }
 
@@ -414,12 +497,8 @@ for i in "$@"; do
       CLEANBUILD=yes
       shift # past argument=value
       ;;
-    -nt|--notemp)
-      BUILDDIR=$(pwd)/build
-      shift # past argument=value
-      ;;
   esac
 done
 buildDir
 
-export CONODE_SERVICE_PATH=$BUILDDIR/service_storage
+export CONODE_SERVICE_PATH=service_storage

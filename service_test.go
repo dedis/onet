@@ -416,7 +416,44 @@ func TestServiceGenericConfig(t *testing.T) {
 	waitOrFatalValue(link, true, t)
 	// wait for the service 2 say there is no config
 	waitOrFatalValue(link, true, t)
+}
 
+func TestServiceConfigRace(t *testing.T) {
+	nbrNodes := 4
+	log.SetDebugVisible(2)
+	for i := 0; i < 1; i++ {
+		local := NewLocalTest(tSuite)
+		trees := make([]*Tree, nbrNodes)
+		servers := local.GenServers(nbrNodes)
+		roster := local.GenRosterFromHost(servers...)
+
+		dummyServices := make([]*dummyService2, nbrNodes)
+		msgs := make(chan bool)
+		for node := 0; node < nbrNodes; node++ {
+			trees[node] = roster.GenerateNaryTreeWithRoot(nbrNodes,
+				servers[node].ServerIdentity)
+			s := servers[node].serviceManager.service(dummyService2Name)
+			dummyServices[node] = s.(*dummyService2)
+			dummyServices[node].link = msgs
+		}
+
+		// Launch n parallel protocols to check races in setting up the
+		// connections
+		wg := sync.WaitGroup{}
+		wg.Add(nbrNodes)
+		for node := 0; node < nbrNodes; node++ {
+			go func(n int) {
+				go dummyServices[n].launchProto(trees[n], true)
+				// wait for the service's protocol creation
+				for newProto := 0; newProto < nbrNodes; newProto++ {
+					waitOrFatalValue(msgs, true, t)
+				}
+				wg.Done()
+			}(node)
+		}
+		wg.Wait()
+		local.CloseAll()
+	}
 }
 
 // BackForthProtocolForth & Back are messages that go down and up the tree.
@@ -718,8 +755,11 @@ var serviceConfig = []byte{0x01, 0x02, 0x03, 0x04}
 func (ds *dummyService2) NewProtocol(tn *TreeNodeInstance, conf *GenericConfig) (ProtocolInstance, error) {
 	ds.link <- conf != nil && bytes.Equal(conf.Data, serviceConfig)
 	pi, err := newDummyProtocol2(tn)
+	if err != nil {
+		return nil, xerrors.Errorf("couldn't create dummyProtocol2: %+v", err)
+	}
 	pi.(*DummyProtocol2).finishEarly = true
-	return pi, err
+	return pi, tn.SetConfig(conf)
 }
 
 func (ds *dummyService2) Process(env *network.Envelope) {
