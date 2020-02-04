@@ -455,25 +455,23 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 	buf := <-clientInputs
 	mh, ok := p.handlers[path]
 
-	reply, stopServiceChan, err := func() (interface{}, chan bool, error) {
-		if !ok {
-			err := xerrors.New("the requested message hasn't been " +
-				"registered: " + path)
-			log.Error(err)
-			return nil, nil, err
-		}
-
-		msg := reflect.New(mh.msgType).Interface()
-		err := protobuf.DecodeWithConstructors(buf, msg,
-			network.DefaultConstructors(p.Context.server.Suite()))
-		if err != nil {
-			return nil, nil, xerrors.Errorf("decoding: %v", err)
-		}
-
-		return callInterfaceFunc(mh.handler, msg, mh.streaming)
-	}()
-	if err != nil {
+	if !ok {
+		err := xerrors.New("the requested message hasn't been " +
+			"registered: " + path)
+		log.Error(err)
 		return nil, nil, err
+	}
+
+	msg := reflect.New(mh.msgType).Interface()
+	err := protobuf.DecodeWithConstructors(buf, msg,
+		network.DefaultConstructors(p.Context.server.Suite()))
+	if err != nil {
+		return nil, nil, xerrors.Errorf("failed to decode message: %v", err)
+	}
+
+	reply, stopServiceChan, err := callInterfaceFunc(mh.handler, msg, mh.streaming)
+	if err != nil {
+		return nil, nil, xerrors.Errorf("failed to get function: %v", err)
 	}
 
 	// This goroutine is responsible for listening on the service channel,
