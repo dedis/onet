@@ -563,6 +563,13 @@ func (p *ServiceProcessor) IsStreaming(path string) (bool, error) {
 // documentation.
 func (p *ServiceProcessor) ProcessClientRequest(req *http.Request, path string, buf []byte) ([]byte, *StreamingTunnel, error) {
 	mh, ok := p.handlers[path]
+
+	if mh.streaming {
+		clientInputs := make(chan []byte, 1)
+		clientInputs <- buf
+		return p.ProcessClientStreamRequest(req, path, clientInputs)
+	}
+
 	reply, _, err := func() (interface{}, chan bool, error) {
 		if !ok {
 			err := xerrors.New("The requested message hasn't been registered: " + path)
