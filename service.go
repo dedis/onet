@@ -351,7 +351,7 @@ func newServiceManager(srv *Server, o *Overlay, dbPath string, delDb bool) *serv
 
 		srvc, err := ServiceFactory.start(name, cont)
 		if err != nil {
-			log.Fatalf("Trying to instantiate service %v: %v", name, err)
+			log.Fatalf("Trying to instantiate service %v: %+v", name, err)
 		}
 		log.Lvl3("Started Service", name)
 		s.servicesMutex.Lock()
@@ -534,8 +534,8 @@ func (s *serviceManager) newProtocol(tni *TreeNodeInstance, config *GenericConfi
 	defer func() {
 		if r := recover(); r != nil {
 			pi = nil
-			err = xerrors.Errorf("could not create new protocol: %v", r)
-			return
+			err = xerrors.Errorf("could not create new protocol: %v at %s",
+				r, log.Stack())
 		}
 	}()
 

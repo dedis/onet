@@ -286,7 +286,8 @@ func (p *ServiceProcessor) RegisterRESTHandler(f interface{}, namespace, method 
 
 		out, tun, err := callInterfaceFunc(f, val0.Interface(), false)
 		if err != nil {
-			http.Error(w, wrapJSONMsg("processing error "+err.Error()), http.StatusBadRequest)
+			http.Error(w, wrapJSONMsg("processing error "+err.Error()),
+				http.StatusBadRequest)
 			return
 		}
 		if tun != nil {
@@ -411,7 +412,8 @@ type StreamingTunnel struct {
 func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interface{}, ch chan bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = xerrors.Errorf("panic with %v", r)
+			log.Errorf("Panicked with '%v' at %s", r, log.Stack())
+			err = xerrors.Errorf("panic: %v", r)
 		}
 	}()
 

@@ -109,7 +109,7 @@ func (r *Router) Start() {
 		if err != nil {
 			if !strings.Contains(err.Error(), "EOF") {
 				// Avoid printing error message if it's just a stray connection.
-				log.Errorf("receiving server identity from %#v failed: %v",
+				log.Errorf("receiving server identity from %#v failed: %+v",
 					c.Remote().NetworkAddress(), err)
 			}
 			if err := c.Close(); err != nil {
@@ -393,7 +393,8 @@ func (r *Router) registerConnection(remote *ServerIdentity, c Conn) error {
 	}
 	_, okc := r.connections[remote.ID]
 	if okc {
-		log.Lvl5("Connection already registered. Appending new connection to same identity.")
+		log.Lvl5("Connection already registered. " +
+			"Appending new connection to same identity.")
 	}
 	r.connections[remote.ID] = append(r.connections[remote.ID], c)
 	return nil

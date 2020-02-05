@@ -156,7 +156,8 @@ func InteractiveConfig(suite network.Suite, binaryName string) {
 		if _, err := os.Stat(configFolder); os.IsNotExist(err) {
 			log.Info("Creating inexistant directory configuration", configFolder)
 			if err = os.MkdirAll(configFolder, 0744); err != nil {
-				log.Fatalf("Could not create directory configuration %s %v", configFolder, err)
+				log.Fatalf("Could not create directory configuration %s %+v",
+					configFolder, err)
 			}
 		}
 
