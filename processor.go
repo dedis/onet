@@ -444,8 +444,8 @@ func callInterfaceFunc(handler, input interface{}, streaming bool) (intf interfa
 }
 
 // ProcessClientStreamRequest allows clients to push multiple messages
-// asynchronously to the same service with the same connection. Unlike in
-// ProcessClientRequest, we take a channel of inputs that can be filled and
+// asynchronously to the same service handler with the same connection. Unlike
+// in ProcessClientRequest, we take a channel of inputs that can be filled and
 // will subsequently call the service with any new messages received in the
 // channel. The caller is responsible for closing the client input channel when
 // it is done.
@@ -485,7 +485,7 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 				err := protobuf.DecodeWithConstructors(buf, msg,
 					network.DefaultConstructors(p.Context.server.Suite()))
 				if err != nil {
-					log.Error(xerrors.Errorf("decoding: %v", err))
+					log.Error(xerrors.Errorf("failed to decode message: %v", err))
 					return
 				}
 
@@ -494,6 +494,7 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 					log.Error(err)
 					if stopServiceChan != nil {
 						close(stopServiceChan)
+						return
 					}
 				}
 
