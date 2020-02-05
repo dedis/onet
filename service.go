@@ -56,6 +56,20 @@ type Service interface {
 	network.Processor
 }
 
+// BidirectionalStreamer specifies the functions needed to handle a
+// bi-directional streamer, where the client is able to use the same chanel in
+// order to send multiple requests.
+type BidirectionalStreamer interface {
+	// ProcessClientStreamRequest is different from ProcessClientRequest in that
+	// it takes a chanel of inputs and watches for additional inputs. Additional
+	// inputs are then forwarded to the service.
+	ProcessClientStreamRequest(req *http.Request, path string, clientInputs chan []byte) (chan []byte, error)
+	// IsStreaming checks if the handler registered at the given path is a
+	// streaming handler or not. It returns an error in the case the handler is
+	// not found.
+	IsStreaming(path string) (bool, error)
+}
+
 // NewServiceFunc is the type of a function that is used to instantiate a given Service
 // A service is initialized with a Server (to send messages to someone).
 type NewServiceFunc func(c *Context) (Service, error)

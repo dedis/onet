@@ -275,63 +275,104 @@ outerReadLoop:
 
 		s := t.service
 		var reply []byte
-		var tun *StreamingTunnel
+		var outChan chan []byte
 		path := strings.TrimPrefix(r.URL.Path, "/"+t.serviceName+"/")
 		log.Lvlf2("ws request from %s: %s/%s", r.RemoteAddr, t.serviceName, path)
-		reply, tun, err = s.ProcessClientRequest(r, path, buf)
-		if err == nil {
-			if tun == nil {
-				tx += len(reply)
-				if err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-					log.Error(err)
-					break
-				}
-				if err = ws.WriteMessage(mt, reply); err != nil {
-					log.Error(err)
-					break
-				}
-			} else {
-				closing := make(chan bool)
-				go func() {
-					for {
-						// Listen for incoming messages to know if the client wants
-						// to close the stream.
-						_, _, err := ws.ReadMessage()
-						if err != nil {
-							close(closing)
-							return
-						}
-					}
-				}()
 
-				for {
-					select {
-					case <-closing:
-						close(tun.close)
-						return
-					case reply, ok := <-tun.out:
-						if !ok {
-							err = xerrors.New("service finished streaming")
-							close(tun.close)
-							break outerReadLoop
-						}
-						tx += len(reply)
-						if err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute)); err != nil {
-							log.Error(err)
-							close(tun.close)
-							break outerReadLoop
-						}
-						if err = ws.WriteMessage(mt, reply); err != nil {
-							log.Error(err)
-							close(tun.close)
-							break outerReadLoop
-						}
-					}
+		isStreaming := false
+		bidirectionalStreamer, ok := s.(BidirectionalStreamer)
+		if ok {
+			isStreaming, err = bidirectionalStreamer.IsStreaming(path)
+			if err != nil {
+				log.Errorf("failed to check if it is a streaming "+
+					"request %s/%s: %+v", t.serviceName, path, err)
+				continue
+			}
+		}
+
+		if !isStreaming {
+			reply, _, err = s.ProcessClientRequest(r, path, buf)
+			if err != nil {
+				log.Errorf("Got an error while executing %s/%s: %+v",
+					t.serviceName, path, err)
+				continue
+			}
+
+			tx += len(reply)
+			err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute))
+			if err != nil {
+				log.Error(xerrors.Errorf("failed to set the write deadline "+
+					"with request request %s/%s: %v", t.serviceName, path, err))
+				break
+			}
+
+			err = ws.WriteMessage(mt, reply)
+			if err != nil {
+				log.Error(xerrors.Errorf("failed to write message with "+
+					"request %s/%s: %v", t.serviceName, path, err))
+				break
+			}
+
+			continue
+		}
+
+		clientInputs := make(chan []byte, 10)
+		clientInputs <- buf
+		outChan, err = bidirectionalStreamer.ProcessClientStreamRequest(r,
+			path, clientInputs)
+		if err != nil {
+			log.Errorf("got an error while processing streaming "+
+				"request %s/%s: %+v", t.serviceName, path, err)
+			continue
+		}
+
+		closing := make(chan bool)
+		go func() {
+			for {
+				// Listen for incoming messages to know if the client wants to
+				// close the stream. If this is an error, we assume the client
+				// wants to close the stream, otherwise we forward the message
+				// to the service.
+				_, buf, err := ws.ReadMessage()
+				if err != nil {
+					close(closing)
+					return
+				}
+				clientInputs <- buf
+			}
+		}()
+
+		for {
+			select {
+			case <-closing:
+				close(clientInputs)
+				break outerReadLoop
+			case reply, ok := <-outChan:
+				if !ok {
+					err = xerrors.New("service finished streaming")
+					close(clientInputs)
+					break outerReadLoop
+				}
+				tx += len(reply)
+
+				err = ws.SetWriteDeadline(time.Now().Add(5 * time.Minute))
+				if err != nil {
+					log.Error(xerrors.Errorf("failed to set the write "+
+						"deadline in the streaming loop: %v", err))
+					close(clientInputs)
+					break outerReadLoop
+				}
+
+				err = ws.WriteMessage(mt, reply)
+				if err != nil {
+					log.Error(xerrors.Errorf("failed to write next message "+
+						"in the streaming loop: %v", err))
+					close(clientInputs)
+					break outerReadLoop
 				}
 			}
-		} else {
-			log.Errorf("Got an error while executing %s/%s: %+v", t.serviceName, path, err)
 		}
+
 	}
 
 	errMessage := "unexpected error: "
