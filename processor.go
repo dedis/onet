@@ -494,8 +494,8 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 					log.Error(err)
 					if stopServiceChan != nil {
 						close(stopServiceChan)
-						return
 					}
+					return
 				}
 
 				// This goroutine is responsible for listening on the service channel,
