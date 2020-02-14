@@ -2,7 +2,7 @@ package onet
 
 import (
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // ProtocolMsgID is to be embedded in every message that is made for a
@@ -47,6 +47,8 @@ type ProtocolMsg struct {
 	MsgSlice []byte
 	// The size of the data
 	Size network.Size
+	// Config is the config passed to the protocol constructor.
+	Config *GenericConfig
 }
 
 // ConfigMsg is sent by the overlay containing a generic slice of bytes to
@@ -154,6 +156,8 @@ type OverlayMsg struct {
 	ResponseTree *ResponseTree
 	// Deprecated: use ResponseTree to send the tree and the roster
 	TreeMarshal *TreeMarshal
+
+	Config *GenericConfig
 }
 
 // RequestRoster is used to ask the parent for a given Roster
