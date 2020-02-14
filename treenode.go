@@ -50,6 +50,7 @@ type TreeNodeInstance struct {
 	// config is to be passed down in the first message of what the protocol is
 	// sending if it is non nil. Set with `tni.SetConfig()`.
 	config    *GenericConfig
+	sentTo    map[TreeNodeID]bool
 	configMut sync.Mutex
 
 	// used for the CounterIO interface
@@ -100,6 +101,7 @@ func newTreeNodeInstance(o *Overlay, tok *Token, tn *TreeNode, io MessageProxy) 
 		msgDispatchQueue:     make([]*ProtocolMsg, 0, 1),
 		msgDispatchQueueWait: make(chan bool, 1),
 		protoIO:              io,
+		sentTo:               make(map[TreeNodeID]bool),
 	}
 	go n.dispatchMsgReader()
 	return n
@@ -156,8 +158,16 @@ func (n *TreeNodeInstance) SendTo(to *TreeNode, msg interface{}) error {
 		return xerrors.New("is closing")
 	}
 	n.msgDispatchQueueMutex.Unlock()
+	var c *GenericConfig
+	// only sends the config once
+	n.configMut.Lock()
+	if !n.sentTo[to.ID] {
+		c = n.config
+		n.sentTo[to.ID] = true
+	}
+	n.configMut.Unlock()
 
-	sentLen, err := n.overlay.SendToTreeNode(n.token, to, msg, n.protoIO, n.config)
+	sentLen, err := n.overlay.SendToTreeNode(n.token, to, msg, n.protoIO, c)
 	n.tx.add(sentLen)
 	if err != nil {
 		return xerrors.Errorf("sending: %v", err)
