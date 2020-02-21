@@ -163,6 +163,12 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 		tni := o.newTreeNodeInstanceFromToken(tn, onetMsg.To, io)
 		// retrieve the possible generic config for this message
 		config := o.getConfig(onetMsg.To.ID())
+		if config == nil {
+			config = onetMsg.Config
+		}
+
+		tni.config = config
+
 		// request the PI from the Service and binds the two
 		pi, err = o.server.serviceManager.newProtocol(tni, config)
 		if err != nil {
@@ -559,6 +565,9 @@ func (o *Overlay) SendToTreeNode(from *Token, to *TreeNode, msg network.Message,
 	// then send the message
 	var final interface{}
 	info := &OverlayMsg{
+		// For backwards compatibility reason, we keep sending the config message
+		// but we also send it with the actual message to be sure it will be handled.
+		Config: c,
 		TreeNodeInfo: &TreeNodeInfo{
 			From: from,
 			To:   tokenTo,
@@ -814,6 +823,7 @@ func (d *defaultProtoIO) Wrap(msg interface{}, info *OverlayMsg) (interface{}, e
 		protoMsg := &ProtocolMsg{
 			From:     info.TreeNodeInfo.From,
 			To:       info.TreeNodeInfo.To,
+			Config:   info.Config,
 			MsgSlice: buff,
 			MsgType:  typ,
 		}

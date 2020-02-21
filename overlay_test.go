@@ -1,6 +1,8 @@
 package onet
 
 import (
+	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -8,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	"gopkg.in/satori/go.uuid.v1"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // A checkableError is a type that implements error and also lets
@@ -489,4 +491,55 @@ func TestTokenId(t *testing.T) {
 	if t1.TreeNodeID.Equal(t3.TreeNodeID) {
 		t.Fatal("OtherToken should modify copy")
 	}
+}
+
+type testNilService struct{}
+
+func (s testNilService) NewProtocol(tni *TreeNodeInstance, cfg *GenericConfig) (ProtocolInstance, error) {
+	if cfg == nil {
+		return nil, errors.New("config should not be nil")
+	}
+
+	c := make(chan bool, 1)
+	return &DummyProtocol{TreeNodeInstance: tni, link: c}, nil
+}
+
+func (s testNilService) Process(*network.Envelope) {}
+
+func (s testNilService) ProcessClientRequest(req *http.Request, handler string, msg []byte) (reply []byte, tunnel *StreamingTunnel, err error) {
+	return nil, nil, nil
+}
+
+func TestOverlay_ConfigInMessage(t *testing.T) {
+	local := NewLocalTest(tSuite)
+	hosts, ro, _ := local.GenTree(1, false)
+	defer local.CloseAll()
+	h := hosts[0]
+
+	tree := NewTree(ro, NewTreeNode(0, ro.List[0]))
+	h.overlay.treeStorage.Set(tree)
+
+	h.serviceManager.services[NilServiceID] = testNilService{}
+
+	cfg := &GenericConfig{Data: []byte("deadbeef")}
+
+	io := &defaultProtoIO{suite: tSuite}
+	om := &OverlayMsg{
+		Config: cfg,
+		TreeNodeInfo: &TreeNodeInfo{
+			To: &Token{
+				TreeNodeID: tree.Root.ID,
+				TreeID:     tree.ID,
+			},
+		},
+	}
+
+	env, err := io.Wrap(ro, om)
+	require.NoError(t, err)
+	require.NotNil(t, env.(*ProtocolMsg).Config)
+
+	env.(*ProtocolMsg).ServerIdentity = &network.ServerIdentity{}
+
+	err = h.overlay.TransmitMsg(env.(*ProtocolMsg), io)
+	require.NoError(t, err)
 }
