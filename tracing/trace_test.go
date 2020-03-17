@@ -288,6 +288,8 @@ func TestTraceID(t *testing.T) {
 	}
 	tr.AddEntryPoints("go.dedis.ch/onet/v3/tracing.setTraceID")
 	tr.AddDoneMsgs("done trace")
+	syncTrace[0] = make(chan bool, 2)
+	syncTrace[1] = make(chan bool, 2)
 	setTraceID(0, "get")
 	setTraceID(1, "set")
 
@@ -301,6 +303,9 @@ func TestTraceID(t *testing.T) {
 	require.Equal(t, 2, len(sc.Traces))
 }
 
+// used to make sure that the 'done' comes _after_ the get and set method
+var syncTrace [2]chan bool
+
 func setTraceID(id int, cmd string) {
 	log.TraceID([]byte{byte(id)})
 	log.Lvl2("adding traceID")
@@ -311,7 +316,11 @@ func traceCmd(id int, cmd string) {
 	log.TraceID([]byte{byte(id)})
 	log.Lvl2("cmd:", cmd)
 	if cmd == "done" {
+		<-syncTrace[id]
+		<-syncTrace[id]
 		log.Lvl2("done trace")
+	} else {
+		syncTrace[id] <- true
 	}
 }
 

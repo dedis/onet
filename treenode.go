@@ -520,6 +520,8 @@ func (n *TreeNodeInstance) notifyDispatch() {
 }
 
 func (n *TreeNodeInstance) dispatchMsgReader() {
+	log.TraceID(n.token.RoundID[:])
+	defer log.Lvl5("done tracing")
 	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
@@ -552,6 +554,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 
 // dispatchMsgToProtocol will dispatch this onet.Data to the right instance
 func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
+	log.Lvl3("Dispatching", onetMsg.MsgType)
 
 	n.rx.add(uint64(onetMsg.Size))
 
