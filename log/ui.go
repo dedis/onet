@@ -7,10 +7,11 @@ import (
 )
 
 func lvlUI(l int, args ...interface{}) {
-	if DebugVisible() > 0 {
-		lvl(l, 3, args...)
-	} else {
+	if DebugVisible() <= 0 {
 		print(l, args...)
+	}
+	if isVisible(l) {
+		lvl(l, 3, args...)
 	}
 }
 
@@ -100,6 +101,19 @@ func ErrFatalf(err error, f string, args ...interface{}) {
 	if err != nil {
 		lvlUI(lvlFatal, fmt.Sprintf(f+" ", args...)+err.Error())
 		os.Exit(1)
+	}
+}
+
+// TraceID helps the tracing-simulation to know which trace it should attach
+// to.
+// The TraceID will be stored with the corresponding go-routine,
+// and any new go-routines spawned from the method will be attached to the
+// same TraceID.
+func TraceID(id []byte) {
+	for _, l := range loggers {
+		if t, ok := l.(Tracer); ok {
+			t.TraceID(id)
+		}
 	}
 }
 
