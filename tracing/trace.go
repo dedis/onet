@@ -365,28 +365,21 @@ func (se stackEntry) String() string {
 type fieldAdder = func(key string, val interface{})
 
 func structToFields(adder fieldAdder, ns string, val interface{}) {
-	rv := reflect.ValueOf(val)
-	if rv.Kind() == reflect.Array || rv.Kind() == reflect.Slice {
-		for i := 0; i < rv.Len(); i++ {
-			structToFields(adder, fmt.Sprintf("%s[%d]", ns, i),
-				rv.Index(i).Interface())
+	var mapStrStr map[string]interface{}
+	buf, _ := json.Marshal(val)
+	json.Unmarshal(buf, &mapStrStr)
+	if len(mapStrStr) == 0 {
+		// Need to take care when recursively encoding strings,
+		// else JSON will happily add " at every level...
+		rv := reflect.ValueOf(val)
+		if rv.Kind() == reflect.String {
+			adder(ns, strings.Trim(rv.String(), `"`))
+		} else {
+			adder(ns, val)
 		}
 	} else {
-		var mapStrStr map[string]interface{}
-		buf, _ := json.Marshal(val)
-		json.Unmarshal(buf, &mapStrStr)
-		if len(mapStrStr) == 0 {
-			// Need to take care when recursively encoding strings,
-			// else JSON will happily add " at every level...
-			if rv.Kind() == reflect.String {
-				adder(ns, strings.Trim(rv.String(), `"`))
-			} else {
-				adder(ns, val)
-			}
-		} else {
-			for k, v := range mapStrStr {
-				structToFields(adder, ns+"."+k, v)
-			}
+		for k, v := range mapStrStr {
+			structToFields(adder, ns+"."+k, v)
 		}
 	}
 }
