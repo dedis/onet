@@ -29,6 +29,8 @@ type LoggerInfo struct {
 	UseColors bool
 	// If 'padding' is true, it will nicely pad the line that is written.
 	Padding bool
+	// If true, it will only send the raw message to the logger
+	RawMessage bool
 }
 
 // Logger is the interface that specifies how loggers
@@ -37,6 +39,12 @@ type Logger interface {
 	Log(level int, msg string)
 	Close()
 	GetLoggerInfo() *LoggerInfo
+}
+
+// Tracer is an additional interface that specifies a tracer extension to
+//onet/log.
+type Tracer interface {
+	TraceID(id []byte)
 }
 
 const (
@@ -88,7 +96,7 @@ type fileLogger struct {
 }
 
 func (fl *fileLogger) Log(level int, msg string) {
-	if _, err := fl.file.WriteString(msg); err != nil {
+	if _, err := fl.file.WriteString(msg + "\n"); err != nil {
 		panic(err)
 	}
 }
@@ -152,9 +160,9 @@ func (sl *stdLogger) Log(lvl int, msg string) {
 	}
 
 	if lvl < lvlInfo {
-		fmt.Fprint(stdErr, msg)
+		fmt.Fprintln(stdErr, msg)
 	} else {
-		fmt.Fprint(stdOut, msg)
+		fmt.Fprintln(stdOut, msg)
 	}
 
 	if sl.lInfo.UseColors {

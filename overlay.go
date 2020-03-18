@@ -125,8 +125,12 @@ func (o *Overlay) Process(env *network.Envelope) {
 // - create a new protocolInstance
 // - pass it to a given protocolInstance
 // io is the messageProxy to use if a specific wireformat protocol is used.
-// It can be nil: in that case it fall backs to default wire protocol.
+// It can be nil: in that case it falls back to the default wire protocol.
 func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
+	if onetMsg != nil && onetMsg.From != nil {
+		log.TraceID(onetMsg.From.RoundID[:])
+	}
+	log.Lvl3("got new message of type:", onetMsg.MsgType)
 	// Get the tree if it exists and prevent any pending deletion
 	// if required. The tree will be clean when this instance is
 	// over (or the last instance using the tree).
@@ -181,6 +185,9 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			return nil
 		}
 		go func() {
+			if onetMsg != nil && onetMsg.From != nil {
+				log.TraceID(onetMsg.From.RoundID[:])
+			}
 			defer func() {
 				if r := recover(); r != nil {
 					svc := ServiceFactory.Name(tni.Token().ServiceID)
@@ -206,7 +213,9 @@ func (o *Overlay) TransmitMsg(onetMsg *ProtocolMsg, io MessageProxy) error {
 			fmt.Sprintf("%+v", onetMsg.To))
 	}
 	// TODO Check if TreeNodeInstance is already Done
+	log.Lvl4("starting procprotomsg")
 	pi.ProcessProtocolMsg(onetMsg)
+	log.Lvl4("done with procprotomsg")
 	return nil
 }
 

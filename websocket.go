@@ -564,7 +564,6 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 	if err != nil {
 		return nil, xerrors.Errorf("connection read: %v", err)
 	}
-	log.Lvlf4("Received %x", rcv)
 	return rcv, nil
 }
 

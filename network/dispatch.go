@@ -82,6 +82,7 @@ func (d *BlockingDispatcher) RegisterProcessorFunc(msgType MessageTypeID, fn fun
 // Dispatch calls the corresponding processor's method Process. It's a
 // blocking call if the Processor is blocking.
 func (d *BlockingDispatcher) Dispatch(packet *Envelope) error {
+	defer log.Lvl5("done tracing")
 	// cannot use the "defer unlock" idiom here because we cannot
 	// be holding the lock while calling p.Process in case the
 	// processor wants to call RegisterProcessor.
@@ -116,6 +117,7 @@ func NewRoutineDispatcher() *RoutineDispatcher {
 // Dispatch implements the Dispatcher interface. It will give the packet to the
 // right Processor in a go routine.
 func (d *RoutineDispatcher) Dispatch(packet *Envelope) error {
+	defer log.Lvl5("done tracing")
 	d.Lock()
 	defer d.Unlock()
 	var p = d.procs[packet.MsgType]

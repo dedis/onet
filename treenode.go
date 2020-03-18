@@ -520,6 +520,8 @@ func (n *TreeNodeInstance) notifyDispatch() {
 }
 
 func (n *TreeNodeInstance) dispatchMsgReader() {
+	log.TraceID(n.token.RoundID[:])
+	defer log.Lvl5("done tracing")
 	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
@@ -552,6 +554,7 @@ func (n *TreeNodeInstance) dispatchMsgReader() {
 
 // dispatchMsgToProtocol will dispatch this onet.Data to the right instance
 func (n *TreeNodeInstance) dispatchMsgToProtocol(onetMsg *ProtocolMsg) error {
+	log.Lvl3("Dispatching", onetMsg.MsgType)
 
 	n.rx.add(uint64(onetMsg.Size))
 
@@ -818,6 +821,7 @@ func (n *TreeNodeInstance) SendToChildren(msg interface{}) error {
 // If the underlying node is a leaf node this function does
 // nothing.
 func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
+	log.TraceID(n.token.RoundID[:])
 	if n.IsLeaf() {
 		return nil
 	}
@@ -829,6 +833,7 @@ func (n *TreeNodeInstance) SendToChildrenInParallel(msg interface{}) []error {
 		name := node.Name()
 		wg.Add(1)
 		go func(n2 *TreeNode) {
+			log.TraceID(n.token.RoundID[:])
 			if err := n.SendTo(n2, msg); err != nil {
 				eMut.Lock()
 				errs = append(errs, xerrors.Errorf("%s: %v", name, err))

@@ -87,6 +87,16 @@ func lvl(lvl, skip int, args ...interface{}) {
 			continue
 		}
 
+		// fmt.Sprint doesn't use spaces if all args are string.
+		// Only fmt.Sprintln adds spaces between args if all of them are
+		// strings. So the trailing "\n" needs to be removed.
+		message := fmt.Sprintln(args...)
+		message = message[:len(message)-1]
+		if lInfo.RawMessage {
+			l.Log(lvl, message)
+			continue
+		}
+
 		pc, fn, line, _ := runtime.Caller(skip)
 		funcName := filepath.Base(runtime.FuncForPC(pc).Name())
 		name := fn
@@ -110,7 +120,6 @@ func lvl(lvl, skip int, args ...interface{}) {
 				NamePadding = len(caller)
 			}
 		}
-
 		namePadding := 0
 		if lInfo.Padding {
 			namePadding = NamePadding
@@ -118,7 +127,6 @@ func lvl(lvl, skip int, args ...interface{}) {
 		if StaticMsg != "" {
 			caller += "@" + StaticMsg
 		}
-		message := fmt.Sprintln(args...)
 
 		lvlAbs := lvl
 		if lvl < 0 {
@@ -159,7 +167,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 // or
 // Lvl1 -> lvld -> lvl
 func lvlf(l int, f string, args ...interface{}) {
-	if l > DebugVisible() {
+	if !isVisible(l) {
 		return
 	}
 	lvl(l, 3, fmt.Sprintf(f, args...))
@@ -277,6 +285,18 @@ func DebugVisible() int {
 	debugMut.RLock()
 	defer debugMut.RUnlock()
 	return loggers[0].GetLoggerInfo().DebugLvl
+}
+
+// isVisible returns true if at least one logger wants to use the message
+func isVisible(lvl int) bool {
+	debugMut.RLock()
+	defer debugMut.RUnlock()
+	for _, logger := range loggers {
+		if lvl <= logger.GetLoggerInfo().DebugLvl {
+			return true
+		}
+	}
+	return false
 }
 
 // SetShowTime allows for turning on the flag that adds the current
