@@ -266,7 +266,9 @@ func (logger *TraceLogger) addDefaultFields(tw *traceWrapper, sw *spanWrapper) {
 	sw.add("gcstats", gc)
 	ts, err := cpu.Times(false)
 	if err == nil {
-		sw.add("cpustat", ts)
+		for i, t := range ts {
+			sw.add("cpustat"+strconv.Itoa(i), t)
+		}
 	}
 	ld, err := load.Avg()
 	if err == nil {

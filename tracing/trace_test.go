@@ -209,12 +209,6 @@ func TestTraceWrapper_Add(t *testing.T) {
 			map[string]string{
 				"base.D.C.A": `"CAB"`,
 				"base.D.C.B": "3"}},
-		{[]ab{
-			{"A", 1},
-			{"B", 2},
-		},
-			map[string]string{"base[0].A": `"A"`, "base[0].B": "1",
-				"base[1].A": `"B"`, "base[1].B": `2`}},
 	} {
 		skv.kvs = map[string]string{}
 		structToFields(skv.AddField, "base", test.val)
