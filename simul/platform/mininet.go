@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -91,15 +90,14 @@ func (m *MiniNet) Configure(pc *Config) {
 	// Directory setup - would also be possible in /tmp
 	m.wd, _ = os.Getwd()
 	m.simulDir = m.wd
-	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		log.Fatal("Couldn't get my path")
-	}
 	var err error
 	m.Suite = pc.Suite
-	m.mininetDir, err = filepath.Abs(path.Dir(filename))
+	cmd := exec.Command("go", "list", "-f", "{{.Dir}}",
+		"-m", "go.dedis.ch/onet/v3")
+	out, err := cmd.Output()
+	log.Print(string(out))
 	log.ErrFatal(err)
-	m.mininetDir = filepath.Join(m.mininetDir, "mininet")
+	m.mininetDir = filepath.Join(strings.TrimSpace(string(out)), "simul", "platform", "mininet")
 	m.buildDir = m.wd + "/build"
 	m.deployDir = m.wd + "/deploy"
 	m.Login = "root"
