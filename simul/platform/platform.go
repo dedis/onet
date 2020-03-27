@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"go/build"
 	"os"
 	"strconv"
 	"strings"
@@ -15,12 +14,7 @@ import (
 
 	"sync"
 
-	"os/exec"
-
-	"io/ioutil"
-
 	"github.com/BurntSushi/toml"
-	"go.dedis.ch/onet/v3/app"
 	"go.dedis.ch/onet/v3/log"
 	"golang.org/x/xerrors"
 )
@@ -88,33 +82,9 @@ func NewPlatform(t string) Platform {
 	case localhost:
 		p = &Localhost{}
 	case mininet:
-		p = &MiniNet{}
-		_, err := os.Stat("server_list")
-		if os.IsNotExist(err) {
-			path := build.Default.GOPATH + "/src/go.dedis.ch/onet/v3/simul/platform/mininet/"
-			var command string
-			if app.InputYN(true, "Do you want to run mininet on ICCluster?") {
-				command = path + "setup_iccluster.sh"
-			} else {
-				command = path + "setup_servers.sh"
-			}
-			numbers := app.Input("server1 server2 server3", "Please enter the space separated numbers of the servers")
-			split := strings.Split(numbers, " ")
-			cmd := exec.Command(command, split...)
-			out, err := cmd.CombinedOutput()
-			if err != nil {
-				log.Error(err)
-			}
-			log.Lvl1(string(out))
-		} else {
-			log.Lvl1("Using existing 'server_list'-file")
-			if log.DebugVisible() > 1 {
-				sl, err := ioutil.ReadFile("server_list")
-				log.ErrFatal(err)
-				servers := strings.Replace(string(sl), "\n", " ", -1)
-				log.Lvl2("Server_list is: ", servers)
-			}
-		}
+		var err error
+		p, err = newMiniNet()
+		log.ErrFatal(err)
 	}
 	return p
 }

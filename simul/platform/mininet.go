@@ -84,20 +84,58 @@ type MiniNet struct {
 	Tags string
 }
 
+func newMiniNet() (m *MiniNet, err error) {
+	cmd := exec.Command("go", "list", "-f", "{{.Dir}}",
+		"-m", "go.dedis.ch/onet/v3")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, xerrors.Errorf("while getting platform-path: %v", err)
+	}
+	m = &MiniNet{
+		mininetDir: path.Join(strings.TrimSpace(string(out)), "simul",
+			"platform", "mininet"),
+	}
+	log.Print("got path:", m.mininetDir)
+
+	_, err = os.Stat("server_list")
+	if os.IsNotExist(err) {
+		var command string
+		if app.InputYN(true, "Do you want to run mininet on ICCluster?") {
+			command = path.Join(m.mininetDir, "setup_iccluster.sh")
+		} else {
+			command = path.Join(m.mininetDir, "setup_servers.sh")
+		}
+		numbers := app.Input("server1 server2 server3", "Please enter the space separated numbers of the servers")
+		split := strings.Split(numbers, " ")
+		cmd := exec.Command(command, split...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Error("while setting up servers:", string(out))
+			return nil, xerrors.Errorf("couldn't setup servers: %v", err)
+		}
+		log.Lvl1(string(out))
+	} else {
+		log.Lvl1("Using existing 'server_list'-file")
+		if log.DebugVisible() > 1 {
+			sl, err := ioutil.ReadFile("server_list")
+			if err != nil {
+				return nil, xerrors.Errorf("while reading 'server_list': %v",
+					err)
+			}
+			servers := strings.Replace(string(sl), "\n", " ", -1)
+			log.Lvl2("Server_list is: ", servers)
+		}
+	}
+	return m, nil
+}
+
 // Configure implements the Platform-interface. It is called once to set up
 // the necessary internal variables.
 func (m *MiniNet) Configure(pc *Config) {
 	// Directory setup - would also be possible in /tmp
 	m.wd, _ = os.Getwd()
 	m.simulDir = m.wd
-	var err error
 	m.Suite = pc.Suite
-	cmd := exec.Command("go", "list", "-f", "{{.Dir}}",
-		"-m", "go.dedis.ch/onet/v3")
-	out, err := cmd.Output()
-	log.Print(string(out))
-	log.ErrFatal(err)
-	m.mininetDir = filepath.Join(strings.TrimSpace(string(out)), "simul", "platform", "mininet")
 	m.buildDir = m.wd + "/build"
 	m.deployDir = m.wd + "/deploy"
 	m.Login = "root"
@@ -248,10 +286,16 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	}
 
 	// Copy our script
-	err = app.Copy(m.deployDir, m.mininetDir+"/start.py")
+	err = app.Copy(m.deployDir, path.Join(m.mininetDir, "start.py"))
 	if err != nil {
 		log.Error(err)
 		return xerrors.Errorf("copying: %v", err)
+	}
+	// As the `start.py` is kept in the go-pkg directory now,
+	// the attributes need to be adjusted:
+	err = os.Chmod(path.Join(m.deployDir, "start.py"), 0770)
+	if err != nil {
+		return xerrors.Errorf("couldn't change attributes on start.py: %v", err)
 	}
 
 	// Copy conode-binary
