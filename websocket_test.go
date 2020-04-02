@@ -246,15 +246,51 @@ func TestCertificateReloader(t *testing.T) {
 
 func TestGetWebHost(t *testing.T) {
 	url, err := getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, true)
-	require.NotNil(t, err)
+	require.Error(t, err)
+
 	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8"}, false)
-	require.NotNil(t, err)
+	require.Error(t, err)
+
 	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, true)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "0.0.0.0:7771", url)
+
 	url, err = getWSHostPort(&network.ServerIdentity{Address: "tcp://8.8.8.8:7770"}, false)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "8.8.8.8:7771", url)
+
+	url, err = getWSHostPort(&network.ServerIdentity{
+		Address: "tcp://irrelevant:7770",
+		URL:     "wrong url",
+	}, false)
+	require.Error(t, err)
+
+	url, err = getWSHostPort(&network.ServerIdentity{
+		Address: "tcp://irrelevant:7770",
+		URL:     "http://8.8.8.8:8888",
+	}, false)
+	require.NoError(t, err)
+	require.Equal(t, "8.8.8.8:8888", url)
+
+	url, err = getWSHostPort(&network.ServerIdentity{
+		Address: "tcp://irrelevant:7770",
+		URL:     "http://8.8.8.8",
+	}, false)
+	require.NoError(t, err)
+	require.Equal(t, "8.8.8.8:80", url)
+
+	url, err = getWSHostPort(&network.ServerIdentity{
+		Address: "tcp://irrelevant:7770",
+		URL:     "https://8.8.8.8",
+	}, false)
+	require.NoError(t, err)
+	require.Equal(t, "8.8.8.8:443", url)
+
+	url, err = getWSHostPort(&network.ServerIdentity{
+		Address: "tcp://irrelevant:7770",
+		URL:     "invalid://8.8.8.8:8888",
+	}, false)
+	require.Error(t, err)
 }
 
 func TestClient_Send(t *testing.T) {

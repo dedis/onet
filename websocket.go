@@ -3,6 +3,7 @@ package onet
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -111,8 +112,7 @@ type WebSocket struct {
 	sync.Mutex
 }
 
-// NewWebSocket opens a webservice-listener one port above the given
-// ServerIdentity.
+// NewWebSocket opens a webservice-listener at the given si.URL.
 func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 	w := &WebSocket{
 		services:  make(map[string]Service),
@@ -906,16 +906,66 @@ func (c *Client) Rx() uint64 {
 	return c.rx
 }
 
-// getWSHostPort returns the host:port+1 of the serverIdentity. If
-// global is true, the address is set to the unspecified 0.0.0.0-address.
+// schemeToPort returns the port corresponding to the given scheme, much like netdb.
+func schemeToPort(name string) (uint16, error) {
+	switch name {
+	case "http":
+		return 80, nil
+	case "https":
+		return 443, nil
+	default:
+		return 0, fmt.Errorf("no such scheme: %v", name)
+	}
+}
+
+// getWSHostPort returns the hostname:port to bind to with WebSocket.
+// If global is true, the hostname is set to the unspecified 0.0.0.0-address.
+// If si.URL is "", the url uses the hostname and port+1 of si.Address.
 func getWSHostPort(si *network.ServerIdentity, global bool) (string, error) {
-	p, err := strconv.Atoi(si.Address.Port())
-	if err != nil {
-		return "", xerrors.Errorf("atoi: %v", err)
+	const portBitSize = 16
+	const portNumericBase = 10
+
+	var hostname string
+	var port uint16
+
+	if si.URL != "" {
+		url, err := url.Parse(si.URL)
+		if err != nil {
+			return "", fmt.Errorf("unable to parse URL: %v", err)
+		}
+		if !url.IsAbs() {
+			return "", errors.New("URL is not absolute")
+		}
+
+		protocolPort, err := schemeToPort(url.Scheme)
+		if err != nil {
+			return "", fmt.Errorf("unable to translate URL' scheme to port: %v", err)
+		}
+
+		portStr := url.Port()
+		if portStr == "" {
+			port = protocolPort
+		} else {
+			portRaw, err := strconv.ParseUint(portStr, portNumericBase, portBitSize)
+			if err != nil {
+				return "", fmt.Errorf("URL doesn't contain a valid port: %v", err)
+			}
+			port = uint16(portRaw)
+		}
+		hostname = url.Hostname()
+	} else {
+		portRaw, err := strconv.ParseUint(si.Address.Port(), portNumericBase, portBitSize)
+		if err != nil {
+			return "", fmt.Errorf("unable to parse port of Address as int: %v", err)
+		}
+		port = uint16(portRaw + 1)
+		hostname = si.Address.Host()
 	}
-	host := si.Address.Host()
+
 	if global {
-		host = "0.0.0.0"
+		hostname = "0.0.0.0"
 	}
-	return net.JoinHostPort(host, strconv.Itoa(p+1)), nil
+
+	portFormatted := strconv.FormatUint(uint64(port), 10)
+	return net.JoinHostPort(hostname, portFormatted), nil
 }
