@@ -97,9 +97,9 @@ func TestTreeStorage_Close(t *testing.T) {
 	store := newTreeStorage(treeStoreTimeout)
 
 	trees := []*Tree{
-		&Tree{ID: TreeID{1}},
-		&Tree{ID: TreeID{2}},
-		&Tree{ID: TreeID{3}},
+		{ID: TreeID{1}},
+		{ID: TreeID{2}},
+		{ID: TreeID{3}},
 	}
 
 	for _, tree := range trees {
@@ -123,9 +123,9 @@ func TestTreeStorage_Race(t *testing.T) {
 	store := newTreeStorage(treeStoreTimeout)
 
 	trees := []*Tree{
-		&Tree{ID: TreeID{1}},
-		&Tree{ID: TreeID{2}},
-		&Tree{ID: TreeID{3}},
+		{ID: TreeID{1}},
+		{ID: TreeID{2}},
+		{ID: TreeID{3}},
 	}
 
 	n := 1000

@@ -507,7 +507,7 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 				go func() {
 					inChan := reflect.ValueOf(reply)
 					cases := []reflect.SelectCase{
-						reflect.SelectCase{Dir: reflect.SelectRecv, Chan: inChan},
+						{Dir: reflect.SelectRecv, Chan: inChan},
 					}
 
 					// Since this goroutine is created each time the client sends a
