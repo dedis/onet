@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/net"
 
+	"github.com/shirou/gopsutil/cpu"
 	"go.dedis.ch/onet/v3/network"
 
 	"go.dedis.ch/onet/v3"
@@ -133,6 +133,29 @@ func (logger *TraceLogger) AddStats(c *onet.Context, repeat time.Duration) {
 					stackEntry{pkgPath: "go.dedis.ch/onet/v3/honeycomb",
 						method: "stats"})
 				t.add("status", c.ReportStatus())
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				t.add("memstats", m)
+				var gc debug.GCStats
+				debug.ReadGCStats(&gc)
+				t.add("gcstats", gc)
+				ld, err := load.Avg()
+				if err == nil {
+					t.add("load", ld)
+				}
+				us, err := disk.Usage(".")
+				if err == nil {
+					t.add("disk-usage", us)
+				}
+				ioc, err := disk.IOCounters(".")
+				if err == nil {
+					t.add("disk-iostat", ioc)
+				}
+				netio, err := net.IOCounters(false)
+				if err == nil {
+					t.add("network-stat", netio)
+				}
+
 				t.send()
 			case <-logger.statsDone:
 				return
@@ -258,33 +281,11 @@ func (logger *TraceLogger) addDefaultFields(tw *traceWrapper, sw *spanWrapper) {
 	for k, v := range logger.defaultFields {
 		tw.hcTrace.AddField(k, v)
 	}
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	sw.add("memstats", m)
-	var gc debug.GCStats
-	debug.ReadGCStats(&gc)
-	sw.add("gcstats", gc)
 	ts, err := cpu.Times(false)
 	if err == nil {
 		for i, t := range ts {
 			sw.add("cpustat"+strconv.Itoa(i), t)
 		}
-	}
-	ld, err := load.Avg()
-	if err == nil {
-		sw.add("load", ld)
-	}
-	us, err := disk.Usage(".")
-	if err == nil {
-		sw.add("disk-usage", us)
-	}
-	ioc, err := disk.IOCounters(".")
-	if err == nil {
-		sw.add("disk-iostat", ioc)
-	}
-	netio, err := net.IOCounters(false)
-	if err == nil {
-		sw.add("network-stat", netio)
 	}
 }
 
