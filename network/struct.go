@@ -75,6 +75,7 @@ type ServerIdentity struct {
 	// This is the configuration for the services
 	ServiceIdentities []ServiceIdentity
 	// The ServerIdentityID corresponding to that public key
+	// Deprecated: use GetID
 	ID ServerIdentityID
 	// The address where that Id might be found
 	Address Address
@@ -171,11 +172,20 @@ func NewServerIdentity(public kyber.Point, address Address) *ServerIdentity {
 		Public:  public,
 		Address: address,
 	}
-	if public != nil {
-		url := NamespaceURL + "id/" + public.String()
-		si.ID = ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url))
-	}
+
+	// compat for deprecated si.ID
+	si.ID = si.GetID()
 	return si
+}
+
+// GetID returns the ServerIdentityID corresponding to that public key
+func (si ServerIdentity) GetID() ServerIdentityID {
+	if si.Public == nil {
+		return ServerIdentityID(uuid.Nil)
+	}
+
+	url := NamespaceURL + "id/" + si.Public.String()
+	return ServerIdentityID(uuid.NewV5(uuid.NamespaceURL, url))
 }
 
 // Equal tests on same public key

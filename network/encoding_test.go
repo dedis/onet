@@ -135,5 +135,5 @@ func TestMarshalServerIdentity_IDGetsRecreated(t *testing.T) {
 
 	require.Equal(t, address, recv.Address)
 	require.True(t, public.Equal(recv.Public))
-	require.NotEqual(t, ServerIdentityID(uuid.Nil), recv.ID)
+	require.NotEqual(t, ServerIdentityID(uuid.Nil), recv.GetID())
 }
