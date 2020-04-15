@@ -733,7 +733,7 @@ func sendrcvProc(from, to *Router) error {
 
 func waitConnections(r *Router, sid *ServerIdentity) error {
 	for i := 0; i < 10; i++ {
-		c := r.connection(sid.ID)
+		c := r.connection(sid.GetID())
 		if c != nil {
 			return nil
 		}

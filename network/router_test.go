@@ -167,13 +167,13 @@ func testRouterRemoveConnection(t *testing.T) {
 	require.Zero(t, sentLen)
 
 	r1.Lock()
-	require.Equal(t, 1, len(r1.connections[r2.ServerIdentity.ID]))
+	require.Equal(t, 1, len(r1.connections[r2.ServerIdentity.GetID()]))
 	r1.Unlock()
 
 	require.Nil(t, r2.Stop())
 
 	r1.Lock()
-	require.Equal(t, 0, len(r1.connections[r2.ServerIdentity.ID]))
+	require.Equal(t, 0, len(r1.connections[r2.ServerIdentity.GetID()]))
 	r1.Unlock()
 }
 
@@ -226,8 +226,8 @@ func testRouterAutoConnection(t *testing.T, fac routerFactory) {
 		t.Fatal("Simple message got distorted")
 	}
 
-	h12 := h1.connection(h2.ServerIdentity.ID)
-	h21 := h2.connection(h1.ServerIdentity.ID)
+	h12 := h1.connection(h2.ServerIdentity.GetID())
+	h21 := h2.connection(h1.ServerIdentity.GetID())
 	require.NotNil(t, h12)
 	require.NotNil(t, h21)
 	require.Nil(t, h21.Close())
