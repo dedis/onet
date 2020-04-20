@@ -80,7 +80,7 @@ func lvl(lvl, skip int, args ...interface{}) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	for _, l := range loggers {
-		// Get the *LoggerInfo that contains how should the formatting go.
+		// Get the *LoggerInfo that contains how the formatting should be done.
 		lInfo := l.GetLoggerInfo()
 
 		if lvl > lInfo.DebugLvl {
@@ -278,6 +278,7 @@ func SetDebugVisible(lvl int) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
 	loggers[0].GetLoggerInfo().DebugLvl = lvl
+	loggers[0].GetLoggerInfo().RawMessage = lvl <= 0
 }
 
 // DebugVisible returns the actual visible debug-level

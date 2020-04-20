@@ -3,7 +3,10 @@ package log
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/require"
 )
@@ -89,4 +92,16 @@ func TestFileLogger(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, "1 : fake_name.go:0 (log.TestFileLogger) - testing1\n"+
 		"2 : fake_name.go:0 (log.TestFileLogger) - testing2\n", string(out))
+}
+
+func TestStdLoggerZero(t *testing.T) {
+	GetStdOut()
+	SetDebugVisible(0)
+	Info("One Line Only")
+	str := GetStdOut()
+	assert.Equal(t, 2, len(strings.Split(str, "\n")), str)
+	SetDebugVisible(1)
+	Info("One Line Only")
+	str = GetStdOut()
+	assert.Equal(t, 2, len(strings.Split(str, "\n")), str)
 }

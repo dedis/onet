@@ -3,13 +3,9 @@ package log
 import (
 	"fmt"
 	"os"
-	"strconv"
 )
 
 func lvlUI(l int, args ...interface{}) {
-	if DebugVisible() <= 0 {
-		print(l, args...)
-	}
 	if isVisible(l) {
 		lvl(l, 3, args...)
 	}
@@ -115,30 +111,4 @@ func TraceID(id []byte) {
 			t.TraceID(id)
 		}
 	}
-}
-
-func print(lvl int, args ...interface{}) {
-	debugMut.Lock()
-	defer debugMut.Unlock()
-	out := stdOut
-	if lvl < lvlInfo {
-		out = stdErr
-	}
-	switch loggers[0].GetLoggerInfo().DebugLvl {
-	case FormatPython:
-		prefix := []string{"[-]", "[!]", "[X]", "[Q]", "[+]", ""}
-		ind := lvl - lvlWarning
-		if ind < 0 || ind > 4 {
-			panic("index out of range " + strconv.Itoa(ind))
-		}
-		fmt.Fprint(out, prefix[ind], " ")
-	case FormatNone:
-	}
-	for i, a := range args {
-		fmt.Fprint(out, a)
-		if i != len(args)-1 {
-			fmt.Fprint(out, " ")
-		}
-	}
-	fmt.Fprint(out, "\n")
 }
