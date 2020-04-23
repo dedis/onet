@@ -130,6 +130,10 @@ type stdLogger struct {
 }
 
 func (sl *stdLogger) Log(lvl int, msg string) {
+	// If the DEBUG_LVL is 0 or -1, don't print any colors or line-info,
+	// but just print plain text.
+	// 0 is the default level
+	// -1 is FormatPython to print
 	if sl.lInfo.DebugLvl <= 0 {
 		sl.print(lvl, msg)
 		return
