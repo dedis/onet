@@ -21,7 +21,7 @@ func TestServerIdentity(t *testing.T) {
 		t.Error("Stg's wrong with ServerIdentity")
 	}
 
-	if si1.ID.Equal(si2.ID) || !si1.ID.Equal(si1.ID) {
+	if si1.GetID().Equal(si2.GetID()) || !si1.GetID().Equal(si1.GetID()) {
 		t.Error("Stg's wrong with ServerIdentityID")
 	}
 
