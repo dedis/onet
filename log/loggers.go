@@ -3,6 +3,7 @@ package log
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	ct "github.com/daviddengcn/go-colortext"
 	"golang.org/x/xerrors"
@@ -129,6 +130,15 @@ type stdLogger struct {
 }
 
 func (sl *stdLogger) Log(lvl int, msg string) {
+	// If the DEBUG_LVL is 0 or -1, don't print any colors or line-info,
+	// but just print plain text.
+	// 0 is the default level
+	// -1 is FormatPython to print
+	if sl.lInfo.DebugLvl <= 0 {
+		sl.print(lvl, msg)
+		return
+	}
+
 	if sl.lInfo.UseColors {
 		bright := lvl < 0
 		lvlAbs := lvl
@@ -174,6 +184,30 @@ func (sl *stdLogger) Close() {}
 
 func (sl *stdLogger) GetLoggerInfo() *LoggerInfo {
 	return sl.lInfo
+}
+
+func (sl *stdLogger) print(lvl int, args ...interface{}) {
+	out := stdOut
+	if lvl < lvlInfo {
+		out = stdErr
+	}
+	switch loggers[0].GetLoggerInfo().DebugLvl {
+	case FormatPython:
+		prefix := []string{"[-]", "[!]", "[X]", "[Q]", "[+]", ""}
+		ind := lvl - lvlWarning
+		if ind < 0 || ind > 4 {
+			panic("index out of range " + strconv.Itoa(ind))
+		}
+		fmt.Fprint(out, prefix[ind], " ")
+	case FormatNone:
+	}
+	for i, a := range args {
+		fmt.Fprint(out, a)
+		if i != len(args)-1 {
+			fmt.Fprint(out, " ")
+		}
+	}
+	fmt.Fprint(out, "\n")
 }
 
 // Not public + not taking a LoggerInfo as argument because we don't want
