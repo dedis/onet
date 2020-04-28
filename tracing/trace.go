@@ -297,13 +297,12 @@ func mergeLogs(known map[string]*traceWrapper,
 			}
 		}
 		// No common traceID found - check goroutine calls
-		for id, tw := range known {
+		for _, tw := range known {
 			if strings.HasPrefix(tw.root.se.traceID, "id_") ||
 				strings.HasPrefix(seIn.traceID, "id_") {
 				continue
 			}
 			if out = tw.findGoroutine(in[idIn:]); out != nil {
-				fmt.Println("merged go-routines", id, in)
 				return
 			}
 		}

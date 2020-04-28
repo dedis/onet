@@ -95,7 +95,6 @@ func (logger *TraceLogger) AddOnetDefaults(si *network.ServerIdentity) {
 
 	logger.defaultFields["nodeName"] = si.String()
 	logger.defaultFields["nodeDescription"] = si.Description
-	logger.PrintSingleSpans = 10
 }
 
 // AddEntryPoints takes all given entry points and adds them to the internal
@@ -196,6 +195,14 @@ func (logger *TraceLogger) AddEnvironment() error {
 		}
 		logger.NoSingleSpans = tcss == "true"
 	}
+	tdb := strings.ToLower(os.Getenv("TRACING_DEBUG"))
+	if tdb != "" {
+		if tdb != "true" && tdb != "false" {
+			return fmt.Errorf("while reading TRACING_CREATE_SINGLE_SPANS: can" +
+				" be only \"true\" or \"false\"")
+		}
+		logger.TraceDebug = tdb == "true"
+	}
 	logger.AddEntryPoints(strings.Split(os.Getenv("TRACING_ENTRY_POINTS"), "::")...)
 	logger.AddDoneMsgs(strings.Split(os.Getenv("TRACING_DONE_MSGS"), "::")...)
 	return nil
@@ -270,6 +277,7 @@ func (logger *TraceLogger) getTraceSpan(lvl int, msg string, callLvl int) (*trac
 	}
 	if !logger.NoSingleSpans {
 		tr, sw := logger.newTrace(context.TODO(), "", ses...)
+		logger.addDefaultFields(tr, sw)
 		tr.hcTrace.AddField("singleTrace", true)
 		sw.log(lvl, msg)
 		tr.send()
