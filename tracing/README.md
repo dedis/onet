@@ -86,3 +86,13 @@ Some of the traces will not be found.
 If you set `TRACING_CREATE_SINGLE_SPANS=true`, these unknown traces will be
  created as traces with a single span.
 This is not pretty, but might turn out useful sometimes.
+
+## Debugging
+
+As loggers cannot use onet/log, you can set the following environment
+ variable to output some debugging information about what's happening:
+ 
+```
+export TRACING_DEBUG=true 
+```
+
