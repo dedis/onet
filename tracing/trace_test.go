@@ -278,7 +278,7 @@ func TestTraceID(t *testing.T) {
 	defer log.UnregisterLogger(tr.loggerID)
 	if testing.Verbose() {
 		tr.PrintSingleSpans = 10
-		tr.TraceDebug = true
+		tr.Debug = true
 	}
 	tr.AddEntryPoints("go.dedis.ch/onet/v3/tracing.setTraceID")
 	tr.AddDoneMsgs("done trace")
