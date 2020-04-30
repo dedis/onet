@@ -128,9 +128,10 @@ func (logger *TraceLogger) AddStats(c *onet.Context, repeat time.Duration) {
 			case <-time.After(repeat):
 				// Create a new trace that points to a dummy stackEntry,
 				//so the status can be sent to the service.
-				t, _ := logger.newTrace(context.TODO(), "",
+				t, s := logger.newTrace(context.TODO(), "",
 					stackEntry{pkgPath: "go.dedis.ch/onet/v3/honeycomb",
 						method: "stats"})
+				logger.addDefaultFields(t, s)
 				t.add("status", c.ReportStatus())
 				var m runtime.MemStats
 				runtime.ReadMemStats(&m)
