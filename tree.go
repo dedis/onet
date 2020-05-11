@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
-	"sort"
 
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
@@ -468,8 +467,6 @@ func (ro *Roster) GetID() (RosterID, error) {
 			return RosterID{}, xerrors.Errorf("marshaling: %v", err)
 		}
 
-		// order is important for the hash
-		sort.Sort(network.ServiceIdentities(id.ServiceIdentities))
 		for _, srvid := range id.ServiceIdentities {
 			_, err = srvid.Public.MarshalTo(h)
 			if err != nil {

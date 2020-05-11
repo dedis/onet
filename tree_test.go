@@ -457,18 +457,19 @@ func TestRoster_GetID(t *testing.T) {
 
 	roID, err := ro.GetID()
 	require.NoError(t, err)
+	require.Equal(t, ro.ID, roID)
 	ro2ID, err := ro2.GetID()
 	require.NoError(t, err)
 	require.True(t, roID.Equal(ro2ID))
 	ok, _ := ro.Equal(ro2)
 	require.True(t, ok)
 
-	// check unordered service identities
+	// check unordered service identities, which should not give the same ID
 	ro.List[0].ServiceIdentities[0], ro.List[0].ServiceIdentities[1] = ro.List[0].ServiceIdentities[1], ro.List[0].ServiceIdentities[0]
 	ro3 := NewRoster(ro.List)
 	ro3ID, err := ro3.GetID()
 	require.NoError(t, err)
-	require.True(t, roID.Equal(ro3ID))
+	require.False(t, roID.Equal(ro3ID))
 	ok, _ = ro.Equal(ro3)
 	require.True(t, ok)
 
