@@ -2,9 +2,11 @@ package onet
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
+	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	uuid "gopkg.in/satori/go.uuid.v1"
 )
@@ -44,6 +46,76 @@ func TestServer_Database(t *testing.T) {
 		})
 	}
 	c.Close()
+}
+
+func TestServer_FilterConnectionsOutgoing(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	srv := local.GenServers(3)
+	msg := &SimpleMessage{42}
+
+	// Initially, messages can be sent freely as there is no restriction
+	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
+	require.NoError(t, err)
+	_, err = srv[1].Send(srv[2].ServerIdentity, msg)
+	require.NoError(t, err)
+	_, err = srv[2].Send(srv[0].ServerIdentity, msg)
+	require.NoError(t, err)
+
+	// Set the valid peers of Srv0 to Srv1 only
+	roster := NewRoster([]*network.ServerIdentity{srv[1].ServerIdentity})
+	srv[0].SetValidPeers(roster)
+	// Now Srv0 can send to Srv1, but not to Srv2
+	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
+	require.NoError(t, err)
+	_, err = srv[0].Send(srv[2].ServerIdentity, msg)
+	require.Regexp(t, "rejecting.*invalid peer", err.Error())
+
+	// Add Srv2 to the valid peers of Srv0
+	srv[0].SetValidPeers(roster.Concat(srv[2].ServerIdentity))
+	// Now Srv0 can send to both Srv1 and Srv2
+	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
+	require.NoError(t, err)
+	_, err = srv[0].Send(srv[2].ServerIdentity, msg)
+	require.NoError(t, err)
+}
+
+func TestServer_FilterConnectionsIncoming(t *testing.T) {
+	local := NewTCPTest(tSuite)
+	defer local.CloseAll()
+
+	srv := local.GenServers(3)
+	msg := &SimpleMessage{42}
+
+	// Set the valid peers of Srv0 to Srv1
+	roster := NewRoster([]*network.ServerIdentity{srv[1].ServerIdentity})
+	srv[0].SetValidPeers(roster)
+	// Set the valid peers of Srv1 to Srv2
+	roster = NewRoster([]*network.ServerIdentity{srv[2].ServerIdentity})
+	srv[1].SetValidPeers(roster)
+
+	// Now Srv0 can send to Srv1, but Srv1 cannot receive from Srv0
+	log.OutputToBuf()
+	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
+	require.Error(t, err)
+	time.Sleep(500 * time.Millisecond)
+	log.OutputToOs()
+
+	require.Regexp(t, "rejecting incoming connection.*invalid peer", log.GetStdErr())
+
+	// Set the valid peers of Srv1 to Srv0
+	roster = NewRoster([]*network.ServerIdentity{srv[0].ServerIdentity})
+	srv[1].SetValidPeers(roster)
+
+	// Now Srv1 can receive from Srv0
+	log.OutputToBuf()
+	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
+	require.NoError(t, err)
+	time.Sleep(500 * time.Millisecond)
+	log.OutputToOs()
+
+	require.Empty(t, log.GetStdErr())
 }
 
 type ServerProtocol struct {

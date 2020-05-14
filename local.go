@@ -181,8 +181,8 @@ func (l *LocalTest) GenServers(n int) []*Server {
 		l.Overlays[server.ServerIdentity.ID] = server.overlay
 		l.Services[server.ServerIdentity.ID] = server.serviceManager.services
 	}
-	return servers
 
+	return servers
 }
 
 // GenTree will create a tree of n servers with a localRouter, and returns the
@@ -197,6 +197,7 @@ func (l *LocalTest) GenTree(n int, register bool) ([]*Server, *Roster, *Tree) {
 	if register {
 		servers[0].overlay.RegisterTree(tree)
 	}
+
 	return servers, list, tree
 
 }
@@ -217,6 +218,7 @@ func (l *LocalTest) GenBigTree(nbrTreeNodes, nbrServers, bf int, register bool) 
 	if register {
 		servers[0].overlay.RegisterTree(tree)
 	}
+
 	return servers, list, tree
 }
 

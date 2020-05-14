@@ -306,3 +306,9 @@ func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
 	}
 	return c.manager.db, fullName
 }
+
+// SetValidPeers sets the set of peers with which the server underlying this
+// context can communicate.
+func (c *Context) SetValidPeers(roster *Roster) {
+	c.server.SetValidPeers(roster)
+}

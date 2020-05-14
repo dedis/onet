@@ -97,7 +97,7 @@ func (r *Router) Unpause() {
 
 // Start the listening routine of the underlying Host. This is a
 // blocking call until r.Stop() is called.
-func (r *Router) Start() {
+func (r *Router) Start(isPeerValid func(ServerIdentityID) bool) {
 	if !r.Quiet {
 		log.Lvlf3("New router with address %s and public key %s", r.address, r.ServerIdentity.Public)
 	}
@@ -118,6 +118,17 @@ func (r *Router) Start() {
 			}
 			return
 		}
+
+		// Reject incoming connections from invalid peers
+		if !isPeerValid(dst.ID) {
+			log.Errorf("rejecting incoming connection from %v: invalid peer %v",
+				c.Remote(), dst.ID)
+			if err := c.Close(); err != nil {
+				log.Error("closing connection:", err)
+			}
+			return
+		}
+
 		if err := r.registerConnection(dst, c); err != nil {
 			log.Lvl3(r.address, "does not accept incoming connection from", c.Remote(), "because it's closed")
 			return

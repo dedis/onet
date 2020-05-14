@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.dedis.ch/kyber/v3"
@@ -43,6 +44,10 @@ type Server struct {
 	IsStarted      bool
 
 	suite network.Suite
+
+	// set of valid peers, used to filter allowed in/out connections
+	// (using an atomic.Value to prevent races)
+	validPeers atomic.Value
 }
 
 func dbPathFromEnv() string {
@@ -218,7 +223,7 @@ func (c *Server) Start() {
 			c.started.Format("2006-01-02 15:04:05"),
 			c.ServerIdentity.Address)
 	}
-	go c.Router.Start()
+	go c.Router.Start(c.isPeerValid)
 	go c.WebSocket.start()
 	for !c.Router.Listening() || !c.WebSocket.Listening() {
 		time.Sleep(50 * time.Millisecond)
@@ -269,4 +274,54 @@ func (c *Server) callTestClose() {
 	}
 	c.serviceManager.servicesMutex.Unlock()
 	wg.Wait()
+}
+
+// SetValidPeers sets the set of peers with which this server can communicate.
+func (c *Server) SetValidPeers(roster *Roster) {
+	newPeers := make(map[network.ServerIdentityID]struct{})
+
+	for _, node := range roster.List {
+		newPeers[node.ID] = struct{}{}
+	}
+
+	c.validPeers.Store(newPeers)
+
+	// FIXME: lower log priority -- used for debug for now
+	log.LLvlf2("[%v @ %v] valid peers are now: %v)",
+		c.ServerIdentity.ID, c.Address(), c.validPeers.Load())
+}
+
+// isPeerValid checks whether the given peer is valid for communication.
+func (c *Server) isPeerValid(peer network.ServerIdentityID) bool {
+	validPeersValue := c.validPeers.Load()
+
+	// FIXME: lower log priority -- used for debug for now
+	log.LLvlf2("[%v @ %v] check for %v (valid: %v)",
+		c.ServerIdentity.ID, c.Address(), peer, validPeersValue)
+
+	// Until the set of valid peers is initialized, all peers are valid
+	if validPeersValue == nil {
+		return true
+	}
+
+	validPeers := validPeersValue.(map[network.ServerIdentityID]struct{})
+	_, ok := validPeers[peer]
+
+	return ok
+}
+
+// Send sends a list of messages to the given ServerIdentity.
+// Overrides Router.Send()
+func (c *Server) Send(e *network.ServerIdentity,
+	msgs ...network.Message) (uint64, error) {
+	// FIXME: lower log priority -- used for debug for now
+	log.LLvlf2("[%v @ %v] sending to %v",
+		c.ServerIdentity.ID, c.Address(), e.ID)
+
+	if !c.isPeerValid(e.ID) {
+		return 0, xerrors.Errorf("%v rejecting send to %v: invalid peer",
+			c.ServerIdentity.ID, e.ID)
+	}
+
+	return c.Router.Send(e, msgs...)
 }

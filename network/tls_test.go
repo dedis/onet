@@ -60,12 +60,12 @@ func testTLS(t *testing.T, s suites.Suite) {
 
 	go func() {
 		ready <- true
-		r1.Start()
+		r1.Start(peerIsAlwaysValid)
 		stop <- true
 	}()
 	go func() {
 		ready <- true
-		r2.Start()
+		r2.Start(peerIsAlwaysValid)
 		stop <- true
 	}()
 
@@ -127,12 +127,12 @@ func benchmarkMsg(b *testing.B, r1, r2 *Router) {
 
 	go func() {
 		ready <- true
-		r1.Start()
+		r1.Start(peerIsAlwaysValid)
 		stop <- true
 	}()
 	go func() {
 		ready <- true
-		r2.Start()
+		r2.Start(peerIsAlwaysValid)
 		stop <- true
 	}()
 
