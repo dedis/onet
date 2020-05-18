@@ -124,7 +124,7 @@ func (r *Router) Start(isPeerValid func(ServerIdentityID) bool) {
 			log.Errorf("rejecting incoming connection from %v: invalid peer %v",
 				c.Remote(), dst.ID)
 			if err := c.Close(); err != nil {
-				log.Error("closing connection:", err)
+				log.Warnf("closing connection: %v", err)
 			}
 			return
 		}

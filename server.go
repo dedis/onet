@@ -277,11 +277,11 @@ func (c *Server) callTestClose() {
 }
 
 // SetValidPeers sets the set of peers with which this server can communicate.
-func (c *Server) SetValidPeers(roster *Roster) {
+func (c *Server) SetValidPeers(peers []*network.ServerIdentity) {
 	newPeers := make(map[network.ServerIdentityID]struct{})
 
-	for _, node := range roster.List {
-		newPeers[node.ID] = struct{}{}
+	for _, peer := range peers {
+		newPeers[peer.ID] = struct{}{}
 	}
 
 	c.validPeers.Store(newPeers)

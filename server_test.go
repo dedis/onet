@@ -64,8 +64,8 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set the valid peers of Srv0 to Srv1 only
-	roster := NewRoster([]*network.ServerIdentity{srv[1].ServerIdentity})
-	srv[0].SetValidPeers(roster)
+	validPeers := []*network.ServerIdentity{srv[1].ServerIdentity}
+	srv[0].SetValidPeers(validPeers)
 	// Now Srv0 can send to Srv1, but not to Srv2
 	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
 	require.NoError(t, err)
@@ -73,7 +73,7 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 	require.Regexp(t, "rejecting.*invalid peer", err.Error())
 
 	// Add Srv2 to the valid peers of Srv0
-	srv[0].SetValidPeers(roster.Concat(srv[2].ServerIdentity))
+	srv[0].SetValidPeers(append(validPeers, srv[2].ServerIdentity))
 	// Now Srv0 can send to both Srv1 and Srv2
 	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
 	require.NoError(t, err)
@@ -89,11 +89,11 @@ func TestServer_FilterConnectionsIncoming(t *testing.T) {
 	msg := &SimpleMessage{42}
 
 	// Set the valid peers of Srv0 to Srv1
-	roster := NewRoster([]*network.ServerIdentity{srv[1].ServerIdentity})
-	srv[0].SetValidPeers(roster)
+	validPeers0 := []*network.ServerIdentity{srv[1].ServerIdentity}
+	srv[0].SetValidPeers(validPeers0)
 	// Set the valid peers of Srv1 to Srv2
-	roster = NewRoster([]*network.ServerIdentity{srv[2].ServerIdentity})
-	srv[1].SetValidPeers(roster)
+	validPeers1 := []*network.ServerIdentity{srv[2].ServerIdentity}
+	srv[1].SetValidPeers(validPeers1)
 
 	// Now Srv0 can send to Srv1, but Srv1 cannot receive from Srv0
 	log.OutputToBuf()
@@ -105,8 +105,8 @@ func TestServer_FilterConnectionsIncoming(t *testing.T) {
 	require.Regexp(t, "rejecting incoming connection.*invalid peer", log.GetStdErr())
 
 	// Set the valid peers of Srv1 to Srv0
-	roster = NewRoster([]*network.ServerIdentity{srv[0].ServerIdentity})
-	srv[1].SetValidPeers(roster)
+	validPeers1 = []*network.ServerIdentity{srv[0].ServerIdentity}
+	srv[1].SetValidPeers(validPeers1)
 
 	// Now Srv1 can receive from Srv0
 	log.OutputToBuf()
