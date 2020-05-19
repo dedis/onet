@@ -55,6 +55,8 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
+	testPeersID := [32]byte{}
+
 	// Initially, messages can be sent freely as there is no restriction
 	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
 	require.NoError(t, err)
@@ -65,7 +67,7 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 
 	// Set the valid peers of Srv0 to Srv1 only
 	validPeers := []*network.ServerIdentity{srv[1].ServerIdentity}
-	srv[0].SetValidPeers(validPeers)
+	srv[0].SetValidPeers(testPeersID, validPeers)
 	// Now Srv0 can send to Srv1, but not to Srv2
 	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
 	require.NoError(t, err)
@@ -73,7 +75,7 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 	require.Regexp(t, "rejecting.*invalid peer", err.Error())
 
 	// Add Srv2 to the valid peers of Srv0
-	srv[0].SetValidPeers(append(validPeers, srv[2].ServerIdentity))
+	srv[0].SetValidPeers(testPeersID, append(validPeers, srv[2].ServerIdentity))
 	// Now Srv0 can send to both Srv1 and Srv2
 	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
 	require.NoError(t, err)
@@ -88,19 +90,21 @@ func TestServer_FilterConnectionsIncomingInvalid(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
+	testPeersID := [32]byte{}
+
 	// Set the valid peers of Srv0 to Srv1
 	validPeers0 := []*network.ServerIdentity{srv[1].ServerIdentity}
-	srv[0].SetValidPeers(validPeers0)
+	srv[0].SetValidPeers(testPeersID, validPeers0)
 	// Set the valid peers of Srv1 to Srv2
 	validPeers1 := []*network.ServerIdentity{srv[2].ServerIdentity}
-	srv[1].SetValidPeers(validPeers1)
+	srv[1].SetValidPeers(testPeersID, validPeers1)
 
 	// Srv0 can send to Srv1, but Srv1 cannot receive from Srv0
 	log.OutputToBuf()
-	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
-	require.NoError(t, err)
+	defer log.OutputToOs()
+
+	srv[0].Send(srv[1].ServerIdentity, msg)
 	time.Sleep(500 * time.Millisecond)
-	log.OutputToOs()
 
 	// An error was logged
 	require.Regexp(t, "rejecting incoming connection.*invalid peer", log.GetStdErr())
@@ -113,16 +117,21 @@ func TestServer_FilterConnectionsIncomingValid(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
+	testPeersID := [32]byte{}
+
+	// Set the valid peers of Srv0 to Srv1
+	validPeers0 := []*network.ServerIdentity{srv[1].ServerIdentity}
+	srv[0].SetValidPeers(testPeersID, validPeers0)
 	// Set the valid peers of Srv1 to Srv0
 	validPeers1 := []*network.ServerIdentity{srv[0].ServerIdentity}
-	srv[1].SetValidPeers(validPeers1)
+	srv[1].SetValidPeers(testPeersID, validPeers1)
 
 	// Srv1 can receive from Srv0
 	log.OutputToBuf()
-	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
-	require.NoError(t, err)
+	defer log.OutputToOs()
+
+	srv[0].Send(srv[1].ServerIdentity, msg)
 	time.Sleep(500 * time.Millisecond)
-	log.OutputToOs()
 
 	// No error was logged
 	require.Empty(t, log.GetStdErr())

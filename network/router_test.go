@@ -41,14 +41,6 @@ func TestRouterLocal(t *testing.T) {
 	testRouter(t, NewTestRouterLocal)
 }
 
-func peerIsAlwaysValid(ServerIdentityID) bool {
-	return true
-}
-
-func peerIsNeverValid(ServerIdentityID) bool {
-	return false
-}
-
 func testRouter(t *testing.T, fac routerFactory) {
 	h, err := fac(2004)
 	if err != nil {
@@ -57,7 +49,7 @@ func testRouter(t *testing.T, fac routerFactory) {
 	var stop = make(chan bool)
 	go func() {
 		stop <- true
-		h.Start(peerIsAlwaysValid)
+		h.Start()
 		stop <- true
 	}()
 	<-stop
@@ -82,8 +74,8 @@ func TestRouterErrorHandling(t *testing.T) {
 		t.Fatal("Could not setup hosts")
 	}
 
-	go h1.Start(peerIsAlwaysValid)
-	go h2.Start(peerIsAlwaysValid)
+	go h1.Start()
+	go h2.Start()
 
 	defer func() {
 		h1.Stop()
@@ -135,7 +127,7 @@ func TestRouterSendToSelf(t *testing.T) {
 	r, err := NewTestRouterTCP(0)
 	require.Nil(t, err)
 
-	go r.Start(peerIsAlwaysValid)
+	go r.Start()
 
 	defer func() {
 		r.Stop()
@@ -167,8 +159,8 @@ func testRouterRemoveConnection(t *testing.T) {
 
 	defer r1.Stop()
 
-	go r1.Start(peerIsAlwaysValid)
-	go r2.Start(peerIsAlwaysValid)
+	go r1.Start()
+	go r2.Start()
 
 	sentLen, err := r1.Send(r2.ServerIdentity, nil)
 	require.NotNil(t, err)
@@ -209,7 +201,7 @@ func testRouterAutoConnection(t *testing.T, fac routerFactory) {
 	_, err = h1.Send(h2.ServerIdentity, nil)
 	require.NotNil(t, err)
 
-	go h2.Start(peerIsAlwaysValid)
+	go h2.Start()
 	for !h2.Listening() {
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -269,8 +261,8 @@ func TestRouterMessaging(t *testing.T) {
 		t.Fatal("Could not setup hosts")
 	}
 
-	go h1.Start(peerIsAlwaysValid)
-	go h2.Start(peerIsAlwaysValid)
+	go h1.Start()
+	go h2.Start()
 
 	defer func() {
 		h1.Stop()
@@ -374,7 +366,7 @@ func testRouterLotsOfConn(t *testing.T, fac routerFactory, nbrRouter int) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			go r.Start(peerIsAlwaysValid)
+			go r.Start()
 			for !r.Listening() {
 				time.Sleep(10 * time.Millisecond)
 			}
@@ -430,8 +422,8 @@ func testRouterSendMsgDuplex(t *testing.T, fac routerFactory) {
 	if err2 != nil {
 		t.Fatal("Could not setup hosts: ", err2)
 	}
-	go h1.Start(peerIsAlwaysValid)
-	go h2.Start(peerIsAlwaysValid)
+	go h1.Start()
+	go h2.Start()
 
 	defer func() {
 		h1.Stop()
@@ -465,8 +457,11 @@ func TestRouterFilterConnectionsIncomingInvalid(t *testing.T) {
 	r2, err := NewTestRouterTCP(7879)
 	require.NoError(t, err)
 
+	testPeersID := [32]byte{}
+
 	// r1 does not accept any connection
-	go r1.Start(peerIsNeverValid)
+	r1.SetValidPeers(testPeersID, []*ServerIdentity{})
+	go r1.Start()
 
 	log.OutputToBuf()
 	defer log.OutputToOs()
@@ -491,10 +486,11 @@ func TestRouterFilterConnectionsIncomingValid(t *testing.T) {
 	r2, err := NewTestRouterTCP(7879)
 	require.NoError(t, err)
 
+	testPeersID := [32]byte{}
+
 	// r1 accepts connections from r2
-	go r1.Start(func(peer ServerIdentityID) bool {
-		return peer == r2.ServerIdentity.ID
-	})
+	r1.SetValidPeers(testPeersID, []*ServerIdentity{r2.ServerIdentity})
+	go r1.Start()
 
 	log.OutputToBuf()
 	defer log.OutputToOs()
@@ -525,7 +521,7 @@ func TestRouterExchange(t *testing.T) {
 	done := make(chan bool)
 	go func() {
 		done <- true
-		router1.Start(peerIsAlwaysValid)
+		router1.Start()
 		done <- true
 	}()
 	<-done
@@ -571,8 +567,8 @@ func TestRouterRxTx(t *testing.T) {
 	log.ErrFatal(err)
 	router2, err := NewTestRouterTCP(0)
 	log.ErrFatal(err)
-	go router1.Start(peerIsAlwaysValid)
-	go router2.Start(peerIsAlwaysValid)
+	go router1.Start()
+	go router2.Start()
 
 	addr := NewAddress(router1.address.ConnType(), "127.0.0.1:"+router1.address.Port())
 	si1 := NewServerIdentity(Suite.Point(tSuite).Null(), addr)
