@@ -60,8 +60,8 @@ type Router struct {
 	Quiet bool
 
 	// Set of valid peers, used to filter allowed in/out connections.
-	// It is organized a data structure allowing for subsets of peers to evolve
-	// indipendently, each subset being identified by a PeerSetID.
+	// It is organized as a data structure allowing for subsets of peers to
+	// evolve indipendently, each subset being identified by a PeerSetID.
 	validPeers validPeers
 }
 
@@ -69,6 +69,14 @@ type Router struct {
 // This should typically be linked in a unique way to a service, e.g.
 // hash(serviceID | skipChainID) for ByzCoin
 type PeerSetID [32]byte
+
+// NewPeerSetID creates a new PeerSetID from bytes
+func NewPeerSetID(data []byte) PeerSetID {
+	var p PeerSetID
+	copy(p[:], data)
+
+	return p
+}
 
 // peerSet is the type representing a subset of valid peers, implemented as a
 // map of empty structs.
@@ -81,7 +89,7 @@ type validPeers struct {
 }
 
 // Sets the set of valid peers for a given identifier.
-func (vp *validPeers) set(peerID PeerSetID, peers []*ServerIdentity) {
+func (vp *validPeers) set(peerSetID PeerSetID, peers []*ServerIdentity) {
 	newPeers := make(peerSet)
 
 	for _, peer := range peers {
@@ -95,7 +103,7 @@ func (vp *validPeers) set(peerID PeerSetID, peers []*ServerIdentity) {
 		vp.peers = make(map[PeerSetID]peerSet)
 	}
 
-	vp.peers[peerID] = newPeers
+	vp.peers[peerSetID] = newPeers
 }
 
 // Checks whether the given peer is valid (among all the subsets).
@@ -120,8 +128,8 @@ func (vp *validPeers) isValid(peer *ServerIdentity) bool {
 }
 
 // SetValidPeers sets the set of valid peers for a given PeerSetID
-func (r *Router) SetValidPeers(peerID PeerSetID, peers []*ServerIdentity) {
-	r.validPeers.set(peerID, peers)
+func (r *Router) SetValidPeers(peerSetID PeerSetID, peers []*ServerIdentity) {
+	r.validPeers.set(peerSetID, peers)
 }
 
 // isPeerValid checks whether the provided ServerIdentity is among the valid

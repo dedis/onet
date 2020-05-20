@@ -457,7 +457,7 @@ func TestRouterFilterConnectionsIncomingInvalid(t *testing.T) {
 	r2, err := NewTestRouterTCP(7879)
 	require.NoError(t, err)
 
-	testPeersID := [32]byte{}
+	testPeersID := NewPeerSetID([]byte{})
 
 	// r1 does not accept any connection
 	r1.SetValidPeers(testPeersID, []*ServerIdentity{})
@@ -486,7 +486,7 @@ func TestRouterFilterConnectionsIncomingValid(t *testing.T) {
 	r2, err := NewTestRouterTCP(7879)
 	require.NoError(t, err)
 
-	testPeersID := [32]byte{}
+	testPeersID := NewPeerSetID([]byte{})
 
 	// r1 accepts connections from r2
 	r1.SetValidPeers(testPeersID, []*ServerIdentity{r2.ServerIdentity})

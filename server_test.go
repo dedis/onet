@@ -55,7 +55,7 @@ func TestServer_FilterConnectionsOutgoing(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
-	testPeersID := [32]byte{}
+	testPeersID := network.NewPeerSetID([]byte{})
 
 	// Initially, messages can be sent freely as there is no restriction
 	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
@@ -90,7 +90,7 @@ func TestServer_FilterConnectionsIncomingInvalid(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
-	testPeersID := [32]byte{}
+	testPeersID := network.NewPeerSetID([]byte{})
 
 	// Set the valid peers of Srv0 to Srv1
 	validPeers0 := []*network.ServerIdentity{srv[1].ServerIdentity}
@@ -117,7 +117,7 @@ func TestServer_FilterConnectionsIncomingValid(t *testing.T) {
 	srv := local.GenServers(3)
 	msg := &SimpleMessage{42}
 
-	testPeersID := [32]byte{}
+	testPeersID := network.NewPeerSetID([]byte{})
 
 	// Set the valid peers of Srv0 to Srv1
 	validPeers0 := []*network.ServerIdentity{srv[1].ServerIdentity}
