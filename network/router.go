@@ -58,6 +58,84 @@ type Router struct {
 	UnauthOk bool
 	// Quiets the startup of the server if set to true.
 	Quiet bool
+
+	// Set of valid peers, used to filter allowed in/out connections.
+	// It is organized as a data structure allowing for subsets of peers to
+	// evolve indipendently, each subset being identified by a PeerSetID.
+	validPeers validPeers
+}
+
+// PeerSetID is the identifier for a subset of valid peers.
+// This should typically be linked in a unique way to a service, e.g.
+// hash(serviceID | skipChainID) for ByzCoin
+type PeerSetID [32]byte
+
+// NewPeerSetID creates a new PeerSetID from bytes
+func NewPeerSetID(data []byte) PeerSetID {
+	var p PeerSetID
+	copy(p[:], data)
+
+	return p
+}
+
+// peerSet is the type representing a subset of valid peers, implemented as a
+// map of empty structs.
+type peerSet map[ServerIdentityID]struct{}
+
+// validPeers is the type representing all the valid peers.
+type validPeers struct {
+	peers map[PeerSetID]peerSet
+	lock  sync.Mutex
+}
+
+// Sets the set of valid peers for a given identifier.
+func (vp *validPeers) set(peerSetID PeerSetID, peers []*ServerIdentity) {
+	newPeers := make(peerSet)
+
+	for _, peer := range peers {
+		newPeers[peer.ID] = struct{}{}
+	}
+
+	vp.lock.Lock()
+	defer vp.lock.Unlock()
+
+	if vp.peers == nil {
+		vp.peers = make(map[PeerSetID]peerSet)
+	}
+
+	vp.peers[peerSetID] = newPeers
+}
+
+// Checks whether the given peer is valid (among all the subsets).
+func (vp *validPeers) isValid(peer *ServerIdentity) bool {
+	vp.lock.Lock()
+	defer vp.lock.Unlock()
+
+	// Until valid peers are initialized, all peers are valid
+	if vp.peers == nil {
+		return true
+	}
+
+	// Search whether the given peer is valid in any of the peer subsets
+	for _, peers := range vp.peers {
+		_, ok := peers[peer.ID]
+		if ok {
+			return true
+		}
+	}
+
+	return false
+}
+
+// SetValidPeers sets the set of valid peers for a given PeerSetID
+func (r *Router) SetValidPeers(peerSetID PeerSetID, peers []*ServerIdentity) {
+	r.validPeers.set(peerSetID, peers)
+}
+
+// isPeerValid checks whether the provided ServerIdentity is among the valid
+// peers for this router.
+func (r *Router) isPeerValid(peer *ServerIdentity) bool {
+	return r.validPeers.isValid(peer)
 }
 
 // NewRouter returns a new Router attached to a ServerIdentity and the host we want to
@@ -118,6 +196,17 @@ func (r *Router) Start() {
 			}
 			return
 		}
+
+		// Reject incoming connections from invalid peers
+		if !r.isPeerValid(dst) {
+			log.Errorf("rejecting incoming connection from %v: invalid peer %v",
+				c.Remote(), dst.ID)
+			if err := c.Close(); err != nil {
+				log.Warnf("closing connection: %v", err)
+			}
+			return
+		}
+
 		if err := r.registerConnection(dst, c); err != nil {
 			log.Lvl3(r.address, "does not accept incoming connection from", c.Remote(), "because it's closed")
 			return
@@ -170,6 +259,11 @@ func (r *Router) Stop() error {
 // the messages are sent through the same connection and thus are correctly
 // ordered.
 func (r *Router) Send(e *ServerIdentity, msgs ...Message) (uint64, error) {
+	if !r.isPeerValid(e) {
+		return 0, xerrors.Errorf("%v rejecting send to %v: invalid peer",
+			r.ServerIdentity.ID, e.ID)
+	}
+
 	for _, msg := range msgs {
 		if msg == nil {
 			return 0, xerrors.New("cannot send nil-packets")

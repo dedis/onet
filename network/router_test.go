@@ -451,6 +451,64 @@ func testRouterSendMsgDuplex(t *testing.T, fac routerFactory) {
 	log.Lvl2("Received msg h2 -> h1", msg)
 }
 
+func TestRouterFilterConnectionsIncomingInvalid(t *testing.T) {
+	r1, err := NewTestRouterTCP(7878)
+	require.NoError(t, err)
+	r2, err := NewTestRouterTCP(7879)
+	require.NoError(t, err)
+
+	testPeersID := NewPeerSetID([]byte{})
+
+	// r1 does not accept any connection
+	r1.SetValidPeers(testPeersID, []*ServerIdentity{})
+	go r1.Start()
+
+	log.OutputToBuf()
+	defer log.OutputToOs()
+
+	// Do not check `Send()` error as it is not stable
+	r2.Send(r1.ServerIdentity, &SimpleMessage{42})
+
+	time.Sleep(500 * time.Millisecond)
+	// No connection from s2 was registered
+	require.Nil(t, r1.connection(r2.ServerIdentity.ID))
+
+	r1.Stop()
+	r2.Stop()
+
+	// An error was logged
+	require.Regexp(t, "rejecting incoming connection.*invalid peer", log.GetStdErr())
+}
+
+func TestRouterFilterConnectionsIncomingValid(t *testing.T) {
+	r1, err := NewTestRouterTCP(7878)
+	require.NoError(t, err)
+	r2, err := NewTestRouterTCP(7879)
+	require.NoError(t, err)
+
+	testPeersID := NewPeerSetID([]byte{})
+
+	// r1 accepts connections from r2
+	r1.SetValidPeers(testPeersID, []*ServerIdentity{r2.ServerIdentity})
+	go r1.Start()
+
+	log.OutputToBuf()
+	defer log.OutputToOs()
+
+	// Do not check `Send()` error as it is not stable
+	r2.Send(r1.ServerIdentity, &SimpleMessage{42})
+
+	time.Sleep(500 * time.Millisecond)
+	// A connection from s2 was registered
+	require.NotNil(t, r1.connection(r2.ServerIdentity.ID))
+
+	r1.Stop()
+	r2.Stop()
+
+	// No error was logged
+	require.Empty(t, log.GetStdErr())
+}
+
 func TestRouterExchange(t *testing.T) {
 	log.OutputToBuf()
 	defer log.OutputToOs()
