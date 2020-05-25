@@ -31,6 +31,8 @@ type TraceLogger struct {
 	NoSingleSpans bool
 	// Print spans that are not in entryPoints so that the slice can be updated.
 	PrintSingleSpans int
+	// LogLevel is the minimum log level that is sent to the tracing service
+	LogLevel int
 	// As the TraceLogger cannot use onet/log, turn on/off debug messages here.
 	Debug bool
 	// currently active traces - the keys are the traceID or the go-routine
@@ -65,6 +67,12 @@ type newTrace = func(context.Context, string) (context.Context, Trace)
 // It calls the getTraceSpan with the appropriate callLvl to remove the stack
 // trace due to onet/log.
 func (logger *TraceLogger) Log(level int, msg string) {
+	logger.logMutex.Lock()
+	ok := level > logger.LogLevel
+	logger.logMutex.Unlock()
+	if !ok {
+		return
+	}
 	logger.getTraceSpan(level, msg, 7)
 }
 
@@ -172,6 +180,8 @@ func (logger *TraceLogger) AddStats(c *onet.Context, repeat time.Duration) {
 //   - TRACING_CREATE_SINGLE_SPANS - whenever there is no entry point found,
 //  the system can create single spans that are not linked together.
 //   This is a fallback to regular logging when we cannot simulate traces.
+//   - TRACING_LOG_LEVEL - sets the minimal log level that is sent to the
+//  tracing service
 //   - TRACING_DEBUG - if true, fmt.Println is used for some additional
 //  debugging messages, as onet/log cannot be used within the logger
 //   - TRACING_ENTRY_POINTS - a "::" separated list of entry points that can
@@ -205,6 +215,16 @@ func (logger *TraceLogger) AddEnvironment() error {
 				" be only \"true\" or \"false\"")
 		}
 		logger.Debug = tdb == "true"
+	}
+	if tcll := os.Getenv("TRACING_LOG_LEVEL"); tcll != "" {
+		var err error
+		logger.LogLevel, err = strconv.Atoi(tcll)
+		if err != nil {
+			return fmt.Errorf("while reading TRACING_LOG_LEVEL: %v",
+				err)
+		}
+	} else {
+		logger.LogLevel = 3
 	}
 	logger.AddEntryPoints(strings.Split(os.Getenv("TRACING_ENTRY_POINTS"), "::")...)
 	logger.AddDoneMsgs(strings.Split(os.Getenv("TRACING_DONE_MSGS"), "::")...)

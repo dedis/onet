@@ -521,7 +521,7 @@ func (n *TreeNodeInstance) notifyDispatch() {
 
 func (n *TreeNodeInstance) dispatchMsgReader() {
 	log.TraceID(n.token.RoundID[:])
-	defer log.Lvl5("done tracing")
+	defer log.Lvl3("done tracing")
 	log.Lvl3("Starting node", n.Info())
 	for {
 		n.msgDispatchQueueMutex.Lock()
