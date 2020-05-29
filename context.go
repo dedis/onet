@@ -309,6 +309,16 @@ func (c *Context) GetAdditionalBucket(name []byte) (*bbolt.DB, []byte) {
 
 // SetValidPeers sets the set of peers with which the server underlying this
 // context can communicate.
-func (c *Context) SetValidPeers(peerID network.PeerSetID, peers []*network.ServerIdentity) {
+func (c *Context) SetValidPeers(peerID network.PeerSetID,
+	peers []*network.ServerIdentity) {
 	c.server.SetValidPeers(peerID, peers)
+}
+
+// GetValidPeers returns the set of peers with which the server underlying this
+// context can communicate.
+// The return value is `nil` in case the set of valid peers has not yet been
+// initialized, meaning that all peers are valid.
+func (c *Context) GetValidPeers(peerID network.PeerSetID) []network.
+	ServerIdentityID {
+	return c.server.GetValidPeers(peerID)
 }
