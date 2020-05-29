@@ -2,6 +2,7 @@ package onet
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"sync"
 
@@ -9,6 +10,7 @@ import (
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
+	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // Context represents the methods that are available to a service.
@@ -321,4 +323,18 @@ func (c *Context) SetValidPeers(peerID network.PeerSetID,
 func (c *Context) GetValidPeers(peerID network.PeerSetID) []network.
 	ServerIdentityID {
 	return c.server.GetValidPeers(peerID)
+}
+
+// NewPeerSetID creates a new PeerSetID identifying a subset of valid peers.
+// This is to be used by services, providing their own specific identifier,
+// e.g. the SkipChainID for ByzCoin.
+func (c *Context) NewPeerSetID(data []byte) network.PeerSetID {
+	// Compute the PeerSetID as hash(serviceID | data)
+	h := sha256.New()
+	h.Write(uuid.UUID(c.ServiceID()).Bytes())
+	h.Write(data)
+
+	peerSetID := network.NewPeerSetID(h.Sum(nil))
+
+	return peerSetID
 }
