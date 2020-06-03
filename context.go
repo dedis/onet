@@ -334,7 +334,5 @@ func (c *Context) NewPeerSetID(data []byte) network.PeerSetID {
 	h.Write(uuid.UUID(c.ServiceID()).Bytes())
 	h.Write(data)
 
-	peerSetID := network.NewPeerSetID(h.Sum(nil))
-
-	return peerSetID
+	return network.NewPeerSetID(h.Sum(nil))
 }
