@@ -106,6 +106,24 @@ func (vp *validPeers) set(peerSetID PeerSetID, peers []*ServerIdentity) {
 	vp.peers[peerSetID] = newPeers
 }
 
+// Returns the set of valid peers for a given identifier.
+func (vp *validPeers) get(peerSetID PeerSetID) []ServerIdentityID {
+	vp.lock.Lock()
+	defer vp.lock.Unlock()
+
+	if vp.peers == nil {
+		return nil
+	}
+
+	peerList := []ServerIdentityID{}
+
+	for peer := range vp.peers[peerSetID] {
+		peerList = append(peerList, peer)
+	}
+
+	return peerList
+}
+
 // Checks whether the given peer is valid (among all the subsets).
 func (vp *validPeers) isValid(peer *ServerIdentity) bool {
 	vp.lock.Lock()
@@ -130,6 +148,13 @@ func (vp *validPeers) isValid(peer *ServerIdentity) bool {
 // SetValidPeers sets the set of valid peers for a given PeerSetID
 func (r *Router) SetValidPeers(peerSetID PeerSetID, peers []*ServerIdentity) {
 	r.validPeers.set(peerSetID, peers)
+}
+
+// GetValidPeers returns the set of valid peers for a given PeerSetID
+// The return value is `nil` in case the set of valid peers has not yet been
+// initialized, meaning that all peers are valid.
+func (r *Router) GetValidPeers(peerSetID PeerSetID) []ServerIdentityID {
+	return r.validPeers.get(peerSetID)
 }
 
 // isPeerValid checks whether the provided ServerIdentity is among the valid
