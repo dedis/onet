@@ -190,7 +190,7 @@ func (si ServerIdentity) GetID() ServerIdentityID {
 
 // Equal tests on same public key
 func (si *ServerIdentity) Equal(e2 *ServerIdentity) bool {
-	if si == nil || e2 == nil || si.Public == nil {
+	if si == nil || e2 == nil || si.Public == nil || e2.Public == nil {
 		return false
 	}
 	return si.Public.Equal(e2.Public)
