@@ -89,13 +89,11 @@ the [dedis/cothority](https://github.com/dedis/cothority/tree/master/) project.
 
 ## License
 
-All repositories for the cothority-project
-([Onet](https://github.com/dedis/onet),
-[cothority](https://github.com/dedis/cothority),
-[cothority_template](https://github.com/dedis/cothority_template))
-are double-licensed under a
-GNU/LGPL 3.0 and a commercial license. If you want to have more information,
-contact us at dedis@epfl.ch.
+This project and all its files are licensed under the
+GNU Lesser General Public License, version 3 (SPDX short identifier: LGPL-3.0)
+
+If this license is not suitable for your business or project
+please contact us for a full commercial license.
 
 ## Contribution
 
