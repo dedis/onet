@@ -92,7 +92,7 @@ func startBuild() {
 			case <-testsDone:
 				log.Lvl3("Done with test", simulation)
 			case <-time.After(timeout):
-				log.Fatal("Test failed to finish in", timeout, "seconds")
+				log.Fatal("Test failed to finish in", timeout)
 			}
 		}
 	}
