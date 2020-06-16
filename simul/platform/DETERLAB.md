@@ -18,7 +18,7 @@ Before a successful Deterlab simulation, you need to
 1. be signed up at Deterlab. If you're working with DEDIS, ask your
 responsible for the _Project Name_ and the _Group Name_.
 2. create a simulation defined by an NS-file. You can find a simple
-NS-file here: [deterlab_users/cothority.ns]
+NS-file here: [cothority.ns](./deterlab_users/cothority.ns)
 3. swap the simulation in
 
 For point 3. it is important of course that Deterlab has enough machines
