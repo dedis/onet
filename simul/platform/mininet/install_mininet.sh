@@ -17,7 +17,7 @@ case "$( cat /etc/issue )" in
     echo "Installing for Ubuntu 1404"
     # Mininet installation
     git clone git://github.com/mininet/mininet
-    cd mininet
+    cd mininet || exit 1
     git checkout 2.2.1
     ./util/install.sh -a
     ;;
@@ -26,7 +26,14 @@ case "$( cat /etc/issue )" in
     apt-get install -y mininet openvswitch-testcontroller
     cp /usr/bin/ovs-testcontroller /usr/bin/ovs-controller
     ;;
+*18.04*)
+    echo "Installing for Ubuntu 1804"
+    apt-get install -y mininet openvswitch-testcontroller
+    for a in stop disable; do
+      systemctl $a openvswitch-testcontroller
+    done
+    ;;
 *)
-    echo "Unknown system - only know Ubuntu 1404 and 1604!"
+    echo "Unknown system - only know Ubuntu 1404, 1604 and 1804!"
     ;;
 esac
