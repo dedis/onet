@@ -42,8 +42,8 @@ Depending on the platform, this will be handled differently:
 - `localhost` - `Servers` is ignored here
 - `Deterlab` - the system will distribute the `Hosts` nodes over the
  available servers, but not over more than `Servers`.
- This allows for running multiple simulations without having to restart the
-  deterlab-network
+ This allows for running simulations that are smaller than your whole DETERLab experiment without having to modify and restart the
+  experiment.
 - `Mininet` - as in `Deterlab`, the `Hosts` nodes will be distributed over
  a maximum of `Servers`.
 
@@ -61,15 +61,16 @@ Some restrictions apply when you're using the `Deterlab` simulation:
  run in one binary, which means
   - bandwidth measurements cover all the nodes
   - time measurements need to make sure no other calculations are taking place  
-- the bandwidth- and delay-restrictions only apply between two servers, so
+- the bandwidth- and delay-restrictions only apply between two physical servers, so
   - the simulation makes sure that all connected nodes in the `Tree` are always
     on different servers. If you use another communication than the one in the
     `Tree`, this will mean that the system cannot guarantee that the
     communication is restricted
   - the bandwidth restrictions apply to the sum of all communications between
    two servers, so to a number of hosts
-If you want to have a bandwidth restriction that is between all nodes, you
- have to use the `Mininet` platform, which doesn't have this restriction.  
+If you want to have a bandwidth restriction that is between all nodes, and
+ `Hosts > Servers`, you have to use the `Mininet` platform, which doesn't
+  have this restriction.  
 
 The following variables define how the original `Tree` is calculated - only
  one of the two should be given:
