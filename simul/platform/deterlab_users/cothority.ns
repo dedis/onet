@@ -1,6 +1,9 @@
 set ns [new Simulator]
 source tb_compat.tcl
 
+# Set you number of servers here, as well s the delay.
+# The bandwidth can be set below.
+
 set server_count 30
 set server_delay 100ms
 set lanstr ""
@@ -9,14 +12,16 @@ set lanstr ""
 
 for {set i 0} {$i < $server_count} {incr i} {
         set server($i) [$ns node]
-           #tb-set-hardware $server($i) dl380g3
-           #tb-set-hardware $server($i) MicroCloud
-           tb-set-hardware $server($i) pc2133
+            # Uncomment the server hardware you're using here, or add your own
+            #tb-set-hardware $server($i) dl380g3
+            #tb-set-hardware $server($i) MicroCloud
+            tb-set-hardware $server($i) pc2133
         tb-set-node-os $server($i) Ubuntu1404-64-STD
         append server_lanstr "$server($i) "
 }
 
-
+# Here you can set your bandwidth restrictions by replacing the 144Mb with the
+# expected bandwidth
 tb-use-endnodeshaping 1
 set serverlan [$ns make-lan "$server_lanstr" 144Mb $server_delay]
 
