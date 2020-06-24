@@ -56,6 +56,7 @@ func SSHRun(username, host, command string) ([]byte, error) {
 		addr = username + "@" + addr
 	}
 
+	log.Lvl2("Going to ssh to", addr, command)
 	cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=no", addr,
 		"eval '"+command+"'")
 	buf, err := cmd.Output()
