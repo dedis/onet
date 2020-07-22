@@ -278,7 +278,7 @@ func (c *Context) SaveVersion(version int) error {
 		return b.Put(dbVersion, buf.Bytes())
 	})
 	if err != nil {
-		return xerrors.Errorf("tx error: %v")
+		return xerrors.Errorf("tx error: %v", err)
 	}
 	return nil
 }
