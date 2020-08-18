@@ -19,7 +19,7 @@ require (
 	github.com/shirou/gopsutil v2.20.2+incompatible
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.22.2
-	go.dedis.ch/kyber/v3 v3.0.12
+	go.dedis.ch/kyber/v3 v3.0.13
 	go.dedis.ch/protobuf v1.0.11
 	go.etcd.io/bbolt v1.3.4
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
