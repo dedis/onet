@@ -34,17 +34,31 @@ type hello struct {
 }
 
 func TestTLS(t *testing.T) {
-	testTLS(t, tSuite)
+	testTLS(t, tSuite, false)
 }
 
 func TestTLS_bn256(t *testing.T) {
 	s := suites.MustFind("bn256.g2")
-	testTLS(t, s)
+	testTLS(t, s, false)
 }
 
-func testTLS(t *testing.T, s suites.Suite) {
+func TestTLS_noURIs(t *testing.T) {
+	testTLS(t, tSuite, true)
+}
+
+func testTLS(t *testing.T, s suites.Suite, noURIs bool) {
+	// Clean up changes we might make in this test.
+	defer func() {
+		testNoURIs = false
+	}()
+
+	// R1 has URI-based handshakes unconditionally.
 	r1, err := NewTestRouterTLS(s, 0)
 	require.Nil(t, err, "new tcp router")
+
+	// R2 might have no URIs, in order to simulate old handshake to new handshake
+	// compatibility.
+	testNoURIs = noURIs
 	r2, err := NewTestRouterTLS(s, 0)
 	require.Nil(t, err, "new tcp router 2")
 

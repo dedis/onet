@@ -10,8 +10,10 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"net"
+	"net/url"
 	"time"
 
 	"go.dedis.ch/kyber/v3"
@@ -117,6 +119,9 @@ func (cm *certMaker) getClientCertificate(req *tls.CertificateRequestInfo) (*tls
 	return cert, nil
 }
 
+// This global is only manipulated in tls_test.go.
+var testNoURIs = false
+
 func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	if len(nonce) != nonceSize {
 		return nil, xerrors.New("nonce is the wrong size")
@@ -146,9 +151,16 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	r := random.Bits(128, true, random.New())
 	serial.SetBytes(r)
 
+	// The URL scheme is "onet-pubkey:$serviceName:pubToCN($pubkey)".
+	// In this case, we are sending the server public key, so leave
+	// the service name empty.
+	uri, err := url.Parse(fmt.Sprintf("onet-pubkey::%v", cm.subj.CommonName))
+	if err != nil {
+		return nil, err
+	}
+
 	tmpl := &x509.Certificate{
 		BasicConstraintsValid: true,
-		MaxPathLen:            1,
 		IsCA:                  false,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		NotAfter:              time.Now().Add(2 * time.Hour),
@@ -156,6 +168,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 		SerialNumber:          serial,
 		SignatureAlgorithm:    x509.ECDSAWithSHA384,
 		Subject:               cm.subj,
+		URIs:                  []*url.URL{uri},
 		ExtraExtensions: []pkix.Extension{
 			{
 				Id:       oidDedisSig,
@@ -163,6 +176,14 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 				Value:    sig,
 			},
 		},
+	}
+
+	// For testing interoperability between old-style handshakes and the new
+	// URI-based handshakes. It is unfortunate to use a global but the only
+	// context we have here to attach to is cm, which is not possible for the
+	// test code to get ahold of and modify.
+	if testNoURIs {
+		tmpl.URIs = nil
 	}
 
 	cDer, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, cm.k.Public(), cm.k)
@@ -262,7 +283,7 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 		return cfg2, nil
 	}
 
-	// This is "any client cert" because we do not want crypto/tls
+	// This is an "any client cert" because we do not want crypto/tls
 	// to run Verify. However, since we provide a VerifyPeerCertificate
 	// callback, it will still call us.
 	cfg.ClientAuth = tls.RequireAnyClientCert
@@ -320,12 +341,28 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 			return xerrors.Errorf("certificate verification: %v", err)
 		}
 
-		// When we know who we are connecting to (e.g. client mode):
-		// Check that the CN is the same as the public key.
+		// When we know who we are connecting to (e.g. client mode, so them !=
+		// nil) check that the public key advertsied by the far side is the same
+		// as the public key we expect.
 		if them != nil {
-			err = cert.VerifyHostname(pubToCN(them.Public))
-			if err != nil {
-				return xerrors.Errorf("certificate verification: %v", err)
+			if len(cert.URIs) > 0 {
+				// see explanation of the URL scheme above for why we prepend :.
+				cn := fmt.Sprintf(":%v", pubToCN(them.Public))
+				found := false
+				for _, u := range cert.URIs {
+					if u.Scheme == "onet-pubkey" && u.Opaque == cn {
+						found = true
+						break
+					}
+				}
+				if !found {
+					return xerrors.Errorf("No onet-pubkey URIs match the expected public key %v", pubToCN(them.Public))
+				}
+			} else {
+				// The other end did not send any URIs (old style), so check the CN instead.
+				if cert.Subject.CommonName != pubToCN(them.Public) {
+					return xerrors.Errorf("certificate common-name %v not expected", cert.Subject.CommonName)
+				}
 			}
 		}
 
