@@ -73,12 +73,16 @@ type certMaker struct {
 	subj    pkix.Name
 	subjDer []byte // the subject encoded in ASN.1 DER format
 	k       *ecdsa.PrivateKey
+	noURIs bool // This is only for testing to make sure it's backward
+				// -compatible...
 }
 
-func newCertMaker(s Suite, si *ServerIdentity) (*certMaker, error) {
+func newCertMaker(s Suite, si *ServerIdentity, noURIs bool) (*certMaker,
+	error) {
 	cm := &certMaker{
 		si:    si,
 		suite: s,
+		noURIs: noURIs,
 	}
 
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -160,6 +164,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	}
 
 	tmpl := &x509.Certificate{
+		MaxPathLen:            1,
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
@@ -182,7 +187,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	// URI-based handshakes. It is unfortunate to use a global but the only
 	// context we have here to attach to is cm, which is not possible for the
 	// test code to get ahold of and modify.
-	if testNoURIs {
+	if cm.noURIs {
 		tmpl.URIs = nil
 	}
 
@@ -258,7 +263,7 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 		return nil, xerrors.Errorf("tls listener: %v", err)
 	}
 
-	cfg, err := tlsConfig(suite, si)
+	cfg, err := tlsConfig(suite, si, testNoURIs)
 	if err != nil {
 		return nil, xerrors.Errorf("tls config: %v", err)
 	}
@@ -274,7 +279,7 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 		// AcceptableCAs. So we tunnel our nonce through to there
 		// from here.
 		cfg2.ClientCAs = x509.NewCertPool()
-		vrf, nonce := makeVerifier(suite, nil)
+		vrf, nonce := makeVerifier(suite, nil, testNoURIs)
 		cfg2.VerifyPeerCertificate = vrf
 		cfg2.ClientCAs.AddCert(&x509.Certificate{
 			RawSubject: nonce,
@@ -306,7 +311,8 @@ type verifier func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error)
 // gives us a certificate back, crypto/tls calls the verifier with arguments we
 // can't control. But the verifier still has access to the nonce because it's in the
 // closure.
-func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
+func makeVerifier(suite Suite, them *ServerIdentity, noURIs bool) (verifier,
+	[]byte) {
 	nonce := mkNonce(suite)
 	return func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error) {
 		var cn string
@@ -323,7 +329,7 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		}
 		certs, err := x509.ParseCertificates(rawCerts[0])
 		if err != nil {
-			return err
+			return xerrors.Errorf("couldn't parse certificate: %v", err)
 		}
 		if len(certs) != 1 {
 			return xerrors.New("expected exactly one certificate")
@@ -345,23 +351,30 @@ func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 		// nil) check that the public key advertsied by the far side is the same
 		// as the public key we expect.
 		if them != nil {
-			if len(cert.URIs) > 0 {
-				// see explanation of the URL scheme above for why we prepend :.
-				cn := fmt.Sprintf(":%v", pubToCN(them.Public))
-				found := false
-				for _, u := range cert.URIs {
-					if u.Scheme == "onet-pubkey" && u.Opaque == cn {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return xerrors.Errorf("No onet-pubkey URIs match the expected public key %v", pubToCN(them.Public))
+			if noURIs {
+				err = cert.VerifyHostname(pubToCN(them.Public))
+				if err != nil {
+					return xerrors.Errorf("certificate verification: %v", err)
 				}
 			} else {
-				// The other end did not send any URIs (old style), so check the CN instead.
-				if cert.Subject.CommonName != pubToCN(them.Public) {
-					return xerrors.Errorf("certificate common-name %v not expected", cert.Subject.CommonName)
+				if len(cert.URIs) > 0 {
+					// see explanation of the URL scheme above for why we prepend :.
+					cn := fmt.Sprintf(":%v", pubToCN(them.Public))
+					found := false
+					for _, u := range cert.URIs {
+						if u.Scheme == "onet-pubkey" && u.Opaque == cn {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return xerrors.Errorf("No onet-pubkey URIs match the expected public key %v", pubToCN(them.Public))
+					}
+				} else {
+					// The other end did not send any URIs (old style), so check the CN instead.
+					if cert.Subject.CommonName != pubToCN(them.Public) {
+						return xerrors.Errorf("certificate common-name %v not expected", cert.Subject.CommonName)
+					}
 				}
 			}
 		}
@@ -440,8 +453,9 @@ func pubToCN(pub kyber.Point) string {
 
 // tlsConfig returns a generic config that has things set as both the server
 // and client need them. The returned config is customized after tlsConfig returns.
-func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config, error) {
-	cm, err := newCertMaker(suite, us)
+func tlsConfig(suite Suite, us *ServerIdentity, noURIs bool) (*tls.Config,
+	error) {
+	cm, err := newCertMaker(suite, us, noURIs)
 	if err != nil {
 		return nil, xerrors.Errorf("certificate: %v", err)
 	}
@@ -471,11 +485,11 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 		return nil, xerrors.New("private key is not set")
 	}
 
-	cfg, err := tlsConfig(suite, us)
+	cfg, err := tlsConfig(suite, us, testNoURIs)
 	if err != nil {
 		return nil, xerrors.Errorf("tls config: %v", err)
 	}
-	vrf, nonce := makeVerifier(suite, them)
+	vrf, nonce := makeVerifier(suite, them, testNoURIs)
 	cfg.VerifyPeerCertificate = vrf
 
 	netAddr := them.Address.NetworkAddress()

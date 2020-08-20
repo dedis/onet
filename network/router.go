@@ -592,7 +592,8 @@ func (r *Router) receiveServerIdentity(c Conn) (*ServerIdentity, error) {
 	// Receive the other ServerIdentity
 	nm, err := c.Receive()
 	if err != nil {
-		return nil, xerrors.Errorf("Error while receiving ServerIdentity during negotiation %s", err)
+		return nil, xerrors.Errorf(
+			"Error while receiving ServerIdentity during negotiation: %s", err)
 	}
 	// Check if it is correct
 	if nm.MsgType != ServerIdentityType {
