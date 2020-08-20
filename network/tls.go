@@ -164,7 +164,6 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	}
 
 	tmpl := &x509.Certificate{
-		MaxPathLen:            1,
 		BasicConstraintsValid: true,
 		IsCA:                  false,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
