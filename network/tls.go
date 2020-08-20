@@ -188,6 +188,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	// test code to get ahold of and modify.
 	if cm.noURIs {
 		tmpl.URIs = nil
+		tmpl.MaxPathLen = 1
 	}
 
 	cDer, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, cm.k.Public(), cm.k)
