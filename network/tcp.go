@@ -278,7 +278,7 @@ func handleError(err error) error {
 
 	netErr, ok := err.(net.Error)
 	if !ok {
-		return xerrors.Errorf("non-network error: %v", err)
+		return ErrUnknown
 	}
 	if netErr.Timeout() {
 		return ErrTimeout
