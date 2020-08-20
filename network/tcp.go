@@ -116,7 +116,7 @@ func NewTCPConn(addr Address, suite Suite) (conn *TCPConn, err error) {
 func (c *TCPConn) Receive() (env *Envelope, e error) {
 	buff, err := c.receiveRaw()
 	if err != nil {
-		return nil, xerrors.Errorf("receiving: %v", err)
+		return nil, xerrors.Errorf("receiving: %w", err)
 	}
 
 	id, body, err := Unmarshal(buff, c.suite)
