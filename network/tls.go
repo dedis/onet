@@ -308,8 +308,7 @@ type verifier func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error)
 // gives us a certificate back, crypto/tls calls the verifier with arguments we
 // can't control. But the verifier still has access to the nonce because it's in the
 // closure.
-func makeVerifier(suite Suite, them *ServerIdentity) (verifier,
-	[]byte) {
+func makeVerifier(suite Suite, them *ServerIdentity) (verifier, []byte) {
 	nonce := mkNonce(suite)
 	return func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error) {
 		var cn string
@@ -450,8 +449,7 @@ func pubToCN(pub kyber.Point) string {
 
 // tlsConfig returns a generic config that has things set as both the server
 // and client need them. The returned config is customized after tlsConfig returns.
-func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config,
-	error) {
+func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config, error) {
 	cm, err := newCertMaker(suite, us)
 	if err != nil {
 		return nil, xerrors.Errorf("certificate: %v", err)
