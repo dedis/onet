@@ -73,16 +73,13 @@ type certMaker struct {
 	subj    pkix.Name
 	subjDer []byte // the subject encoded in ASN.1 DER format
 	k       *ecdsa.PrivateKey
-	noURIs bool // This is only for testing to make sure it's backward
-				// -compatible...
 }
 
-func newCertMaker(s Suite, si *ServerIdentity, noURIs bool) (*certMaker,
+func newCertMaker(s Suite, si *ServerIdentity) (*certMaker,
 	error) {
 	cm := &certMaker{
 		si:    si,
 		suite: s,
-		noURIs: noURIs,
 	}
 
 	k, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -186,7 +183,7 @@ func (cm *certMaker) get(nonce []byte) (*tls.Certificate, error) {
 	// URI-based handshakes. It is unfortunate to use a global but the only
 	// context we have here to attach to is cm, which is not possible for the
 	// test code to get ahold of and modify.
-	if cm.noURIs {
+	if testNoURIs {
 		tmpl.URIs = nil
 		tmpl.MaxPathLen = 1
 	}
@@ -263,7 +260,7 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 		return nil, xerrors.Errorf("tls listener: %v", err)
 	}
 
-	cfg, err := tlsConfig(suite, si, testNoURIs)
+	cfg, err := tlsConfig(suite, si)
 	if err != nil {
 		return nil, xerrors.Errorf("tls config: %v", err)
 	}
@@ -279,7 +276,7 @@ func NewTLSListenerWithListenAddr(si *ServerIdentity, suite Suite,
 		// AcceptableCAs. So we tunnel our nonce through to there
 		// from here.
 		cfg2.ClientCAs = x509.NewCertPool()
-		vrf, nonce := makeVerifier(suite, nil, testNoURIs)
+		vrf, nonce := makeVerifier(suite, nil)
 		cfg2.VerifyPeerCertificate = vrf
 		cfg2.ClientCAs.AddCert(&x509.Certificate{
 			RawSubject: nonce,
@@ -311,7 +308,7 @@ type verifier func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error)
 // gives us a certificate back, crypto/tls calls the verifier with arguments we
 // can't control. But the verifier still has access to the nonce because it's in the
 // closure.
-func makeVerifier(suite Suite, them *ServerIdentity, noURIs bool) (verifier,
+func makeVerifier(suite Suite, them *ServerIdentity) (verifier,
 	[]byte) {
 	nonce := mkNonce(suite)
 	return func(rawCerts [][]byte, vrf [][]*x509.Certificate) (err error) {
@@ -351,7 +348,7 @@ func makeVerifier(suite Suite, them *ServerIdentity, noURIs bool) (verifier,
 		// nil) check that the public key advertsied by the far side is the same
 		// as the public key we expect.
 		if them != nil {
-			if noURIs {
+			if testNoURIs {
 				err = cert.VerifyHostname(pubToCN(them.Public))
 				if err != nil {
 					return xerrors.Errorf("certificate verification: %v", err)
@@ -453,9 +450,9 @@ func pubToCN(pub kyber.Point) string {
 
 // tlsConfig returns a generic config that has things set as both the server
 // and client need them. The returned config is customized after tlsConfig returns.
-func tlsConfig(suite Suite, us *ServerIdentity, noURIs bool) (*tls.Config,
+func tlsConfig(suite Suite, us *ServerIdentity) (*tls.Config,
 	error) {
-	cm, err := newCertMaker(suite, us, noURIs)
+	cm, err := newCertMaker(suite, us)
 	if err != nil {
 		return nil, xerrors.Errorf("certificate: %v", err)
 	}
@@ -485,11 +482,11 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 		return nil, xerrors.New("private key is not set")
 	}
 
-	cfg, err := tlsConfig(suite, us, testNoURIs)
+	cfg, err := tlsConfig(suite, us)
 	if err != nil {
 		return nil, xerrors.Errorf("tls config: %v", err)
 	}
-	vrf, nonce := makeVerifier(suite, them, testNoURIs)
+	vrf, nonce := makeVerifier(suite, them)
 	cfg.VerifyPeerCertificate = vrf
 
 	netAddr := them.Address.NetworkAddress()
