@@ -6,11 +6,11 @@ import (
 	"encoding/binary"
 	"sync"
 
+	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // Context represents the methods that are available to a service.

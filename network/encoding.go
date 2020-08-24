@@ -11,10 +11,10 @@ import (
 	"go.dedis.ch/kyber/v3/suites"
 	"golang.org/x/xerrors"
 
+	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/protobuf"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {

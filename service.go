@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"sync"
 
+	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/kyber/v3/suites"
 	"go.dedis.ch/kyber/v3/util/key"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
 	"golang.org/x/xerrors"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 func init() {

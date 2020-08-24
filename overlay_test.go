@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // A checkableError is a type that implements error and also lets

@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"math/rand"
 
+	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"golang.org/x/xerrors"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // In this file we define the main structures used for a running protocol
