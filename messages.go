@@ -1,8 +1,8 @@
 package onet
 
 import (
+	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/onet/v3/network"
-	uuid "gopkg.in/satori/go.uuid.v1"
 )
 
 // ProtocolMsgID is to be embedded in every message that is made for a
