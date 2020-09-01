@@ -1,6 +1,7 @@
 package onet
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -20,7 +21,6 @@ import (
 	"go.dedis.ch/onet/v3/network"
 	"go.dedis.ch/protobuf"
 	"golang.org/x/xerrors"
-	graceful "gopkg.in/tylerb/graceful.v1"
 )
 
 const certificateReloaderLeeway = 1 * time.Hour
@@ -104,7 +104,7 @@ func (cr *CertificateReloader) GetCertificateFunc() func(*tls.ClientHelloInfo) (
 // for languages including JavaScript.
 type WebSocket struct {
 	services  map[string]Service
-	server    *graceful.Server
+	server    *http.Server
 	mux       *http.ServeMux
 	startstop chan bool
 	started   bool
@@ -159,13 +159,9 @@ func NewWebSocket(si *network.ServerIdentity) *WebSocket {
 			time.Now().Add(time.Millisecond*500))
 		ws.Close()
 	})
-	w.server = &graceful.Server{
-		Timeout: 100 * time.Millisecond,
-		Server: &http.Server{
-			Addr:    webHost,
-			Handler: w.mux,
-		},
-		NoSignalHandling: true,
+	w.server = &http.Server{
+		Addr:    webHost,
+		Handler: w.mux,
 	}
 	return w
 }
@@ -182,13 +178,13 @@ func (w *WebSocket) Listening() bool {
 func (w *WebSocket) start() {
 	w.Lock()
 	w.started = true
-	w.server.Server.TLSConfig = w.TLSConfig
-	log.Lvl2("Starting to listen on", w.server.Server.Addr)
+	w.server.TLSConfig = w.TLSConfig
+	log.Lvl2("Starting to listen on", w.server.Addr)
 	started := make(chan bool)
 	go func() {
 		// Check if server is configured for TLS
 		started <- true
-		if w.server.Server.TLSConfig != nil && (w.server.TLSConfig.GetCertificate != nil || len(w.server.Server.TLSConfig.Certificates) >= 1) {
+		if w.server.TLSConfig != nil && (w.server.TLSConfig.GetCertificate != nil || len(w.server.TLSConfig.Certificates) >= 1) {
 			w.server.ListenAndServeTLS("", "")
 		} else {
 			w.server.ListenAndServe()
@@ -222,8 +218,12 @@ func (w *WebSocket) stop() {
 	if !w.started {
 		return
 	}
-	log.Lvl3("Stopping", w.server.Server.Addr)
-	w.server.Stop(100 * time.Millisecond)
+	log.Lvl3("Stopping", w.server.Addr)
+
+	d := time.Now().Add(100 * time.Millisecond)
+	ctx, _ := context.WithDeadline(context.Background(), d)
+	w.server.Shutdown(ctx)
+
 	<-w.startstop
 	w.started = false
 }

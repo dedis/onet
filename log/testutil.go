@@ -29,7 +29,6 @@ func interestingGoroutines() (gs []string) {
 			strings.Contains(stack, "interestingGoroutines") ||
 			strings.Contains(stack, "created by runtime.gc") ||
 			strings.Contains(stack, "runtime.MHeap_Scavenger") ||
-			strings.Contains(stack, "graceful") ||
 			strings.Contains(stack, "sigqueue") ||
 			strings.Contains(stack, "log.MainTest") ||
 			matchesUserUninterestingGoroutine(stack) {
