@@ -11,7 +11,7 @@ import (
 	"go.dedis.ch/kyber/v3/suites"
 	"golang.org/x/xerrors"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/protobuf"
@@ -54,14 +54,14 @@ var ErrorType = MessageTypeID(uuid.Nil)
 func (mId MessageTypeID) String() string {
 	t, ok := registry.get(mId)
 	if ok {
-		return fmt.Sprintf("PTID(%s:%x)", t.String(), uuid.UUID(mId).Bytes())
+		return fmt.Sprintf("PTID(%s:%x)", t.String(), mId[:])
 	}
 	return uuid.UUID(mId).String()
 }
 
 // Equal returns true if and only if mID2 equals this MessageTypeID
 func (mId MessageTypeID) Equal(mID2 MessageTypeID) bool {
-	return uuid.Equal(uuid.UUID(mId), uuid.UUID(mID2))
+	return mId == mID2
 }
 
 // IsNil returns true iff the MessageTypeID is Nil
@@ -111,7 +111,7 @@ func computeMessageType(msg Message) MessageTypeID {
 		val = val.Elem()
 	}
 	url := NamespaceBodyType + val.Type().String()
-	u := uuid.NewV5(uuid.NamespaceURL, url)
+	u := uuid.NewSHA1(uuid.NameSpaceURL, []byte(url))
 	return MessageTypeID(u)
 }
 

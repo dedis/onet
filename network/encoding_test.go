@@ -2,7 +2,7 @@ package network
 
 import (
 	"crypto/rand"
-	"github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.dedis.ch/kyber/v3/pairing"
 	"go.dedis.ch/kyber/v3/pairing/bn256"
 	"testing"
