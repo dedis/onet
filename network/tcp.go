@@ -289,7 +289,7 @@ func handleError(err error) error {
 		// onet 3.2.4/3.2.5 backwards incompatiblity, so explain
 		// the problem to help the user.
 		log.Errorf("Unknown error caught: %s %v", err.Error(),
-			"(This may be caused by Onet > v3.2.4 talking to Onet <= v3.2.4. See onet #657 for more info.)")
+			"(This may be caused by Onet > v3.2.4 talking to Onet <= v3.2.4. See https://github.com/dedis/onet/issues/657 for more info.)")
 	} else {
 		log.Errorf("Unknown error caught: %s", err.Error())
 	}
