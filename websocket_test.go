@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -151,7 +150,8 @@ func TestNewWebSocket(t *testing.T) {
 	require.NotEmpty(t, c.WebSocket.services[serviceWebSocket])
 	cl := NewClientKeep(tSuite, "WebSocket")
 	req := &SimpleResponse{}
-	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	msgTypeID := network.MessageType(req)
+	log.Lvlf1("Sending message Request: %x", msgTypeID[:])
 	buf, err := protobuf.Encode(req)
 	require.Nil(t, err)
 	rcv, err := cl.Send(c.ServerIdentity, "SimpleResponse", buf)
@@ -183,7 +183,8 @@ func TestNewWebSocketTLS(t *testing.T) {
 	defer cl.Close()
 	cl.TLSClientConfig = &tls.Config{RootCAs: CAPool}
 	req := &SimpleResponse{}
-	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	msgTypeID := network.MessageType(req)
+	log.Lvlf1("Sending message Request: %x", msgTypeID[:])
 	buf, err := protobuf.Encode(req)
 	require.Nil(t, err)
 	rcv, err := cl.Send(c.ServerIdentity, "SimpleResponse", buf)
@@ -198,7 +199,7 @@ func TestNewWebSocketTLS(t *testing.T) {
 	u := &url.URL{Scheme: "https", Host: hp}
 	c.ServerIdentity.URL = u.String()
 
-	log.Lvlf1("Sending message Request: %x", uuid.UUID(network.MessageType(req)).Bytes())
+	log.Lvlf1("Sending message Request: %x", msgTypeID[:])
 	rcv, err = cl.Send(c.ServerIdentity, "SimpleResponse", buf)
 	log.Lvlf1("Received reply: %x", rcv)
 	require.Nil(t, protobuf.Decode(rcv, rcvMsg))

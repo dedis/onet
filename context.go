@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"sync"
 
-	uuid "github.com/satori/go.uuid"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	bbolt "go.etcd.io/bbolt"
@@ -331,7 +330,7 @@ func (c *Context) GetValidPeers(peerID network.PeerSetID) []network.
 func (c *Context) NewPeerSetID(data []byte) network.PeerSetID {
 	// Compute the PeerSetID as hash(serviceID | data)
 	h := sha256.New()
-	h.Write(uuid.UUID(c.ServiceID()).Bytes())
+	h.Write(c.serviceID[:])
 	h.Write(data)
 
 	return network.NewPeerSetID(h.Sum(nil))
