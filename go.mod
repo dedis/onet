@@ -9,14 +9,13 @@ require (
 	github.com/golangplus/bytes v0.0.0-20160111154220-45c989fe5450 // indirect
 	github.com/golangplus/fmt v0.0.0-20150411045040-2a5d6d7d2995 // indirect
 	github.com/golangplus/testing v0.0.0-20180327235837-af21d9c3145e // indirect
-	github.com/google/uuid v1.1.1 // indirect
+	github.com/google/uuid v1.1.2
 	github.com/gorilla/websocket v1.4.0
 	github.com/honeycombio/beeline-go v0.4.11
 	github.com/honeycombio/libhoney-go v1.12.3 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/montanaflynn/stats v0.5.0
-	github.com/satori/go.uuid v1.2.0
 	github.com/shirou/gopsutil v2.20.2+incompatible
 	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.22.2

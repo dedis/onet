@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"

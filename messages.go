@@ -1,7 +1,7 @@
 package onet
 
 import (
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.dedis.ch/onet/v3/network"
 )
 
@@ -68,7 +68,7 @@ func (rId RoundID) String() string {
 
 // Equal returns true if and only if rID2 equals this RoundID.
 func (rId RoundID) Equal(rID2 RoundID) bool {
-	return uuid.Equal(uuid.UUID(rId), uuid.UUID(rID2))
+	return rId == rID2
 }
 
 // IsNil returns true iff the RoundID is Nil
@@ -87,7 +87,7 @@ func (t TokenID) String() string {
 
 // Equal returns true if and only if t2 equals this TokenID.
 func (t TokenID) Equal(t2 TokenID) bool {
-	return uuid.Equal(uuid.UUID(t), uuid.UUID(t2))
+	return t == t2
 }
 
 // IsNil returns true iff the TokenID is Nil
@@ -119,7 +119,7 @@ func (t *Token) ID() TokenID {
 	url := network.NamespaceURL + "token/" + t.RosterID.String() +
 		t.RoundID.String() + t.ServiceID.String() + t.ProtoID.String() + t.TreeID.String() +
 		t.TreeNodeID.String()
-	return TokenID(uuid.NewV5(uuid.NamespaceURL, url))
+	return TokenID(uuid.NewSHA1(uuid.NameSpaceURL, []byte(url)))
 }
 
 // Clone returns a new token out of this one

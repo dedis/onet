@@ -3,7 +3,7 @@ package onet
 import (
 	"sync"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
 	"golang.org/x/xerrors"
@@ -19,7 +19,7 @@ func (pid ProtocolID) String() string {
 
 // Equal returns true if and only if pid2 equals this ProtocolID.
 func (pid ProtocolID) Equal(pid2 ProtocolID) bool {
-	return uuid.Equal(uuid.UUID(pid), uuid.UUID(pid2))
+	return pid == pid2
 }
 
 // IsNil returns true iff the ProtocolID is Nil
@@ -115,7 +115,7 @@ func (ps *protocolStorage) Register(name string, protocol NewProtocol) (Protocol
 // ProtocolNameToID returns the ProtocolID corresponding to the given name.
 func ProtocolNameToID(name string) ProtocolID {
 	url := network.NamespaceURL + "protocolname/" + name
-	return ProtocolID(uuid.NewV3(uuid.NamespaceURL, url))
+	return ProtocolID(uuid.NewMD5(uuid.NameSpaceURL, []byte(url)))
 }
 
 // GlobalProtocolRegister registers a protocol in the global namespace.

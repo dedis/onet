@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"go.dedis.ch/kyber/v3"
 	"go.dedis.ch/onet/v3/log"
 	"go.dedis.ch/onet/v3/network"
@@ -47,7 +47,7 @@ type TreeID uuid.UUID
 
 // Equal returns true if and only if tID2 equals this TreeID.
 func (tId TreeID) Equal(tID2 TreeID) bool {
-	return uuid.Equal(uuid.UUID(tId), uuid.UUID(tID2))
+	return tId == tID2
 }
 
 // Equals will be removed!
@@ -90,7 +90,7 @@ func NewTree(roster *Roster, root *TreeNode) *Tree {
 	t := &Tree{
 		Roster: roster,
 		Root:   root,
-		ID:     TreeID(uuid.NewV5(uuid.NamespaceURL, url)),
+		ID:     TreeID(uuid.NewSHA1(uuid.NameSpaceURL, []byte(url))),
 	}
 	t.computeSubtreeAggregate(root)
 	return t
@@ -401,7 +401,7 @@ func (roID RosterID) String() string {
 
 // Equal returns true if and only if roID2 equals this RosterID.
 func (roID RosterID) Equal(roID2 RosterID) bool {
-	return uuid.Equal(uuid.UUID(roID), uuid.UUID(roID2))
+	return roID == roID2
 }
 
 // IsNil returns true iff the RosterID is Nil
@@ -436,7 +436,7 @@ func NewRoster(ids []*network.ServerIdentity) *Roster {
 	}
 
 	r := &Roster{
-		ID: RosterID(uuid.NewV5(uuid.NamespaceURL, hex.EncodeToString(h.Sum(nil)))),
+		ID: RosterID(uuid.NewSHA1(uuid.NameSpaceURL, []byte(hex.EncodeToString(h.Sum(nil))))),
 	}
 
 	// Take a copy of ids, in case the caller tries to change it later.
@@ -475,7 +475,7 @@ func (ro *Roster) GetID() (RosterID, error) {
 		}
 	}
 
-	return RosterID(uuid.NewV5(uuid.NamespaceURL, hex.EncodeToString(h.Sum(nil)))), nil
+	return RosterID(uuid.NewSHA1(uuid.NameSpaceURL, []byte(hex.EncodeToString(h.Sum(nil))))), nil
 }
 
 // Search searches the Roster for the given ServerIdentityID and returns the
@@ -875,7 +875,7 @@ func (tId TreeNodeID) String() string {
 
 // Equal returns true if and only if the given TreeNodeID equals tId.
 func (tId TreeNodeID) Equal(tID2 TreeNodeID) bool {
-	return uuid.Equal(uuid.UUID(tId), uuid.UUID(tID2))
+	return tId == tID2
 }
 
 // IsNil returns true iff the TreeNodID is Nil
@@ -897,7 +897,7 @@ func NewTreeNode(entityIdx int, ni *network.ServerIdentity) *TreeNode {
 		RosterIndex:    entityIdx,
 		Parent:         nil,
 		Children:       make([]*TreeNode, 0),
-		ID:             TreeNodeID(uuid.NewV5(uuid.NamespaceURL, ni.Public.String())),
+		ID:             TreeNodeID(uuid.NewSHA1(uuid.NameSpaceURL, []byte(ni.Public.String()))),
 	}
 	return tn
 }
