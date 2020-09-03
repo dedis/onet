@@ -26,7 +26,6 @@ require (
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	gopkg.in/tylerb/graceful.v1 v1.2.15
 	rsc.io/goversion v1.2.0
 )
 
