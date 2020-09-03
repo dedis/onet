@@ -221,8 +221,9 @@ func (w *WebSocket) stop() {
 	log.Lvl3("Stopping", w.server.Addr)
 
 	d := time.Now().Add(100 * time.Millisecond)
-	ctx, _ := context.WithDeadline(context.Background(), d)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
 	w.server.Shutdown(ctx)
+	cancel()
 
 	<-w.startstop
 	w.started = false
