@@ -284,11 +284,6 @@ func (r *Router) Stop() error {
 // the messages are sent through the same connection and thus are correctly
 // ordered.
 func (r *Router) Send(e *ServerIdentity, msgs ...Message) (uint64, error) {
-	if !r.isPeerValid(e) {
-		return 0, xerrors.Errorf("%v rejecting send to %v: invalid peer",
-			r.ServerIdentity.ID, e.ID)
-	}
-
 	for _, msg := range msgs {
 		if msg == nil {
 			return 0, xerrors.New("cannot send nil-packets")

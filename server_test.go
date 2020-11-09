@@ -48,41 +48,6 @@ func TestServer_Database(t *testing.T) {
 	c.Close()
 }
 
-func TestServer_FilterConnectionsOutgoing(t *testing.T) {
-	local := NewTCPTest(tSuite)
-	defer local.CloseAll()
-
-	srv := local.GenServers(3)
-	msg := &SimpleMessage{42}
-
-	testPeersID := network.NewPeerSetID([]byte{})
-
-	// Initially, messages can be sent freely as there is no restriction
-	_, err := srv[0].Send(srv[1].ServerIdentity, msg)
-	require.NoError(t, err)
-	_, err = srv[1].Send(srv[2].ServerIdentity, msg)
-	require.NoError(t, err)
-	_, err = srv[2].Send(srv[0].ServerIdentity, msg)
-	require.NoError(t, err)
-
-	// Set the valid peers of Srv0 to Srv1 only
-	validPeers := []*network.ServerIdentity{srv[1].ServerIdentity}
-	srv[0].SetValidPeers(testPeersID, validPeers)
-	// Now Srv0 can send to Srv1, but not to Srv2
-	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
-	require.NoError(t, err)
-	_, err = srv[0].Send(srv[2].ServerIdentity, msg)
-	require.Regexp(t, "rejecting.*invalid peer", err.Error())
-
-	// Add Srv2 to the valid peers of Srv0
-	srv[0].SetValidPeers(testPeersID, append(validPeers, srv[2].ServerIdentity))
-	// Now Srv0 can send to both Srv1 and Srv2
-	_, err = srv[0].Send(srv[1].ServerIdentity, msg)
-	require.NoError(t, err)
-	_, err = srv[0].Send(srv[2].ServerIdentity, msg)
-	require.NoError(t, err)
-}
-
 func TestServer_FilterConnectionsIncomingInvalid(t *testing.T) {
 	local := NewTCPTest(tSuite)
 	defer local.CloseAll()
