@@ -11,7 +11,7 @@ between servers, but not necessarily between all nodes, Mininet will set up the
 same restriction between any two nodes that communcate with each other.
 
 The Mininet simulation uses http://mininet.org/ to simulate a network where each
-host represents a cothority node. It has been extensively tested on the
+host represents a Cothority node. It has been extensively tested on the
 hardware of https://iccluster.epfl.ch, but should theoretically also run on
 other kinds of hardware. As it needs to set up the mininet environment, it is
 more fragile than the Deterlab simulations. But server availability in EPFL
@@ -19,9 +19,9 @@ is often better than on Deterlab.
 
 Each T3-server on the iccluster is a 24-core server with 256GB of RAM and can
 run around 300 cothority nodes simultaneously. So if you want to run a
-simulation with 2000 nodes, you need at least 7 servers.
+simulation with 2000 nodes, you need at least 7 physical servers.
 
-Unfortunately we still have the restriction that _all servers need to be on the
+Unfortunately we still have the restriction that _all physical servers need to be on the
 same subnet_! We know about the situation and hope to have a solution ready
 sometime in the near future.
 
@@ -35,7 +35,9 @@ are ready, you need to install them.
 1. In the ICCluster-admin interface, you need to go to `My Servers` -> `Setup`.
 2. Chose the servers you reserved - take care, as there might be servers from
 other people in the same lab!
-3. `Choose a boot option` - please take _Ubuntu xenial 1604_ for best results
+3. `Choose a boot option` - please take _Ubuntu focal 2004_ for best results.
+As of Dec 2020, Ubuntu 14.04 still appears to work, but it is no longer supported by
+Ubuntu and should not be used for new work.
 4. `Customization` - chose a password (it can be very simple) for the setup.
 5. Optional: For easiest results, tick `Own %url-post-install-script%` and add
 the following line to `My Servers` -> `Environment` -> `%url-post-install-script%`:
@@ -46,7 +48,9 @@ to do so for you.
 
 ### Verifying everything is correctly set up
 
-To ping server #33, you have to do the following:
+The power-cycle and OS installation process takes several minutes, and the IC Cluster
+UI does not have any feedback to know the state of the servers. As a result,
+you need to use `ping` and `ssh` to monitor them.
 
 ```bash
 ping iccluster033.iccluster.epfl.ch
@@ -80,14 +84,26 @@ give the names of the servers you reserved and installed. An example is:
 as well as the `icculster.epfl.ch`.
 
 During the first run, the simulation will make sure that mininet is correctly
-installed on the servers and will try to install it if not.
+installed on the servers and will try to install it if not. If not all of the
+servers are up (pingable and have SSH running) then you will receive
+feedback in the terminal as to which is not up yet.
+
+You can remove the file `server_list` in order to trigger the first time
+server-config and setup behaviour again.
 
 ### Debugging an installation
 
 If something goes wrong, you can always try to run the
-`$GOPATH/src/github.com/dedis/onet/simul/platform/mininet/setup_iccluster.sh`
-bash file to have mininet correctly installed. A simple test is to ssh to the
-remote machine and to run
+`onet/simul/platform/mininet/setup_iccluster.sh`
+bash file to have mininet correctly installed. It is idempotent, you can
+run it as many times as you need, in order to catch all the servers once they are
+up.
+
+```bash
+./setup_iccluster.sh 31 32 33
+```
+
+Another simple test is to ssh to the remote machine and to run:
 
 ```bash
 mn -c
@@ -98,26 +114,45 @@ which should remove all running mininet sessions and return to the command line.
 ### Monitor port occupied
 
 Sometimes the ssh-forwarding is misbehaving, and you cannot run your simulation.
-The simplest solution is to restart the servers (not reinstall, just restart).
+The simplest solution is to restart the servers (not reinstall, just power cycle it).
 A faster option is to ssh to the first server and check if you can find the rogue
-`sshd` process. Take care, there is a `sshd`-process that listens for incoming
+`sshd` process.
+
+Take care, there is a `sshd`-process that listens for incoming
 connections - if you kill that one, you will have to restart the server, as you
-won't have access to it...
+won't have access to it.
 
 ### Network problems
 
-An important restriction so far is the need of all servers to be on the same
-subnet. To verify if this is the case, you can use the `host` or `dig`
+An important restriction so far is the need of all servers to be on the *same
+subnet*. To verify if this is the case, you can use the `host` or `dig`
 command and verify that is the case.
 
 ### Other problems
 
 You can always run the simulation with `-debug 3` to get more information and
-eventually see what is going wrong:
+see what is going wrong:
 
 ```bash
 go build && ./simul -platform mininet -debug 3 simul.toml
 ```
 
-Then you will see more details of what is happening and eventually see what
+Then you will see more details of what is happening and you may see what
 you need to change.
+
+### Development
+
+You can run an Ubuntu server in a local virtual machine on your laptop.
+You must configure it for bridged networking, sharing the same network as your
+current network connection. When it boots, log in on it's console to find the
+IP address. (There is some support for connecting via NAT port forwarding,
+but full simulations can only be run with a real IP address, because the monitor
+port needs to know the real IP address of the gateway machine.)
+
+In order to match the configuration of the IC Cluster's Ubuntu
+installs, you need to:
+
+1. Use `passwd root` to set a root password.
+1. Use `passwd -u root` to unlock it.
+1. Edit /etc/ssh/sshd_config to set `PermitRootLogin yes`. Use `service ssh restart` afterwards.
+

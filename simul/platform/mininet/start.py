@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """
 This will run a number of hosts on the server and do all
@@ -78,7 +78,7 @@ class BaseRouter(Node):
             # and
             #   10.internalNet.remoteIndex.localIndex on the remote computer
             # these tunnels are then used to route the traffic from the different
-            # nodes in mininet to each other, always going through a bandwidht
+            # nodes in mininet to each other, always going through a bandwidth
             # and latency restricted network of mininet.
             remoteIndex += 1
             if remoteIndex == localIndex:
@@ -193,7 +193,7 @@ def RunNet():
     topo = InternetTopo(myNet=myNet, rootLog=rootLog)
     dbg( 3, "Starting on", myNet )
 
-    net = Mininet(topo=topo, link=TCLink, controller = OVSController)
+    net = Mininet(topo=topo, link=TCLink)
     net.start()
 
     for host in net.hosts[1:]:
@@ -233,6 +233,8 @@ def GetNetworks(filename):
     process = Popen(["ip", "a"], stdout=PIPE)
     (ips, err) = process.communicate()
     process.wait()
+    # python3 needs this, don't know why
+    ips = str(ips)
 
     with open(filename) as f:
         content = f.readlines()
@@ -263,7 +265,7 @@ def GetNetworks(filename):
     for (server, net, count) in list:
         totalHosts += int(count)
         t = [server, net, count]
-        if ips.find('inet %s/' % server) >= 0:
+        if ips.find('inet %s/' % server) != None:
             myNet = [t, pos]
         else:
             otherNets.append(t)

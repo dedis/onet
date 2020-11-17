@@ -21,59 +21,64 @@ fi
 
 rm -f $KEYS
 for s in $SERVERS; do
-	echo Starting to install on $s
+	port=22
+	if `echo $s| grep -q : `; then
+	  port=`echo $s| awk -F: '{ print $2 }' `
+	  s=`echo $s| awk -F: '{ print $1 }' `
+	fi
+	echo Starting to install on $s, port $port
 	login=root@$s
 	ip=$( host $s | sed -e "s/.* //" )
-	ssh-keygen -R $s > /dev/null || true
-	ssh-keygen -R $ip  > /dev/null || true
-	ssh-keyscan $SSH_TYPE $s >> ~/.ssh/known_hosts 2> /dev/null
-	ssh-copy-id -f -i $SSH_ID $login &> /dev/null
-	ssh $login "test ! -f .ssh/id_rsa && echo -e '\n\n\n\n' | ssh-keygen > /dev/null" || true
-	ssh $login cat .ssh/id_rsa.pub >> $KEYS
-	if ! ssh $login "egrep -q '(14.04|16.04|18.04|Debian GNU/Linux 8)' /etc/issue"; then
+	ping -c 2 -t 1 -i 0.3 $ip || ( echo "Server $s is not pingable. Stopping."; exit 1 )
+	ssh-keygen -R $s > /dev/null 2>&1 || true
+	ssh-keygen -R $ip  > /dev/null 2>&1 || true
+	ssh-keyscan $SSH_TYPE -p $port $s >> ~/.ssh/known_hosts 2> /dev/null || (echo "Server $s is not running sshd yet. Stopping."; exit 1)
+	ssh-copy-id -f -i $SSH_ID -p $port $login &> /dev/null || (echo "Server $s is not running sshd yet. Stopping."; exit 1)
+	ssh -p $port $login "test ! -f .ssh/id_rsa && echo -e '\n\n\n\n' | ssh-keygen > /dev/null 2>&1" || true
+	ssh -p $port $login cat .ssh/id_rsa.pub >> $KEYS
+	if ! ssh -p $port $login "egrep -q '(14.04|16.04|18.04|20.04|Debian GNU/Linux 8)' /etc/issue"; then
 		clear
-		echo "$s does not have Ubuntu 14.04, 16.04, 18.04 or Debian 8 installed -	aborting"
+		echo "$s does not have Ubuntu 14.04, 16.04, 18.04, 20.04 or Debian 8 installed - aborting"
 		exit 1
 	fi
-	scp $mininet/install_mininet.sh $login: > /dev/null
-	if ! ssh $login which mn; then
-		echo "Fetching latest package info on $login"
-		ssh $login "apt-get update" &> /dev/null
-		echo "Installing psmisc on $login"
-		ssh $login "apt-get install -y psmisc" &> /dev/null
-		echo "Launching installation of mininet in background on $login"
-		ssh -f $login "./install_mininet.sh > /dev/null" &> /dev/null
-	else
-		echo "Mininet already installed on $login"
-	fi
+
+	echo "Running mininet install in the background."
+	scp -P $port $mininet/install_mininet.sh $login: > /dev/null
+	ssh -p $port -f $login "./install_mininet.sh > install.log 2>&1"
+
 done
 
-DONE=0
-NBR=$( echo $SERVERS | wc -w )
-while [ $DONE -lt $NBR ]; do
-	DONE=0
-	clear
-	echo "$( date ) - Waiting on $NBR servers - $DONE are done"
-	for s in $SERVERS; do
-		if ! ssh root@$s "ps ax | grep -v ps | grep install | grep -q mininet"; then
-			DONE=$(( DONE + 1 ))
-		else
-			echo -e "\nProcesses on $s"
-			ssh root@$s 'pstree -p $( ps ax | grep "bash ./install_mininet.sh" | grep -v grep | sed -e "s/ *\([0-9]*\) .*/\1/" )'
-		fi
-	done
+DONE=false
+while [ "$DONE" != "true" ]; do
+    if [ -n "`pgrep -f install_mininet.sh`" ]; then
+	  echo
+	  echo "$( date ) - Waiting for background installs to finish:"
+	  ps -ef | grep install_mininet.sh
+	else
+	  DONE=true
+    fi
 	sleep 2
 done
 
 echo -e "\nAll servers are done installing - copying ssh-keys"
 
 rm -f server_list
+port=22
+if `echo $SERVER_GW | grep -q : `; then
+  port=`echo $SERVER_GW | awk -F: '{ print $2 }' `
+  SERVER_GW=`echo $SERVER_GW | awk -F: '{ print $1 }' `
+fi
 for s in $SERVERS; do
+    port2=22
+	if `echo $s| grep -q : `; then
+	  port2=`echo $s| awk -F: '{ print $2 }' `
+	  s=`echo $s| awk -F: '{ print $1 }' `
+	fi
 	login=root@$s
-	cat $KEYS | ssh $login "cat - >> .ssh/authorized_keys"
+	cat $KEYS | ssh -p $port $login "cat - >> .ssh/authorized_keys"
 	ip=$( host $s | sed -e "s/.* //" )
-	ssh root@$SERVER_GW "ssh-keyscan $SSH_TYPE $s >> .ssh/known_hosts 2> /dev/null"
-	ssh root@$SERVER_GW "ssh-keyscan $SSH_TYPE $ip >> .ssh/known_hosts 2> /dev/null"
+	ssh -p $port root@$SERVER_GW "ssh-keyscan -p $port2 $SSH_TYPE $s >> .ssh/known_hosts 2> /dev/null"
+	ssh -p $port root@$SERVER_GW "ssh-keyscan -p $port2 $SSH_TYPE $ip >> .ssh/known_hosts 2> /dev/null"
 	echo $s >> server_list
 done
 

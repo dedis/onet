@@ -5,10 +5,13 @@ package platform
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"go.dedis.ch/onet/v3/log"
 	"golang.org/x/xerrors"
@@ -33,16 +36,24 @@ func Scp(username, host, file, dest string) error {
 // Rsync copies files or directories to the remote host. If the DebugVisible
 // is > 1, the rsync-operation is displayed on screen.
 func Rsync(username, host, file, dest string) error {
-	addr := host + ":" + dest
+	h, p, err := net.SplitHostPort(host)
+	if err != nil && strings.Contains(err.Error(), "missing port in address") {
+		p = "22"
+		err = nil
+	}
+	if err != nil {
+		return err
+	}
+	addr := h + ":" + dest
 	if username != "" {
 		addr = username + "@" + addr
 	}
-	cmd := exec.Command("rsync", "-Pauz", "-e", "ssh -T -o Compression=no -x", file, addr)
+	cmd := exec.Command("rsync", "-Pauz", "-e", fmt.Sprintf("ssh -T -o Compression=no -x -p %v", p), file, addr)
 	cmd.Stderr = os.Stderr
 	if log.DebugVisible() > 1 {
 		cmd.Stdout = os.Stdout
 	}
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return xerrors.Errorf("cmd: %v", err)
 	}
@@ -69,17 +80,25 @@ func SSHRun(username, host, command string) ([]byte, error) {
 // SSHRunStdout runs a command on the remote host but redirects stdout and
 // stderr of the Ssh-command to the os.Stderr and os.Stdout
 func SSHRunStdout(username, host, command string) error {
-	addr := host
+	h, p, err := net.SplitHostPort(host)
+	if err != nil && strings.Contains(err.Error(), "missing port in address") {
+		p = "22"
+		err = nil
+	}
+	if err != nil {
+		return err
+	}
+	addr := h
 	if username != "" {
-		addr = username + "@" + addr
+		addr = username + "@" + h
 	}
 
 	log.Lvl4("Going to ssh to", addr, command)
-	cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=no", addr,
+	cmd := exec.Command("ssh", "-o", "StrictHostKeyChecking=no", "-p", p, addr,
 		"eval '"+command+"'")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return xerrors.Errorf("cmd: %v", err)
 	}
