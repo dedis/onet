@@ -82,7 +82,8 @@ func TestProcessor_RegisterStreamingMessage(t *testing.T) {
 	f2 := func(m *testMsg) (chan *testMsg, chan bool, error) {
 		return make(chan *testMsg), make(chan bool), nil
 	}
-	require.Nil(t, p.RegisterStreamingHandlers(f1, f2))
+	f3 := func(*struct{}) (chan *struct{}, chan bool, error) { return nil, nil, nil }
+	require.NoError(t, p.RegisterStreamingHandlers(f1, f2, f3))
 
 	// wrong registrations
 	require.Error(t, p.RegisterStreamingHandler(
