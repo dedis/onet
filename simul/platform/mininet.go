@@ -512,6 +512,9 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 
 func noPort(in string) string {
 	h, _, err := net.SplitHostPort(in)
+	if err != nil && strings.Contains(err.Error(), "missing port in address") {
+		return in
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
