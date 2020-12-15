@@ -39,12 +39,7 @@ other people in the same lab!
 As of Dec 2020, Ubuntu 14.04 still appears to work, but it is no longer supported by
 Ubuntu and should not be used for new work.
 4. `Customization` - chose a password (it can be very simple) for the setup.
-5. Optional: For easiest results, tick `Own %url-post-install-script%` and add
-the following line to `My Servers` -> `Environment` -> `%url-post-install-script%`:
-`https://raw.githubusercontent.com/dedis/onet/master/simul/platform/mininet/install_mininet.sh`
-This will directly install mininet on the servers, else the simulation will have
-to do so for you.
-6. `Run Setup` and confirm the setup. THIS WILL DELETE ALL DATA ON THE SERVERS!
+5. `Run Setup` and confirm the setup. THIS WILL DELETE ALL DATA ON THE SERVERS!
 
 ### Verifying everything is correctly set up
 
