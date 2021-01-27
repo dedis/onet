@@ -350,9 +350,11 @@ outerReadLoop:
 				break outerReadLoop
 			case reply, ok := <-outChan:
 				if !ok {
-					err = xerrors.New("service finished streaming")
+					ws.WriteControl(websocket.CloseMessage,
+						websocket.FormatCloseMessage(websocket.CloseNormalClosure, "service finished streaming"),
+						time.Now().Add(time.Millisecond*500))
 					close(clientInputs)
-					break outerReadLoop
+					return
 				}
 				tx += len(reply)
 
