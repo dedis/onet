@@ -48,15 +48,10 @@ for s in $SERVERS; do
 
 done
 
-DONE=false
-while [ "$DONE" != "true" ]; do
-    if [ -n "`pgrep -f install_mininet.sh`" ]; then
-	  echo
-	  echo "$( date ) - Waiting for background installs to finish:"
-	  ps -ef | grep install_mininet.sh
-	else
-	  DONE=true
-    fi
+while [ -n "`pgrep -f install_mininet.sh`"  ]; do
+    echo
+    echo "$( date ) - Waiting for background installs to finish:"
+    ps -ef | grep [i]nstall_mininet.sh
 	sleep 2
 done
 

@@ -21,10 +21,6 @@ Each T3-server on the iccluster is a 24-core server with 256GB of RAM and can
 run around 300 cothority nodes simultaneously. So if you want to run a
 simulation with 2000 nodes, you need at least 7 physical servers.
 
-Unfortunately we still have the restriction that _all physical servers need to be on the
-same subnet_! We know about the situation and hope to have a solution ready
-sometime in the near future.
-
 ## Setting up ICCluster
 
 Supposing you want to run your simulation using the iccluster-network, you
@@ -116,12 +112,6 @@ A faster option is to ssh to the first server and check if you can find the rogu
 Take care, there is a `sshd`-process that listens for incoming
 connections - if you kill that one, you will have to restart the server, as you
 won't have access to it.
-
-### Network problems
-
-An important restriction so far is the need of all servers to be on the *same
-subnet*. To verify if this is the case, you can use the `host` or `dig`
-command and verify that is the case.
 
 ### Other problems
 

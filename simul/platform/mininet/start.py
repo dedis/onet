@@ -70,7 +70,7 @@ class BaseRouter(Node):
 
         remoteIndex = 0
         for (gw, n, i) in otherNets:
-            # First of alll we create a ip2ip tunnel using the `ip` command to
+            # First of all we create a ip2ip tunnel using the `ip` command to
             # create a network for all servers to communicate. This is needed so
             # that the different nodes can communicate with each other over this
             # network. Every server1-server2 pair gets two new IPs:
@@ -109,10 +109,17 @@ class BaseRouter(Node):
             self.cmd('tail -f %s | socat - %s:%s:%d &' % (logfile, socatSend, rootLog, socatPort))
 
     def terminate( self ):
-        dbg( 2, "Stopping router" )
+        # Cleaning up tunnels also removes the routes associated with the tunnel interfaces.
+        dbg( 2, "Cleanup tunnels" )
+        localIndex = myNet[1] + 1
+        remoteIndex = 0
         for (gw, n, i) in otherNets:
-            dbg( 3, "Deleting route for", n, gw )
-            self.cmd( 'route del -net %s gw %s' % (n, gw) )
+            remoteIndex += 1
+            if remoteIndex == localIndex:
+                remoteIndex += 1
+            tun = 'ipip%d' % remoteIndex
+            dbg(3, 'removing tunnel %s' % tun)
+            self.cmd('ip tun del %s' % tun)
 
         self.cmd( 'sysctl net.ipv4.ip_forward=0' )
         self.cmd( 'killall socat' )
@@ -265,7 +272,7 @@ def GetNetworks(filename):
     for (server, net, count) in list:
         totalHosts += int(count)
         t = [server, net, count]
-        if ips.find('inet %s/' % server) != None:
+        if ips.find('inet %s/' % server) >= 0:
             myNet = [t, pos]
         else:
             otherNets.append(t)
@@ -309,7 +316,9 @@ if __name__ == '__main__':
     list_file = sys.argv[1]
     global global_root, myNet, otherNets
     global_root, myNet, otherNets = GetNetworks(list_file)
-
+    dbg( 3, "myNet", myNet)
+    dbg( 3, "otherNets", otherNets)
+    
     if myNet:
         dbg( 2, "Cleaning up mininet and logfiles" )
         # rm_file(logfile)

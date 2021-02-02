@@ -37,18 +37,17 @@ func Scp(username, host, file, dest string) error {
 // is > 1, the rsync-operation is displayed on screen.
 func Rsync(username, host, file, dest string) error {
 	h, p, err := net.SplitHostPort(host)
-	if err != nil && strings.Contains(err.Error(), "missing port in address") {
-		p = "22"
-		err = nil
-	}
 	if err != nil {
-		return err
+		if !strings.Contains(err.Error(), "missing port in address") {
+			return err
+		}
+		p = "22"
 	}
 	addr := h + ":" + dest
 	if username != "" {
 		addr = username + "@" + addr
 	}
-	cmd := exec.Command("rsync", "-Pauz", "-e", fmt.Sprintf("ssh -T -o Compression=no -x -p %v", p), file, addr)
+	cmd := exec.Command("rsync", "-Pauz", "-e", fmt.Sprintf("ssh -T -o Compression=no -x -p %s", p), file, addr)
 	cmd.Stderr = os.Stderr
 	if log.DebugVisible() > 1 {
 		cmd.Stdout = os.Stdout
