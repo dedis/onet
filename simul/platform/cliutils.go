@@ -80,12 +80,11 @@ func SSHRun(username, host, command string) ([]byte, error) {
 // stderr of the Ssh-command to the os.Stderr and os.Stdout
 func SSHRunStdout(username, host, command string) error {
 	h, p, err := net.SplitHostPort(host)
-	if err != nil && strings.Contains(err.Error(), "missing port in address") {
-		p = "22"
-		err = nil
-	}
 	if err != nil {
-		return err
+	        if !strings.Contains(err.Error(), "missing port in address") {
+	                return err
+	        }
+		p = "22"
 	}
 	addr := h
 	if username != "" {

@@ -319,9 +319,7 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 
 func ssh(user, host string, args ...string) *exec.Cmd {
 	h, p, err := net.SplitHostPort(host)
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.ErrFatal(err)
 	ph := []string{"-p", p, user + "@" + h}
 	return exec.Command("ssh", append(ph, args...)...)
 }
@@ -397,13 +395,12 @@ func (m *MiniNet) parseServers() error {
 		h0 := strings.Replace(hostRaw, " ", "", -1)
 		if len(h0) > 0 {
 			h, p, err := net.SplitHostPort(h0)
-			if err != nil && strings.Contains(err.Error(), "missing port in address") {
+			if err != nil {
+			        if !strings.Contains(err.Error(), "missing port in address") {
+			                return err
+			         }
 				p = "22"
 				h = h0
-				err = nil
-			}
-			if err != nil {
-				return err
 			}
 			ips, err := net.LookupIP(h)
 			if err != nil {
@@ -515,8 +512,6 @@ func noPort(in string) string {
 	if err != nil && strings.Contains(err.Error(), "missing port in address") {
 		return in
 	}
-	if err != nil {
-		log.Fatal(err)
-	}
+	log.ErrFatal(err)
 	return h
 }
