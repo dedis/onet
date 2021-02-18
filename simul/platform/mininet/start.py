@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 """
 This will run a number of hosts on the server and do all
@@ -70,7 +70,7 @@ class BaseRouter(Node):
 
         remoteIndex = 0
         for (gw, n, i) in otherNets:
-            # First of alll we create a ip2ip tunnel using the `ip` command to
+            # First of all we create a ip2ip tunnel using the `ip` command to
             # create a network for all servers to communicate. This is needed so
             # that the different nodes can communicate with each other over this
             # network. Every server1-server2 pair gets two new IPs:
@@ -78,7 +78,7 @@ class BaseRouter(Node):
             # and
             #   10.internalNet.remoteIndex.localIndex on the remote computer
             # these tunnels are then used to route the traffic from the different
-            # nodes in mininet to each other, always going through a bandwidht
+            # nodes in mininet to each other, always going through a bandwidth
             # and latency restricted network of mininet.
             remoteIndex += 1
             if remoteIndex == localIndex:
@@ -109,10 +109,17 @@ class BaseRouter(Node):
             self.cmd('tail -f %s | socat - %s:%s:%d &' % (logfile, socatSend, rootLog, socatPort))
 
     def terminate( self ):
-        dbg( 2, "Stopping router" )
+        # Cleaning up tunnels also removes the routes associated with the tunnel interfaces.
+        dbg( 2, "Cleanup tunnels" )
+        localIndex = myNet[1] + 1
+        remoteIndex = 0
         for (gw, n, i) in otherNets:
-            dbg( 3, "Deleting route for", n, gw )
-            self.cmd( 'route del -net %s gw %s' % (n, gw) )
+            remoteIndex += 1
+            if remoteIndex == localIndex:
+                remoteIndex += 1
+            tun = 'ipip%d' % remoteIndex
+            dbg(3, 'removing tunnel %s' % tun)
+            self.cmd('ip tun del %s' % tun)
 
         self.cmd( 'sysctl net.ipv4.ip_forward=0' )
         self.cmd( 'killall socat' )
@@ -193,7 +200,7 @@ def RunNet():
     topo = InternetTopo(myNet=myNet, rootLog=rootLog)
     dbg( 3, "Starting on", myNet )
 
-    net = Mininet(topo=topo, link=TCLink, controller = OVSController)
+    net = Mininet(topo=topo, link=TCLink)
     net.start()
 
     for host in net.hosts[1:]:
@@ -233,6 +240,8 @@ def GetNetworks(filename):
     process = Popen(["ip", "a"], stdout=PIPE)
     (ips, err) = process.communicate()
     process.wait()
+    # python3 needs this, don't know why
+    ips = str(ips)
 
     with open(filename) as f:
         content = f.readlines()
@@ -307,7 +316,9 @@ if __name__ == '__main__':
     list_file = sys.argv[1]
     global global_root, myNet, otherNets
     global_root, myNet, otherNets = GetNetworks(list_file)
-
+    dbg( 3, "myNet", myNet)
+    dbg( 3, "otherNets", otherNets)
+    
     if myNet:
         dbg( 2, "Cleaning up mininet and logfiles" )
         # rm_file(logfile)

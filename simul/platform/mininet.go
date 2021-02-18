@@ -108,12 +108,12 @@ func newMiniNet() (m *MiniNet, err error) {
 		numbers := app.Input("server1 server2 server3", "Please enter the space separated numbers of the servers")
 		split := strings.Split(numbers, " ")
 		cmd := exec.Command(command, split...)
-		out, err := cmd.CombinedOutput()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
 		if err != nil {
-			log.Error("while setting up servers:", string(out))
 			return nil, xerrors.Errorf("couldn't setup servers: %v", err)
 		}
-		log.Lvl1(string(out))
 	} else {
 		log.Lvl1("Using existing 'server_list'-file")
 		if log.DebugVisible() > 1 {
@@ -199,7 +199,7 @@ func (m *MiniNet) Build(build string, arg ...string) error {
 // Cleanup kills all eventually remaining processes from the last Deploy-run
 func (m *MiniNet) Cleanup() error {
 	// Cleanup eventual ssh from the proxy-forwarding to the logserver
-	err := exec.Command("pkill", "-9", "-f", "ssh -nNTf").Run()
+	err := exec.Command("pkill", "-f", "--", "-nNTf").Run()
 	if err != nil {
 		log.Lvl3("Error stopping ssh:", err)
 	}
@@ -278,7 +278,8 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	// Verify the installation is correct
 	gw := m.HostIPs[0]
 	log.Lvl2("Verifying configuration on", gw)
-	out, err := exec.Command("ssh", "root@"+gw, "which mn").Output()
+	cmd := ssh("root", gw, "which mn")
+	out, err := cmd.Output()
 	if err != nil || !strings.HasSuffix(string(out), "mn\n") {
 		log.Error("While trying to connect to", gw, err)
 		log.Fatal("Please verify installation of mininet or run\n" +
@@ -316,6 +317,13 @@ func (m *MiniNet) Deploy(rc *RunConfig) error {
 	return nil
 }
 
+func ssh(user, host string, args ...string) *exec.Cmd {
+	h, p, err := net.SplitHostPort(host)
+	log.ErrFatal(err)
+	ph := []string{"-p", p, user + "@" + h}
+	return exec.Command("ssh", append(ph, args...)...)
+}
+
 // Start connects to the first of the remote servers to start the simulation.
 func (m *MiniNet) Start(args ...string) error {
 	// setup port forwarding for viewing log server
@@ -323,13 +331,13 @@ func (m *MiniNet) Start(args ...string) error {
 	// Remote tunneling : the sink port is used both for the sink and for the
 	// proxy => the proxy redirects packets to the same port the sink is
 	// listening.
-	// -n = stdout == /Dev/null, -N => no command stream, -T => no tty
+	// -n = stdout == /dev/null, -N => no command stream, -T => no tty, -f => background
 	var exCmd *exec.Cmd
 	redirection := fmt.Sprintf("*:%d:%s:%d", m.MonitorPort, m.ProxyAddress, m.MonitorPort)
-	login := fmt.Sprintf("%s@%s", m.Login, m.External)
 	cmd := []string{"-nNTf", "-o", "StrictHostKeyChecking=no", "-o", "ExitOnForwardFailure=yes", "-R",
-		redirection, login}
-	exCmd = exec.Command("ssh", cmd...)
+		redirection}
+
+	exCmd = ssh(m.Login, m.External, cmd...)
 	if err := exCmd.Start(); err != nil {
 		log.Fatal("Failed to start the ssh port forwarding:", err)
 	}
@@ -384,8 +392,16 @@ func (m *MiniNet) parseServers() error {
 	}
 	m.HostIPs = []string{}
 	for _, hostRaw := range strings.Split(string(hosts), "\n") {
-		h := strings.Replace(hostRaw, " ", "", -1)
-		if len(h) > 0 {
+		h0 := strings.Replace(hostRaw, " ", "", -1)
+		if len(h0) > 0 {
+			h, p, err := net.SplitHostPort(h0)
+			if err != nil {
+				if !strings.Contains(err.Error(), "missing port in address") {
+					return err
+				}
+				p = "22"
+				h = h0
+			}
 			ips, err := net.LookupIP(h)
 			if err != nil {
 				if err2 := CheckOutOfFileDescriptors(); err2 != nil {
@@ -394,7 +410,7 @@ func (m *MiniNet) parseServers() error {
 				return xerrors.New("error while looking up hostname: " + err.Error())
 			}
 			log.Lvl3("Found IP for", h, ":", ips[0])
-			m.HostIPs = append(m.HostIPs, ips[0].String())
+			m.HostIPs = append(m.HostIPs, net.JoinHostPort(ips[0].String(), p))
 		}
 	}
 	log.Lvl3("Nodes are:", m.HostIPs)
@@ -413,6 +429,7 @@ func (m *MiniNet) parseServers() error {
 //
 // list is used by platform/mininet/start.py and has the following format:
 // SimulationName BandwidthMbps DelayMS
+// m.Debug, m.DebugTime, m.DebugColor, m.DebugPadding
 // physicalIP1 MininetNet1/16 NumberConodes1
 // physicalIP2 MininetNet2/16 NumberConodes2
 func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err error) {
@@ -485,7 +502,16 @@ func (m *MiniNet) getHostList(rc *RunConfig) (hosts []string, list string, err e
 		// from the first server.
 		h := (nbrHosts + nbrServers - 1 - i) / nbrServers
 		list += fmt.Sprintf("%s %s %d\n",
-			m.HostIPs[i], s.String(), h)
+			noPort(m.HostIPs[i]), s.String(), h)
 	}
 	return
+}
+
+func noPort(in string) string {
+	h, _, err := net.SplitHostPort(in)
+	if err != nil && strings.Contains(err.Error(), "missing port in address") {
+		return in
+	}
+	log.ErrFatal(err)
+	return h
 }
