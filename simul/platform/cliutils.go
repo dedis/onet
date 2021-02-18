@@ -81,9 +81,9 @@ func SSHRun(username, host, command string) ([]byte, error) {
 func SSHRunStdout(username, host, command string) error {
 	h, p, err := net.SplitHostPort(host)
 	if err != nil {
-	        if !strings.Contains(err.Error(), "missing port in address") {
-	                return err
-	        }
+		if !strings.Contains(err.Error(), "missing port in address") {
+			return err
+		}
 		p = "22"
 	}
 	addr := h

@@ -396,9 +396,9 @@ func (m *MiniNet) parseServers() error {
 		if len(h0) > 0 {
 			h, p, err := net.SplitHostPort(h0)
 			if err != nil {
-			        if !strings.Contains(err.Error(), "missing port in address") {
-			                return err
-			         }
+				if !strings.Contains(err.Error(), "missing port in address") {
+					return err
+				}
 				p = "22"
 				h = h0
 			}
