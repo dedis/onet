@@ -262,6 +262,7 @@ func LLvlf5(f string, args ...interface{}) { lvlf(-5, f, args...) }
 // is false, else it will set DebugVisible to 'level'
 //
 // Usage: TestOutput( test.Verbose(), 2 )
+// DEPRECATED: write your own if/else
 func TestOutput(show bool, level int) {
 	debugMut.Lock()
 	defer debugMut.Unlock()
@@ -363,17 +364,20 @@ func Padding() bool {
 // MainTest can be called from TestMain. It will parse the flags and
 // set the DebugVisible to defaultMainTest, then run the tests and check for
 // remaining go-routines.
-// If you give it an integer as optional parameter, it will set the
-// debig-lvl to that integer. As `go test` will only output whenever
-// `-v` is given, this gives no disadvantage over setting the default
-// output-level.
+// For the debug-level, the following heuristic is used to set the debug-level:
+//   - the first ls argument given, else
+//   - from the environment variable, else
+//   - defaultMainTest (2)
+// Also be aware that go only outputs the stdout of the tests if the verbose
+// flag is given.
 func MainTest(m *testing.M, ls ...int) {
 	flag.Parse()
-	l := defaultMainTest
 	if len(ls) > 0 {
-		l = ls[0]
+		SetDebugVisible(ls[0])
+	} else if os.Getenv("DEBUG_LVL") == "" {
+		SetDebugVisible(defaultMainTest)
 	}
-	TestOutput(testing.Verbose(), l)
+
 	done := make(chan int)
 	go func() {
 		code := m.Run()
