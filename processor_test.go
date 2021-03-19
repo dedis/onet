@@ -159,7 +159,7 @@ func TestServiceProcessor_ProcessClientRequest(t *testing.T) {
 	require.NotEqual(t, "", log.GetStdErr())
 }
 
-func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
+func TestServiceProcessor_ProcessClientRequest_Streaming_Simple(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 
@@ -198,6 +198,57 @@ func TestServiceProcessor_ProcessClientRequest_Streaming(t *testing.T) {
 		require.Nil(t, protobuf.Decode(buf, val))
 		require.Equal(t, val.I, int64(n))
 	}
+	close(inputChan)
+}
+
+func TestServiceProcessor_ProcessClientRequest_Streaming_Multiple(t *testing.T) {
+	h1 := NewLocalServer(tSuite, 2000)
+
+	// order matters: last-in first-out
+	defer log.AfterTest(t) // check for leaking go routines
+	defer h1.Close()
+
+	p := NewServiceProcessor(&Context{server: h1})
+	h := func(m *testMsg) (chan network.Message, chan bool, error) {
+		outChan := make(chan network.Message)
+		closeChan := make(chan bool)
+		go func() {
+			for i := 0; i < int(m.I); i++ {
+				outChan <- m
+			}
+			<-closeChan
+			close(outChan)
+		}()
+		return outChan, closeChan, nil
+	}
+	require.Nil(t, p.RegisterStreamingHandler(h))
+
+	n := 5
+	buf, err := protobuf.Encode(&testMsg{int64(n)})
+	require.NoError(t, err)
+	rep, _, err := p.ProcessClientRequest(nil, "testMsg", buf)
+	// Using ProcessClientRequest with a streaming request should yield an error
+	require.Nil(t, rep)
+	require.Error(t, err)
+
+	// Send 3 requests
+	inputChan := make(chan []byte, 3)
+	outChan, err := p.ProcessClientStreamRequest(nil, "testMsg", inputChan)
+	require.NoError(t, err)
+
+	inputChan <- buf
+	inputChan <- buf
+	inputChan <- buf
+
+	for k := 0; k < 3; k++ {
+		for i := 0; i < n; i++ {
+			buf := <-outChan
+			val := &testMsg{}
+			require.Nil(t, protobuf.Decode(buf, val))
+			require.Equal(t, val.I, int64(n))
+		}
+	}
+
 	close(inputChan)
 }
 
