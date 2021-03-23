@@ -480,15 +480,19 @@ func (p *ServiceProcessor) ProcessClientStreamRequest(req *http.Request, path st
 				network.DefaultConstructors(p.Context.server.Suite()))
 			if err != nil {
 				log.Error(xerrors.Errorf("failed to decode message: %v", err))
+				close(outChan)
 				return
 			}
 
 			reply, stopServiceChan, err := callInterfaceFunc(mh.handler, msg, mh.streaming)
 			if err != nil {
 				log.Error(err)
+
 				if stopServiceChan != nil {
 					close(stopServiceChan)
 				}
+
+				close(outChan)
 				return
 			}
 
