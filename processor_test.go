@@ -226,10 +226,6 @@ func TestServiceProcessor_ProcessClientRequest_Streaming_Multiple(t *testing.T) 
 	n := 5
 	buf, err := protobuf.Encode(&testMsg{int64(n)})
 	require.NoError(t, err)
-	rep, _, err := p.ProcessClientRequest(nil, "testMsg", buf)
-	// Using ProcessClientRequest with a streaming request should yield an error
-	require.Nil(t, rep)
-	require.Error(t, err)
 
 	// Send 3 requests
 	inputChan := make(chan []byte, 3)
