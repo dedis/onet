@@ -9,6 +9,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"net"
@@ -948,6 +950,40 @@ func TestWebSocket_Streaming_Parallel_ealry_service(t *testing.T) {
 	for i := range clients {
 		require.NoError(t, clients[i].Close())
 	}
+}
+
+func TestWebSocket(t *testing.T) {
+	t.Run("Streaming", func(t *testing.T) {
+		t.Run("ErroredService", func(t *testing.T) {
+			const name = "StreamingErroredService"
+			const errorMsg = "service errored"
+
+			type empty struct{}
+
+			local := NewTCPTest(tSuite)
+			defer local.CloseAll()
+
+			_, err := RegisterNewService(name, func(c *Context) (Service, error) {
+				s := NewServiceProcessor(c)
+				if err := s.RegisterStreamingHandler(func(*empty) (chan *empty, chan bool, error) {
+					return nil, nil, errors.New(errorMsg)
+				}); err != nil {
+					return nil, fmt.Errorf("register streaming handler: %v", err)
+				}
+
+				return s, nil
+			})
+			require.NoError(t, err)
+			defer func() { require.NoError(t, UnregisterService(name)) }()
+
+			_, _, tree := local.GenTree(4, false)
+			client := local.NewClientKeep(name)
+			conn, err := client.Stream(tree.Root.ServerIdentity, new(empty))
+			require.NoError(t, err)
+
+			require.EqualError(t, conn.ReadMessage(new(empty)), errorMsg)
+		})
+	})
 }
 
 // Tests the correct returning of values depending on the ParallelOptions structure
