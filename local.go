@@ -487,6 +487,7 @@ func NewPrivIdentity(suite network.Suite, port int) (kyber.Scalar, *network.Serv
 	kp := key.NewKeyPair(suite)
 	id := network.NewServerIdentity(kp.Public, address)
 	ServiceFactory.generateKeyPairs(id)
+	id.Description = fmt.Sprintf("LocalNode-%d", port)
 
 	return kp.Private, id
 }
