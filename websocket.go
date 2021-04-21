@@ -792,23 +792,47 @@ type StreamingConn struct {
 	suite network.Suite
 }
 
+// StreamingReadOpts contains options for the ReadMessageWithOpts. It allows us
+// to add new options in the future without making breaking changes.
+type StreamingReadOpts struct {
+	Deadline time.Time
+}
+
 // ReadMessage read more data from the connection, it will block if there are
 // no messages.
 func (c *StreamingConn) ReadMessage(ret interface{}) error {
-	if err := c.conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+	opts := StreamingReadOpts{
+		Deadline: time.Now().Add(5 * time.Minute),
+	}
+
+	return c.readMsg(ret, opts)
+}
+
+// ReadMessageWithOpts does the same as ReadMessage and allows to pass options.
+func (c *StreamingConn) ReadMessageWithOpts(ret interface{}, opts StreamingReadOpts) error {
+	return c.readMsg(ret, opts)
+}
+
+func (c *StreamingConn) readMsg(ret interface{}, opts StreamingReadOpts) error {
+	if err := c.conn.SetReadDeadline(opts.Deadline); err != nil {
 		return xerrors.Errorf("read deadline: %v", err)
 	}
 	// No need to add bytes to counter here because this function is only
 	// called by the client.
 	_, buf, err := c.conn.ReadMessage()
 	if err != nil {
-		return xerrors.Errorf("connection read: %v", err)
+		return xerrors.Errorf("connection read: %w", err)
 	}
 	err = protobuf.DecodeWithConstructors(buf, ret, network.DefaultConstructors(c.suite))
 	if err != nil {
 		return xerrors.Errorf("decoding: %v", err)
 	}
 	return nil
+}
+
+// Ping sends a ping message. Data can be nil.
+func (c *StreamingConn) Ping(data []byte, deadline time.Time) error {
+	return c.conn.WriteControl(websocket.PingMessage, data, deadline)
 }
 
 // Stream will send a request to start streaming, it returns a connection where
