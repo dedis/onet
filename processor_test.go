@@ -66,7 +66,7 @@ func TestProcessor_RegisterMessages(t *testing.T) {
 	h1 := NewLocalServer(tSuite, 2000)
 	defer h1.Close()
 	p := NewServiceProcessor(&Context{server: h1})
-	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4))
+	require.Nil(t, p.RegisterHandlers(procMsg, procMsg2, procMsg3, procMsg4, procMsg5))
 	require.Error(t, p.RegisterHandlers(procMsg3, procMsgWrong1))
 }
 
@@ -82,7 +82,8 @@ func TestProcessor_RegisterStreamingMessage(t *testing.T) {
 	f2 := func(m *testMsg) (chan *testMsg, chan bool, error) {
 		return make(chan *testMsg), make(chan bool), nil
 	}
-	require.Nil(t, p.RegisterStreamingHandlers(f1, f2))
+	f3 := func(*struct{}) (chan *struct{}, chan bool, error) { return nil, nil, nil }
+	require.NoError(t, p.RegisterStreamingHandlers(f1, f2, f3))
 
 	// wrong registrations
 	require.Error(t, p.RegisterStreamingHandler(
@@ -416,6 +417,8 @@ func procMsg3(msg *testMsg3) (network.Message, error) {
 func procMsg4(msg *testMsg4) (*testMsg4, error) {
 	return msg, nil
 }
+
+func procMsg5(msg *struct{}) (*struct{}, error) { return nil, nil }
 
 func procMsgWrong1() (network.Message, error) {
 	return nil, nil
