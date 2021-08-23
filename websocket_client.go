@@ -31,9 +31,13 @@ type Client struct {
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
-	keep bool
-	rx   uint64
-	tx   uint64
+	keep             bool
+	rx               uint64
+	tx               uint64
+	// How long to wait for a reply
+	ReadTimeout      time.Duration
+	// How long to wait to open a connection
+	HandshakeTimeout time.Duration
 	sync.Mutex
 }
 
@@ -45,6 +49,8 @@ func NewClient(suite network.Suite, s string) *Client {
 		connections:     make(map[destination]*websocket.Conn),
 		connectionsLock: make(map[destination]*sync.Mutex),
 		suite:           suite,
+		ReadTimeout:     time.Second * 60,
+		HandshakeTimeout: time.Second * 5,
 	}
 }
 
@@ -144,6 +150,7 @@ func (c *Client) newConnIfNotExist(dst *network.ServerIdentity, path string) (*w
 		}
 
 		// Re-try to connect in case the websocket is just about to start
+		d.HandshakeTimeout = c.HandshakeTimeout
 		for a := 0; a < network.MaxRetryConnect; a++ {
 			conn, _, err = d.Dial(serverURL, header)
 			if err == nil {
@@ -187,7 +194,7 @@ func (c *Client) Send(dst *network.ServerIdentity, path string, buf []byte) ([]b
 		return nil, xerrors.Errorf("connection write: %v", err)
 	}
 
-	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Minute)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(c.ReadTimeout)); err != nil {
 		return nil, xerrors.Errorf("read deadline: %v", err)
 	}
 	_, rcv, err = conn.ReadMessage()
