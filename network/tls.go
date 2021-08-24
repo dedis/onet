@@ -482,7 +482,8 @@ func NewTLSConn(us *ServerIdentity, them *ServerIdentity, suite Suite) (conn *TC
 	for i := 1; i <= MaxRetryConnect; i++ {
 		var c net.Conn
 		cfg.ServerName = string(nonce)
-		c, err = tls.DialWithDialer(&net.Dialer{Timeout: timeout}, "tcp", netAddr, cfg)
+		c, err = tls.DialWithDialer(&net.Dialer{Timeout: dialTimeout}, "tcp", netAddr,
+			cfg)
 		if err == nil {
 			conn = &TCPConn{
 				conn:  c,

@@ -17,8 +17,9 @@ import (
 // received. sends and connects will timeout using this timeout as well.
 var timeout = 1 * time.Minute
 
-// dialTimeout is the timeout for connecting to an end point.
-var dialTimeout = 1 * time.Minute
+// dialTimeout is the timeout for connecting to an end point. This is much
+// lower than the normal read timeout.
+var dialTimeout = 1 * time.Second
 
 // Global lock for 'timeout' (because also used in 'tcp_test.go')
 // Using a 'RWMutex' to be as efficient as possible, because it will be used

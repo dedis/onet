@@ -31,11 +31,11 @@ type Client struct {
 	// if not nil, use TLS
 	TLSClientConfig *tls.Config
 	// whether to keep the connection
-	keep             bool
-	rx               uint64
-	tx               uint64
+	keep bool
+	rx   uint64
+	tx   uint64
 	// How long to wait for a reply
-	ReadTimeout      time.Duration
+	ReadTimeout time.Duration
 	// How long to wait to open a connection
 	HandshakeTimeout time.Duration
 	sync.Mutex
@@ -45,11 +45,11 @@ type Client struct {
 // connection will be started, until Close is called.
 func NewClient(suite network.Suite, s string) *Client {
 	return &Client{
-		service:         s,
-		connections:     make(map[destination]*websocket.Conn),
-		connectionsLock: make(map[destination]*sync.Mutex),
-		suite:           suite,
-		ReadTimeout:     time.Second * 60,
+		service:          s,
+		connections:      make(map[destination]*websocket.Conn),
+		connectionsLock:  make(map[destination]*sync.Mutex),
+		suite:            suite,
+		ReadTimeout:      time.Second * 60,
 		HandshakeTimeout: time.Second * 5,
 	}
 }
