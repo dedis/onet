@@ -10,7 +10,7 @@ require (
 	github.com/golangplus/fmt v0.0.0-20150411045040-2a5d6d7d2995 // indirect
 	github.com/golangplus/testing v0.0.0-20180327235837-af21d9c3145e // indirect
 	github.com/google/uuid v1.1.2
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/honeycombio/beeline-go v0.4.11
 	github.com/honeycombio/libhoney-go v1.12.3 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect
