@@ -363,9 +363,7 @@ func testRouterLotsOfConn(t *testing.T, fac routerFactory, nbrRouter int) {
 	for i := 0; i < nbrRouter; i++ {
 		go func(j int) {
 			r, err := fac(2000 + j)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			go r.Start()
 			for !r.Listening() {
 				time.Sleep(10 * time.Millisecond)
@@ -389,9 +387,8 @@ func testRouterLotsOfConn(t *testing.T, fac routerFactory, nbrRouter int) {
 					continue
 				}
 				// send to everyone else
-				if _, err := r.Send(routers[k].ServerIdentity, &SimpleMessage{3}); err != nil {
-					t.Fatal(err)
-				}
+				_, err := r.Send(routers[k].ServerIdentity, &SimpleMessage{3})
+				require.NoError(t, err)
 			}
 		}(i)
 	}

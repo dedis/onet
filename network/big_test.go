@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"go.dedis.ch/onet/v3/log"
 )
 
@@ -60,37 +61,25 @@ func TestTCPHugeConnections(t *testing.T) {
 			err := hosts[h].Listen(func(c Conn) {
 				log.Lvl5(2000+h, "got a connection")
 				nm, err := c.Receive()
-				if err != nil {
-					t.Fatal("Couldn't receive msg:", err)
-				}
-				if !nm.MsgType.Equal(bigMessageType) {
-					t.Fatal("Received message type is wrong")
-				}
+				require.NoError(t, err, "Couldn't receive msg")
+				require.True(t, nm.MsgType.Equal(bigMessageType),
+					"Received message type is wrong")
 				bigCopy := nm.Msg.(*bigMessage)
-				if bigCopy.Msize != msgSize {
-					t.Fatal(h, "Message-size is wrong:", bigCopy.Msize, bigCopy, big)
-				}
-				if bigCopy.Pcrc != 25 {
-					t.Fatal("CRC is wrong")
-				}
+				require.Equal(t, bigCopy.Msize, msgSize,
+					"Message-size is wrong")
+				require.Equal(t, bigCopy.Pcrc, 25, "CRC is wrong")
 				// And send it back
 				log.Lvl3(h, "sends it back")
 
 				go func(h int) {
 					log.Lvl3(h, "Sending back")
 					sentLen, err := c.Send(&big)
-					if err != nil {
-						t.Fatal(h, "couldn't send message:", err)
-					}
-					if sentLen == 0 {
-						t.Fatal("sentLen is zero")
-					}
+					require.NoError(t, err, "couldn't send message")
+					require.NotEqual(t, sentLen, 0, "sentLen is zero")
 				}(h)
 				log.Lvl3(h, "done sending messages")
 			})
-			if err != nil {
-				t.Fatal("Couldn't receive msg:", err)
-			}
+			require.NoError(t, err, "Couldn't receive msg")
 		}(i)
 		conns[i] = make([]Conn, nbrHosts)
 		for j := 0; j < i; j++ {
@@ -115,23 +104,13 @@ func TestTCPHugeConnections(t *testing.T) {
 				defer wg.Done()
 				log.Lvl3("Sending from", i, "to", j, ":")
 				sentLen, err := conn.Send(&big)
-				if err != nil {
-					t.Fatal(i, j, "Couldn't send:", err)
-				}
-				if sentLen == 0 {
-					t.Fatal("sentLen is zero")
-				}
+				require.NoError(t, err, "Couldn't send")
+				require.NotEqual(t, sentLen, 0, "sentLen is zero")
 				nm, err := conn.Receive()
-				if err != nil {
-					t.Fatal(i, j, "Couldn't receive:", err)
-				}
+				require.NoError(t, err, "Couldn't receive:")
 				bc := nm.Msg.(*bigMessage)
-				if bc.Msize != msgSize {
-					t.Fatal(i, j, "Message-size is wrong")
-				}
-				if bc.Pcrc != 25 {
-					t.Fatal(i, j, "CRC is wrong")
-				}
+				require.Equal(t, bc.Msize, msgSize, "Message-size is wrong")
+				require.Equal(t, bc.Pcrc, 25, "CRC is wrong")
 				log.Lvl3(i, j, "Done")
 			}(c, i, j)
 		}
