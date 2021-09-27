@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/xerrors"
 )
 
@@ -319,9 +320,7 @@ func TestLocalManyConn(t *testing.T) {
 		go func(j int) {
 			a := NewLocalAddress("127.0.0.1:" + strconv.Itoa(2000+j))
 			c, err := NewLocalConnWithManager(defaultLocalManager, a, addr, tSuite)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 			sentLen, err := c.Send(&SimpleMessage{3})
 			assert.Nil(t, err)
 			assert.NotZero(t, sentLen)

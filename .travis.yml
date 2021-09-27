@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - "1.15.x"
+  - "1.17.x"
 
 go_import_path: go.dedis.ch/onet/v3
 
